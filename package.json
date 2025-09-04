@@ -4,8 +4,7 @@
   "description": "Azure Function App for Restaurant Ordering System",
   "main": "src/app.js",
   "scripts": {
-    "start": "func start",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "func start"
   },
   "dependencies": {
     "@azure/functions": "^4.0.0"
