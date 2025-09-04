@@ -1,0 +1,16 @@
+{
+  "name": "restaurant-ordering-system-backend",
+  "version": "1.0.0",
+  "description": "Azure Function App for Restaurant Ordering System",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "func start",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.0.0"
+  },
+  "devDependencies": {
+    "azure-functions-core-tools": "^4.0.0"
+  }
+}
