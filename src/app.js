@@ -7,12 +7,12 @@ app.http('hello', {
     handler: async (request, context) => {
         context.log(`Http function processed request for url "${request.url}"`);
 
-        return { 
+        return {
             status: 200,
             headers: {
                 'Content-Type': 'text/plain'
             },
-            body: 'hello manish and aslam'
+            body: 'hello manish and aslam - edited'
         };
     }
 });
