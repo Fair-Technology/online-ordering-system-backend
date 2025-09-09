@@ -1,4 +1,6 @@
+
 const { app } = require('@azure/functions');
+const { CosmosClient } = require('@azure/cosmos');
 
 app.http('getHello', {
     methods: ['GET', 'POST'],
@@ -22,6 +24,7 @@ app.http('getInfo', {
     authLevel: 'anonymous',
     route: 'info',
     handler: async (request, context) => {
+        try {
             // Access environment variables set in Azure Function App Configuration
             const endpoint = process.env.COSMOS_DB_ENDPOINT;
             const key = process.env.COSMOS_DB_KEY;
@@ -36,12 +39,19 @@ app.http('getInfo', {
             // Query items from Cosmos DB
             const { resources: items } = await container.items.readAll().fetchAll();
 
-        return {
-            status: 200,
-            headers: {
-                'Content-Type': 'text/plain'
-            },
-            body: containerId
-        };
+            return {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: containerId
+            };
+        } catch (error) {
+            context.log.error('Error querying Cosmos DB:', error);
+            return {
+                status: 500,
+                body: 'Internal Server Error'
+            };
+        }
     }
 });
