@@ -16,3 +16,32 @@ app.http('hello', {
         };
     }
 });
+
+app.http('getInfo', {
+    methods: ['GET'],
+    authLevel: 'anonymous',
+    route: 'hello',
+    handler: async (request, context) => {
+            // Access environment variables set in Azure Function App Configuration
+            const endpoint = process.env.COSMOS_DB_ENDPOINT;
+            const key = process.env.COSMOS_DB_KEY;
+            const databaseId = process.env.COSMOS_DB_DATABASE_ID;
+            const containerId = process.env.COSMOS_DB_CONTAINER_ID;
+
+            // Create Cosmos DB client
+            const client = new CosmosClient({ endpoint, key });
+            const database = client.database(databaseId);
+            const container = database.container(containerId);
+
+            // Query items from Cosmos DB
+            const { resources: items } = await container.items.readAll().fetchAll();
+
+        return {
+            status: 200,
+            headers: {
+                'Content-Type': 'text/plain'
+            },
+            body: containerId
+        };
+    }
+});
