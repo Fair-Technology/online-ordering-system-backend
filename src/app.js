@@ -44,7 +44,7 @@ app.http('getInfo', {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: items
+                body: JSON.stringify(items)
             };
         } catch (error) {
             context.log.error('Error querying Cosmos DB:', error);
