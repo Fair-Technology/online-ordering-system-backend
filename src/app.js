@@ -1,6 +1,6 @@
 const { app } = require('@azure/functions');
 
-app.http('hello', {
+app.http('getHello', {
     methods: ['GET', 'POST'],
     authLevel: 'anonymous',
     route: 'hello',
@@ -20,7 +20,7 @@ app.http('hello', {
 app.http('getInfo', {
     methods: ['GET'],
     authLevel: 'anonymous',
-    route: 'hello',
+    route: 'info',
     handler: async (request, context) => {
             // Access environment variables set in Azure Function App Configuration
             const endpoint = process.env.COSMOS_DB_ENDPOINT;
