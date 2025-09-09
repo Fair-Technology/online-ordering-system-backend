@@ -1,4 +1,3 @@
-
 const { app } = require('@azure/functions');
 const { CosmosClient } = require('@azure/cosmos');
 
@@ -25,26 +24,27 @@ app.http('getInfo', {
     route: 'info',
     handler: async (request, context) => {
         try {
-            // Access environment variables set in Azure Function App Configuration
             const endpoint = process.env.COSMOS_DB_ENDPOINT;
             const key = process.env.COSMOS_DB_KEY;
             const databaseId = process.env.COSMOS_DB_DATABASE_ID;
             const containerId = process.env.COSMOS_DB_CONTAINER_ID;
 
-            // Create Cosmos DB client
             const client = new CosmosClient({ endpoint, key });
             const database = client.database(databaseId);
             const container = database.container(containerId);
 
-            // Query items from Cosmos DB
-            const { resources: items } = await container.items.readAll().fetchAll();
+            // Query only 10 items
+            const querySpec = {
+                query: 'SELECT TOP 10 * FROM c'
+            };
+            const { resources: items } = await container.items.query(querySpec).fetchAll();
 
             return {
                 status: 200,
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: containerId
+                body: items
             };
         } catch (error) {
             context.log.error('Error querying Cosmos DB:', error);
