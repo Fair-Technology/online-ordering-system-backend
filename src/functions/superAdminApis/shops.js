@@ -24,10 +24,6 @@ app.http('createShop', {
 			});
 
 			const shop = await request.json();
-			// Add a unique id if not present
-			if (!shop.id) {
-				shop.id = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-			}
 
 			const { resource } = await container.items.create(shop);
 			return {
