@@ -26,15 +26,16 @@ app.http('createShop', {
 			const shop = await request.json();
 
 			const { resource } = await container.items.create(shop);
+
 			return {
 				status: 201,
-				body: { message: 'Shop created', shop: resource },
+				body: JSON.stringify({ message: 'Shop created', shop: resource }),
 			};
 		} catch (error) {
 			context.log.error('Error creating shop:', error);
 			return {
 				status: 500,
-				body: { message: 'Failed to create shop', error: error.message },
+				body: JSON.stringify({ message: 'Failed to create shop', error: error.message }),
 			};
 		}
 	},
@@ -46,12 +47,23 @@ app.http('getShops', {
 	authLevel: 'anonymous',
 	route: 'superadmin/shops',
 	handler: async (request, context) => {
-		// TODO: Fetch all shops from DB
-		const shops = [];
-		return {
-			status: 200,
-			body: shops,
-		};
+		try {
+			const container = database.container(shopContainerId);
+			const querySpec = {
+				query: 'SELECT * FROM c'
+			};
+			const { resources: shops } = await container.items.query(querySpec).fetchAll();
+			return {
+				status: 200,
+				body: JSON.stringify(shops),
+			};
+		} catch (error) {
+			context.log.error('Error fetching shops:', error);
+			return {
+				status: 500,
+				body: JSON.stringify({ message: 'Failed to fetch shops', error: error.message }),
+			};
+		}
 	},
 });
 
@@ -62,12 +74,20 @@ app.http('getShopById', {
 	route: 'superadmin/shops/{id}',
 	handler: async (request, context) => {
 		const { id } = request.params;
-		// TODO: Fetch shop by id from DB
-		const shop = null;
-		if (!shop) {
-			return { status: 404, body: { message: 'Shop not found' } };
+		try {
+			const container = database.container(shopContainerId);
+			const { resource: shop } = await container.item(id, id).read();
+			if (!shop) {
+				return { status: 404, body: JSON.stringify({ message: 'Shop not found' }) };
+			}
+			return { status: 200, body: JSON.stringify(shop) };
+		} catch (error) {
+			context.log.error('Error fetching shop by id:', error);
+			return {
+				status: 500,
+				body: JSON.stringify({ message: 'Failed to fetch shop', error: error.message }),
+			};
 		}
-		return { status: 200, body: shop };
 	},
 });
 
@@ -79,11 +99,27 @@ app.http('updateShop', {
 	handler: async (request, context) => {
 		const { id } = request.params;
 		const updates = await request.json();
-		// TODO: Update shop in DB
-		return {
-			status: 200,
-			body: { message: `Shop ${id} updated`, updates },
-		};
+		try {
+			const container = database.container(shopContainerId);
+			// Read the existing shop
+			const { resource: existingShop } = await container.item(id, id).read();
+			if (!existingShop) {
+				return { status: 404, body: JSON.stringify({ message: 'Shop not found' }) };
+			}
+			// Merge updates
+			const updatedShop = { ...existingShop, ...updates, id };
+			const { resource } = await container.items.upsert(updatedShop);
+			return {
+				status: 200,
+				body: JSON.stringify({ message: `Shop ${id} updated`, shop: resource }),
+			};
+		} catch (error) {
+			context.log.error('Error updating shop:', error);
+			return {
+				status: 500,
+				body: JSON.stringify({ message: 'Failed to update shop', error: error.message }),
+			};
+		}
 	},
 });
 
@@ -94,10 +130,19 @@ app.http('deleteShop', {
 	route: 'superadmin/shops/{id}',
 	handler: async (request, context) => {
 		const { id } = request.params;
-		// TODO: Delete shop from DB
-		return {
-			status: 204,
-			body: null,
-		};
+		try {
+			const container = database.container(shopContainerId);
+			await container.item(id, id).delete();
+			return {
+				status: 204,
+				body: null,
+			};
+		} catch (error) {
+			context.log.error('Error deleting shop:', error);
+			return {
+				status: 500,
+				body: JSON.stringify({ message: 'Failed to delete shop', error: error.message }),
+			};
+		}
 	},
 });
