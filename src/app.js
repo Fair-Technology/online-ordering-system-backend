@@ -10,6 +10,7 @@ const { ensureContainerExists } = require("./functions/shared/cosmosClient");
 
 // Customer APIs
 require("./functions/customerApis/getHello");
+require("./functions/sharedApis/users");
 
 // Super Admin APIs
 require("./functions/superAdminApis/getInfo");
