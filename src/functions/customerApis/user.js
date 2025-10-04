@@ -22,6 +22,24 @@ app.http("createUser", {
         };
       }
 
+      // ✅ Check if user already exists
+      const query = {
+        query: "SELECT * FROM c WHERE c.email = @email",
+        parameters: [{ name: "@email", value: newUser.email }],
+      };
+
+      const { resources } = await container.items.query(query).fetchAll();
+
+      if (resources.length > 0) {
+        return {
+          status: 200,
+          body: JSON.stringify({
+            message: "User already exists",
+            user: resources[0],
+          }),
+        };
+      }
+
       // Assign a unique id if not provided
       if (!newUser.id) {
         newUser.id = require("crypto").randomUUID();
