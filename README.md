@@ -90,3 +90,29 @@ func azure functionapp publish myFunctionApp
 ├── package.json              # Node.js dependencies
 └── README.md                 # This file
 ```
+
+This project was converted from JavaScript to TypeScript.
+
+How to build and run locally:
+
+- Install dependencies:
+
+```bash
+npm install
+```
+
+- Build TypeScript to `dist/`:
+
+```bash
+npm run build
+```
+
+- Start the Azure Functions host using the compiled output:
+
+```bash
+npm start
+```
+
+Notes:
+- Type declarations for Node and Azure Functions are in devDependencies. If you run into type errors, run `npm install` first.
+- The Function App entry is `dist/app.ts` after build; `npm start` runs the build and then starts the Functions host with `--script-root dist`.
