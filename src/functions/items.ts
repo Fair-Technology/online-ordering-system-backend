@@ -59,6 +59,7 @@ app.http("getItems", {
   route: "items",
   handler: async (request: any, context: any) => {
     try {
+      console.log("Test1")
       const shopId = request.query.get("shopId");
       const isAvailable = request.query.get("isAvailable");
 
