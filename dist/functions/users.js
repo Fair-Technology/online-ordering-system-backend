@@ -14,11 +14,11 @@ app.http("createUser", {
         try {
             const newUser = await request.json();
             // Basic validation
-            if (!newUser.email || !newUser.name) {
+            if (!newUser.email || !newUser.firstName || !newUser.lastName || !newUser.displayName) {
                 return {
                     status: 400,
                     body: JSON.stringify({
-                        message: "Missing required fields: email, name",
+                        message: "Missing required fields: email, firstName, lastName, displayName",
                     }),
                 };
             }
