@@ -1,9 +1,100 @@
 import { getContainer } from "../config/cosmosClient";
-import { randomUUID } from "crypto";
 // Azure Functions app is not available as ES6 export, use require
 const { app } = require("@azure/functions");
 
 const container = getContainer("users");
+
+type EasyAuthClaim = {
+  typ: string;
+  val: string;
+};
+
+type EasyAuthPrincipal = {
+  claims?: EasyAuthClaim[];
+  identityProvider?: string;
+  userDetails?: string;
+  userId?: string;
+};
+
+function getEasyAuthPrincipal(request: any): EasyAuthPrincipal | null {
+  const principalHeader =
+    request.headers?.get?.("x-ms-client-principal") ||
+    request.headers?.["x-ms-client-principal"] ||
+    request.headers?.["X-MS-CLIENT-PRINCIPAL"];
+
+  if (!principalHeader || typeof principalHeader !== "string") {
+    return null;
+  }
+
+  try {
+    const decoded = Buffer.from(principalHeader, "base64").toString("utf8");
+    return JSON.parse(decoded);
+  } catch (error) {
+    return null;
+  }
+}
+
+function getClaimValue(principal: EasyAuthPrincipal, ...types: string[]): string | null {
+  if (!principal?.claims) {
+    return null;
+  }
+
+  for (const type of types) {
+    const claim = principal.claims.find((c) => c.typ === type);
+    if (claim?.val) {
+      return claim.val;
+    }
+  }
+
+  return null;
+}
+
+type AuthSuccess = {
+  ok: true;
+  principal: EasyAuthPrincipal;
+  oid: string;
+};
+
+type AuthFailure = {
+  ok: false;
+  response: {
+    status: number;
+    body: string;
+  };
+};
+
+function authenticateRequest(request: any): AuthSuccess | AuthFailure {
+  const principal = getEasyAuthPrincipal(request);
+  if (!principal) {
+    return {
+      ok: false,
+      response: {
+        status: 401,
+        body: JSON.stringify({ message: "Missing authenticated principal" }),
+      },
+    };
+  }
+
+  const oid =
+    getClaimValue(
+      principal,
+      "oid",
+      "sub",
+      "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
+    ) || principal.userId || "";
+
+  if (!oid) {
+    return {
+      ok: false,
+      response: {
+        status: 400,
+        body: JSON.stringify({ message: "Token does not contain an oid or sub claim" }),
+      },
+    };
+  }
+
+  return { ok: true, principal, oid };
+}
 
 // CREATE - Create a new user
 app.http("createUser", {
@@ -12,45 +103,31 @@ app.http("createUser", {
   route: "users",
   handler: async (request: any, context: any) => {
     try {
-      const newUser: any = await request.json();
+      const authResult = authenticateRequest(request);
+      if (!authResult.ok) {
+        return authResult.response;
+      }
+      const { oid } = authResult;
 
-      // Basic validation
-      if (!newUser.email || !newUser.firstName || !newUser.lastName || !newUser.displayName) {
-        return {
-          status: 400,
-          body: JSON.stringify({
-            message: "Missing required fields: email, firstName, lastName, displayName",
-          }),
-        };
+      // Check if a user already exists with this id
+      try {
+        const { resource: existingById } = await container.item(oid, oid).read();
+        if (existingById) {
+          return {
+            status: 409,
+            body: JSON.stringify({ message: "User already exists with this oid", user: existingById }),
+          };
+        }
+      } catch (e) {
+        // If read throws because item not found, ignore — container.item().read() throws on 404 in some SDK versions
       }
 
-      // Check if user already exists
-      const query = {
-        query: "SELECT * FROM c WHERE c.email = @email",
-        parameters: [{ name: "@email", value: newUser.email }],
+      // Build the user object from token claims only. Ignore request body for persisted fields per request.
+      const userToCreate: any = {
+        id: oid,
       };
 
-      const { resources } = await container.items.query(query).fetchAll();
-
-      if (resources.length > 0) {
-        return {
-          status: 409,
-          body: JSON.stringify({
-            message: "User already exists",
-            user: resources[0],
-          }),
-        };
-      }
-
-      // Assign a unique id if not provided
-      if (!newUser.id) {
-        newUser.id = randomUUID();
-      }
-
-      newUser.createdAt = new Date().toISOString();
-      newUser.updatedAt = new Date().toISOString();
-
-      const { resource } = await container.items.create(newUser);
+      const { resource } = await container.items.create(userToCreate);
 
       return {
         status: 201,
@@ -76,6 +153,27 @@ app.http("getUsers", {
   route: "users",
   handler: async (request: any, context: any) => {
     try {
+      // Read Authorization header (expecting 'Bearer <token>')
+      const authHeader = request.headers?.get?.("authorization") || request.headers?.authorization || request.headers?.Authorization;
+      if (!authHeader || typeof authHeader !== "string") {
+        return {
+          status: 401,
+          body: JSON.stringify({ message: "Missing Authorization header" }),
+        };
+      }
+
+      const parts = authHeader.split(" ");
+      if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
+        return {
+          status: 401,
+          body: JSON.stringify({ message: "Invalid Authorization header format" }),
+        };
+      }
+
+      const accessToken = parts[1];
+
+      // TODO: VERIFY ACCESSTOKEN HERE.....accessToken is available here for verification (e.g. JWT verification)
+
       const querySpec = {
         query: "SELECT * FROM c ORDER BY c.createdAt DESC",
       };
@@ -119,6 +217,47 @@ app.http("getUserById", {
       };
     } catch (error: any) {
       context.log.error("Error fetching user by id:", error);
+      return {
+        status: 500,
+        body: JSON.stringify({
+          message: "Failed to fetch user",
+          error: error.message,
+        }),
+      };
+    }
+  },
+});
+// READ - Get user by email
+app.http("getUserByEmail", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "users/by-email",
+  handler: async (request: any, context: any) => {
+    const email = request.query.get("email");
+    if (!email) {
+      return {
+        status: 400,
+        body: JSON.stringify({ message: "Missing email query parameter" })
+      };
+    }
+    try {
+      const query = {
+        query: "SELECT * FROM c WHERE c.email = @email",
+        parameters: [{ name: "@email", value: email }],
+      };
+      const { resources } = await container.items.query(query).fetchAll();
+      if (resources.length === 0) {
+        return {
+          status: 404,
+          body: JSON.stringify({ message: "User not found" })
+        };
+      }
+      return {
+        status: 200,
+        body: JSON.stringify(resources[0])
+      };
+    } catch (error: any) {
+      context.log.error("Error fetching user by email:", error);
       return {
         status: 500,
         body: JSON.stringify({
