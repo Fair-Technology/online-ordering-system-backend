@@ -4,98 +4,6 @@ const { app } = require("@azure/functions");
 
 const container = getContainer("users");
 
-type EasyAuthClaim = {
-  typ: string;
-  val: string;
-};
-
-type EasyAuthPrincipal = {
-  claims?: EasyAuthClaim[];
-  identityProvider?: string;
-  userDetails?: string;
-  userId?: string;
-};
-
-function getEasyAuthPrincipal(request: any): EasyAuthPrincipal | null {
-  const principalHeader =
-    request.headers?.get?.("x-ms-client-principal") ||
-    request.headers?.["x-ms-client-principal"] ||
-    request.headers?.["X-MS-CLIENT-PRINCIPAL"];
-
-  if (!principalHeader || typeof principalHeader !== "string") {
-    return null;
-  }
-
-  try {
-    const decoded = Buffer.from(principalHeader, "base64").toString("utf8");
-    return JSON.parse(decoded);
-  } catch (error) {
-    return null;
-  }
-}
-
-function getClaimValue(principal: EasyAuthPrincipal, ...types: string[]): string | null {
-  if (!principal?.claims) {
-    return null;
-  }
-
-  for (const type of types) {
-    const claim = principal.claims.find((c) => c.typ === type);
-    if (claim?.val) {
-      return claim.val;
-    }
-  }
-
-  return null;
-}
-
-type AuthSuccess = {
-  ok: true;
-  principal: EasyAuthPrincipal;
-  oid: string;
-};
-
-type AuthFailure = {
-  ok: false;
-  response: {
-    status: number;
-    body: string;
-  };
-};
-
-function authenticateRequest(request: any): AuthSuccess | AuthFailure {
-  const principal = getEasyAuthPrincipal(request);
-  if (!principal) {
-    return {
-      ok: false,
-      response: {
-        status: 401,
-        body: JSON.stringify({ message: "Missing authenticated principal" }),
-      },
-    };
-  }
-
-  const oid =
-    getClaimValue(
-      principal,
-      "oid",
-      "sub",
-      "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"
-    ) || principal.userId || "";
-
-  if (!oid) {
-    return {
-      ok: false,
-      response: {
-        status: 400,
-        body: JSON.stringify({ message: "Token does not contain an oid or sub claim" }),
-      },
-    };
-  }
-
-  return { ok: true, principal, oid };
-}
-
 // CREATE - Create a new user
 app.http("createUser", {
   methods: ["POST"],
@@ -103,11 +11,14 @@ app.http("createUser", {
   route: "users",
   handler: async (request: any, context: any) => {
     try {
-      const authResult = authenticateRequest(request);
-      if (!authResult.ok) {
-        return authResult.response;
+      const payload = await request.json();
+      const oid = payload?.id;
+      if (!oid || typeof oid !== "string") {
+        return {
+          status: 400,
+          body: JSON.stringify({ message: "Missing required 'id' field" }),
+        };
       }
-      const { oid } = authResult;
 
       // Check if a user already exists with this id
       try {
@@ -153,27 +64,6 @@ app.http("getUsers", {
   route: "users",
   handler: async (request: any, context: any) => {
     try {
-      // Read Authorization header (expecting 'Bearer <token>')
-      const authHeader = request.headers?.get?.("authorization") || request.headers?.authorization || request.headers?.Authorization;
-      if (!authHeader || typeof authHeader !== "string") {
-        return {
-          status: 401,
-          body: JSON.stringify({ message: "Missing Authorization header" }),
-        };
-      }
-
-      const parts = authHeader.split(" ");
-      if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
-        return {
-          status: 401,
-          body: JSON.stringify({ message: "Invalid Authorization header format" }),
-        };
-      }
-
-      const accessToken = parts[1];
-
-      // TODO: VERIFY ACCESSTOKEN HERE.....accessToken is available here for verification (e.g. JWT verification)
-
       const querySpec = {
         query: "SELECT * FROM c ORDER BY c.createdAt DESC",
       };
