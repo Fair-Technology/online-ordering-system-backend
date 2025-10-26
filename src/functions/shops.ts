@@ -1,173 +1,375 @@
-import { getContainer } from "../config/cosmosClient";
-import { randomUUID } from "crypto";
-// Azure Functions app is not available as ES6 export, use require
+import { HttpRequestLike, HttpResponseInitLike } from "../types/http";
+type HttpRequest = HttpRequestLike;
+type HttpResponseInit = HttpResponseInitLike;
 const { app } = require("@azure/functions");
+import { getContainer } from "../config/cosmosClient";
+import { Shop, ShopHours, ShopMember } from "../types/models";
+import { newId, nowIso, writeAuditLog } from "../utils";
 
-const container = getContainer("shops");
+const shopsContainer = getContainer("shops");
+const shopMembersContainer = getContainer("shopMembers");
+const shopHoursContainer = getContainer("shopHours");
 
+const DEFAULT_PERMISSIONS = ["manage_products", "manage_orders"];
+function json(status: number, body: unknown): HttpResponseInit {
+  return { status, jsonBody: body };
+}
 
-// CREATE shop
-app.http("createShop", {
+function getActorUserId(request: HttpRequest): string {
+  return request.headers.get("x-user-id") ?? "system";
+}
+
+function resolvePermissions(input: unknown): string[] {
+  if (!Array.isArray(input)) {
+    return DEFAULT_PERMISSIONS;
+  }
+  const sanitized = input.filter((perm) => typeof perm === "string" && perm.length > 0);
+  return sanitized.length > 0 ? sanitized : DEFAULT_PERMISSIONS;
+}
+
+async function readShop(shopId: string): Promise<Shop | undefined> {
+  try {
+    const { resource } = await shopsContainer.item(shopId, shopId).read<Shop>();
+    return resource ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+app.http("shopsCreate", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "shops",
-  handler: async (request: any, context: any) => {
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const newShop: any = await request.json();
-
-      // Basic validation
-      if (!newShop.name || !newShop.address) {
-        return {
-          status: 400,
-          body: JSON.stringify({
-            message: "Missing required fields: name, address",
-          }),
-        };
+      const payload = (await request.json()) ?? {};
+      const { name, address, ownerUserId } = payload;
+      if (!name || typeof name !== "string" || !address || typeof address !== "string" || !ownerUserId || typeof ownerUserId !== "string") {
+        return json(400, { message: "name, address, and ownerUserId are required" });
       }
 
-      // Assign a unique id if not provided
-      if (!newShop.id) {
-        newShop.id = randomUUID();
-      }
-
-      newShop.createdAt = new Date().toISOString();
-      newShop.updatedAt = new Date().toISOString();
-      newShop.isActive = newShop.isActive !== undefined ? newShop.isActive : true;
-
-      const { resource } = await container.items.create(newShop);
-
-      return {
-        status: 201,
-        body: JSON.stringify({ message: "Shop created", shop: resource }),
+      const timestamp = nowIso();
+      const shop: Shop = {
+        id: newId(),
+        ownerUserId: ownerUserId.trim(),
+        name: name.trim(),
+        address: address.trim(),
+        isActive: true,
+        status: "open",
+        acceptingOrders: true,
+        paymentPolicy: "pay_on_pickup",
+        orderAcceptanceMode: "manual",
+        allowGuestCheckout: true,
+        fulfillmentOptions: {
+          pickupEnabled: true,
+          deliveryEnabled: false,
+        },
+        createdAt: timestamp,
+        updatedAt: timestamp,
       };
+
+      const member: ShopMember = {
+        id: newId(),
+        shopId: shop.id,
+        userId: ownerUserId,
+        role: "owner",
+        permissions: DEFAULT_PERMISSIONS,
+        isActive: true,
+        addedAt: timestamp,
+      };
+
+      await shopsContainer.items.create(shop);
+      await shopMembersContainer.items.create(member);
+      await writeAuditLog({
+        actorUserId: getActorUserId(request),
+        entityType: "shop",
+        entityId: shop.id,
+        shopId: shop.id,
+        action: "CREATE",
+        after: shop,
+      });
+
+      return json(201, shop);
     } catch (error: any) {
-      context.log.error("Error creating shop:", error);
-      return {
-        status: 500,
-        body: JSON.stringify({ message: "Failed to create shop", error: error.message }),
-      };
+      return json(500, { message: "Failed to create shop", error: error?.message ?? String(error) });
     }
   },
 });
 
-// READ all shops
-app.http("getShops", {
+app.http("shopsGetById", {
   methods: ["GET"],
   authLevel: "anonymous",
-  route: "shops",
-  handler: async (request: any, context: any) => {
-    try {
-      const isActive = request.query.get("isActive");
-
-      let query = "SELECT * FROM c ORDER BY c.createdAt DESC";
-      const parameters: any[] = [];
-
-      if (isActive !== null) {
-        query = "SELECT * FROM c WHERE c.isActive = @isActive ORDER BY c.createdAt DESC";
-        parameters.push({
-          name: "@isActive",
-          value: isActive === "true",
-        });
-      }
-
-      const querySpec = { query, parameters };
-      const { resources: shops } = await container.items.query(querySpec).fetchAll();
-      return {
-        status: 200,
-        body: JSON.stringify(shops),
-      };
-    } catch (error: any) {
-      context.log.error("Error fetching shops:", error);
-      return {
-        status: 500,
-        body: JSON.stringify({ message: "Failed to fetch shops", error: error.message }),
-      };
+  route: "shops/{shopId}",
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    const { shopId } = request.params;
+    const shop = await readShop(shopId);
+    if (!shop) {
+      return json(404, { message: "Shop not found" });
     }
+    return json(200, shop);
   },
 });
 
-// READ single shop
-app.http("getShopById", {
+app.http("shopsUpdate", {
+  methods: ["PATCH"],
+  authLevel: "anonymous",
+  route: "shops/{shopId}",
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    const { shopId } = request.params;
+    const existing = await readShop(shopId);
+    if (!existing) {
+      return json(404, { message: "Shop not found" });
+    }
+
+    const payload = await request.json();
+    const updates: Partial<Shop> = {};
+    if (payload.status !== undefined) {
+      if (typeof payload.status !== "string" || !["open", "closed"].includes(payload.status)) {
+        return json(400, { message: "status must be 'open' or 'closed'" });
+      }
+      updates.status = payload.status;
+    }
+    if (payload.acceptingOrders !== undefined) {
+      if (typeof payload.acceptingOrders !== "boolean") {
+        return json(400, { message: "acceptingOrders must be a boolean" });
+      }
+      updates.acceptingOrders = payload.acceptingOrders;
+    }
+    if (payload.paymentPolicy !== undefined) {
+      if (typeof payload.paymentPolicy !== "string" || !["pay_on_pickup", "prepaid_only"].includes(payload.paymentPolicy)) {
+        return json(400, { message: "paymentPolicy must be pay_on_pickup or prepaid_only" });
+      }
+      updates.paymentPolicy = payload.paymentPolicy;
+    }
+    if (payload.orderAcceptanceMode !== undefined) {
+      if (typeof payload.orderAcceptanceMode !== "string" || !["manual", "auto"].includes(payload.orderAcceptanceMode)) {
+        return json(400, { message: "orderAcceptanceMode must be manual or auto" });
+      }
+      updates.orderAcceptanceMode = payload.orderAcceptanceMode;
+    }
+    if (payload.allowGuestCheckout !== undefined) {
+      if (typeof payload.allowGuestCheckout !== "boolean") {
+        return json(400, { message: "allowGuestCheckout must be a boolean" });
+      }
+      updates.allowGuestCheckout = payload.allowGuestCheckout;
+    }
+    if (payload.fulfillmentOptions !== undefined) {
+      if (typeof payload.fulfillmentOptions !== "object" || payload.fulfillmentOptions === null) {
+        return json(400, { message: "fulfillmentOptions must be an object" });
+      }
+      updates.fulfillmentOptions = {
+        ...existing.fulfillmentOptions,
+        ...payload.fulfillmentOptions,
+      };
+    }
+    if (payload.isActive !== undefined) {
+      if (typeof payload.isActive !== "boolean") {
+        return json(400, { message: "isActive must be a boolean" });
+      }
+      updates.isActive = payload.isActive;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return json(400, { message: "No updatable fields provided" });
+    }
+
+    const updatedShop: Shop = {
+      ...existing,
+      ...updates,
+      updatedAt: nowIso(),
+    };
+
+    await shopsContainer.items.upsert(updatedShop);
+    await writeAuditLog({
+      actorUserId: getActorUserId(request),
+      entityType: "shopSettings",
+      entityId: updatedShop.id,
+      shopId: updatedShop.id,
+      action: "UPDATE",
+      before: existing,
+      after: updatedShop,
+    });
+
+    return json(200, updatedShop);
+  },
+});
+
+app.http("shopMembersList", {
   methods: ["GET"],
   authLevel: "anonymous",
-  route: "shops/{id}",
-  handler: async (request: any, context: any) => {
-    const { id } = request.params;
+  route: "shops/{shopId}/members",
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    const { shopId } = request.params;
+    const querySpec = {
+      query: "SELECT * FROM c WHERE c.shopId = @shopId",
+      parameters: [{ name: "@shopId", value: shopId }],
+    };
+    const { resources } = await shopMembersContainer.items.query<ShopMember>(querySpec).fetchAll();
+    return json(200, resources);
+  },
+});
+
+app.http("shopMembersCreate", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "shops/{shopId}/members",
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    const { shopId } = request.params;
+    const shop = await readShop(shopId);
+    if (!shop) {
+      return json(404, { message: "Shop not found" });
+    }
+
+    const payload = (await request.json()) ?? {};
+    if (!payload.userId || typeof payload.userId !== "string" || !payload.role || typeof payload.role !== "string") {
+      return json(400, { message: "userId and role are required" });
+    }
+    if (!["admin", "staff"].includes(payload.role)) {
+      return json(400, { message: "role must be 'admin' or 'staff'" });
+    }
+
+    if (payload.isActive !== undefined && typeof payload.isActive !== "boolean") {
+      return json(400, { message: "isActive must be a boolean" });
+    }
+
+    const member: ShopMember = {
+      id: newId(),
+      shopId,
+      userId: payload.userId.trim(),
+      role: payload.role,
+      permissions: resolvePermissions(payload.permissions),
+      isActive: payload.isActive ?? true,
+      addedAt: nowIso(),
+    };
+
+    await shopMembersContainer.items.create(member);
+    await writeAuditLog({
+      actorUserId: getActorUserId(request),
+      entityType: "membership",
+      entityId: member.id,
+      shopId,
+      action: "CREATE",
+      after: member,
+    });
+
+    return json(201, member);
+  },
+});
+
+app.http("shopMembersUpdate", {
+  methods: ["PATCH"],
+  authLevel: "anonymous",
+  route: "shops/{shopId}/members/{memberId}",
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    const { shopId, memberId } = request.params;
     try {
-      const { resource: shop } = await container.item(id, id).read();
-      if (!shop) {
-        return { status: 404, body: JSON.stringify({ message: "Shop not found" }) };
+      const { resource } = await shopMembersContainer.item(memberId, memberId).read<ShopMember>();
+      if (!resource || resource.shopId !== shopId) {
+        return json(404, { message: "Member not found" });
       }
-      return { status: 200, body: JSON.stringify(shop) };
-    } catch (error: any) {
-      context.log.error("Error fetching shop by id:", error);
-      return {
-        status: 500,
-        body: JSON.stringify({ message: "Failed to fetch shop", error: error.message }),
-      };
+      const payload = await request.json();
+      const allowed: Partial<ShopMember> = {};
+      if (payload?.role !== undefined) {
+        if (typeof payload.role !== "string" || !["owner", "admin", "staff"].includes(payload.role)) {
+          return json(400, { message: "role must be owner, admin, or staff" });
+        }
+        allowed.role = payload.role;
+      }
+      if (payload?.isActive !== undefined) {
+        if (typeof payload.isActive !== "boolean") {
+          return json(400, { message: "isActive must be a boolean" });
+        }
+        allowed.isActive = payload.isActive;
+      }
+      if (payload?.permissions !== undefined) {
+        allowed.permissions = resolvePermissions(payload.permissions);
+      }
+      if (Object.keys(allowed).length === 0) {
+        return json(400, { message: "No updatable fields provided" });
+      }
+      const updatedMember: ShopMember = { ...resource, ...allowed };
+      await shopMembersContainer.items.upsert(updatedMember);
+      await writeAuditLog({
+        actorUserId: getActorUserId(request),
+        entityType: "membership",
+        entityId: memberId,
+        shopId,
+        action: "UPDATE",
+        before: resource,
+        after: updatedMember,
+      });
+      return json(200, updatedMember);
+    } catch {
+      return json(404, { message: "Member not found" });
     }
   },
 });
 
-// UPDATE shop
-app.http("updateShop", {
+app.http("shopHoursGet", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "shops/{shopId}/hours",
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    const { shopId } = request.params;
+    try {
+      const { resource } = await shopHoursContainer.item(shopId, shopId).read<ShopHours>();
+      if (!resource) {
+        return json(200, {});
+      }
+      return json(200, resource);
+    } catch {
+      return json(200, {});
+    }
+  },
+});
+
+app.http("shopHoursUpsert", {
   methods: ["PUT"],
   authLevel: "anonymous",
-  route: "shops/{id}",
-  handler: async (request: any, context: any) => {
-    const { id } = request.params;
-    try {
-      const updates: any = await request.json();
-
-      // Read the existing shop
-      const { resource: existingShop } = await container.item(id, id).read();
-      if (!existingShop) {
-        return { status: 404, body: JSON.stringify({ message: "Shop not found" }) };
-      }
-
-      // Merge updates (prevent changing id and createdAt)
-      const updatedShop = {
-        ...existingShop,
-        ...updates,
-        id,
-        createdAt: existingShop.createdAt,
-        updatedAt: new Date().toISOString()
-      };
-
-      const { resource } = await container.items.upsert(updatedShop);
-      return {
-        status: 200,
-        body: JSON.stringify({ message: `Shop ${id} updated`, shop: resource }),
-      };
-    } catch (error: any) {
-      context.log.error("Error updating shop:", error);
-      return {
-        status: 500,
-        body: JSON.stringify({ message: "Failed to update shop", error: error.message }),
-      };
+  route: "shops/{shopId}/hours",
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    const { shopId } = request.params;
+    const shop = await readShop(shopId);
+    if (!shop) {
+      return json(404, { message: "Shop not found" });
     }
-  },
-});
 
-// DELETE shop
-app.http("deleteShop", {
-  methods: ["DELETE"],
-  authLevel: "anonymous",
-  route: "shops/{id}",
-  handler: async (request: any, context: any) => {
-    const { id } = request.params;
-    try {
-      await container.item(id, id).delete();
-      return {
-        status: 204,
-        body: null,
-      };
-    } catch (error: any) {
-      context.log.error("Error deleting shop:", error);
-      return {
-        status: 500,
-        body: JSON.stringify({ message: "Failed to delete shop", error: error.message }),
-      };
+    const payload = (await request.json()) ?? {};
+    if (!payload.timezone || typeof payload.timezone !== "string") {
+      return json(400, { message: "timezone is required" });
     }
+    if (!payload.weekly || typeof payload.weekly !== "object" || Array.isArray(payload.weekly)) {
+      return json(400, { message: "weekly schedule is required" });
+    }
+
+    const timestamp = nowIso();
+    let existing: ShopHours | undefined;
+    try {
+      const { resource } = await shopHoursContainer.item(shopId, shopId).read<ShopHours>();
+      existing = resource ?? undefined;
+    } catch {
+      existing = undefined;
+    }
+
+    const record: ShopHours = {
+      id: shopId,
+      shopId,
+      timezone: payload.timezone.trim(),
+      weekly: payload.weekly,
+      updatedAt: timestamp,
+    };
+
+    await shopHoursContainer.items.upsert(record);
+    await writeAuditLog({
+      actorUserId: getActorUserId(request),
+      entityType: "shopHours",
+      entityId: shopId,
+      shopId,
+      action: existing ? "UPDATE" : "CREATE",
+      before: existing,
+      after: record,
+    });
+
+    return json(existing ? 200 : 201, record);
   },
 });

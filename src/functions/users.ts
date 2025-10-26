@@ -1,236 +1,56 @@
-import { getContainer } from "../config/cosmosClient";
-// Azure Functions app is not available as ES6 export, use require
+import { HttpRequestLike, HttpResponseInitLike } from "../types/http";
+type HttpRequest = HttpRequestLike;
+type HttpResponseInit = HttpResponseInitLike;
 const { app } = require("@azure/functions");
+import { getContainer } from "../config/cosmosClient";
+import { User } from "../types/models";
+import { newId, nowIso } from "../utils";
 
-const container = getContainer("users");
+const usersContainer = getContainer("users");
+const allowedRoles = new Set<User["role"]>(["customer", "shopAdmin"]);
 
-// CREATE - Create a new user
-app.http("createUser", {
+function json(status: number, body: unknown): HttpResponseInit {
+  return { status, jsonBody: body };
+}
+
+app.http("usersCreate", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "users",
-  handler: async (request: any, context: any) => {
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const payload = await request.json();
-      const oid = payload?.id;
-      if (!oid || typeof oid !== "string") {
-        return {
-          status: 400,
-          body: JSON.stringify({ message: "Missing required 'id' field" }),
-        };
+      const payload = (await request.json()) ?? {};
+      if (!payload.name || typeof payload.name !== "string") {
+        return json(400, { message: "name is required" });
+      }
+      if (!payload.role || !allowedRoles.has(payload.role)) {
+        return json(400, { message: "role must be 'customer' or 'shopAdmin'" });
       }
 
-      // Check if a user already exists with this id
-      try {
-        const { resource: existingById } = await container.item(oid, oid).read();
-        if (existingById) {
-          return {
-            status: 409,
-            body: JSON.stringify({ message: "User already exists with this oid", user: existingById }),
-          };
-        }
-      } catch (e) {
-        // If read throws because item not found, ignore — container.item().read() throws on 404 in some SDK versions
-      }
-
-      // Build the user object from token claims only. Ignore request body for persisted fields per request.
-      const userToCreate: any = {
-        id: oid,
+      const user: User = {
+        id: newId(),
+        name: payload.name.trim(),
+        role: payload.role,
+        phone: payload.phone,
+        email: payload.email,
+        createdAt: nowIso(),
       };
 
-      const { resource } = await container.items.create(userToCreate);
-
-      return {
-        status: 201,
-        body: JSON.stringify({ message: "User created", user: resource }),
-      };
+      const { resource } = await usersContainer.items.create(user);
+      return json(201, resource);
     } catch (error: any) {
-      context.log.error("Error creating user:", error);
-      return {
-        status: 500,
-        body: JSON.stringify({
-          message: "Failed to create user",
-          error: error.message,
-        }),
-      };
+      return json(500, { message: "Failed to create user", error: error?.message ?? String(error) });
     }
   },
 });
 
-// READ - Get all users
-app.http("getUsers", {
+app.http("usersList", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "users",
-  handler: async (request: any, context: any) => {
-    try {
-      const querySpec = {
-        query: "SELECT * FROM c ORDER BY c.createdAt DESC",
-      };
-      const { resources: users } = await container.items.query(querySpec).fetchAll();
-
-      return {
-        status: 200,
-        body: JSON.stringify(users),
-      };
-    } catch (error: any) {
-      context.log.error("Error fetching users:", error);
-      return {
-        status: 500,
-        body: JSON.stringify({
-          message: "Failed to fetch users",
-          error: error.message,
-        }),
-      };
-    }
-  },
-});
-
-// READ - Get user by ID
-app.http("getUserById", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "users/{id}",
-  handler: async (request: any, context: any) => {
-    const { id } = request.params;
-    try {
-      const { resource: user } = await container.item(id, id).read();
-      if (!user) {
-        return {
-          status: 404,
-          body: JSON.stringify({ message: "User not found" })
-        };
-      }
-      return {
-        status: 200,
-        body: JSON.stringify(user)
-      };
-    } catch (error: any) {
-      context.log.error("Error fetching user by id:", error);
-      return {
-        status: 500,
-        body: JSON.stringify({
-          message: "Failed to fetch user",
-          error: error.message,
-        }),
-      };
-    }
-  },
-});
-// READ - Get user by email
-app.http("getUserByEmail", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "users/by-email",
-  handler: async (request: any, context: any) => {
-    const email = request.query.get("email");
-    if (!email) {
-      return {
-        status: 400,
-        body: JSON.stringify({ message: "Missing email query parameter" })
-      };
-    }
-    try {
-      const query = {
-        query: "SELECT * FROM c WHERE c.email = @email",
-        parameters: [{ name: "@email", value: email }],
-      };
-      const { resources } = await container.items.query(query).fetchAll();
-      if (resources.length === 0) {
-        return {
-          status: 404,
-          body: JSON.stringify({ message: "User not found" })
-        };
-      }
-      return {
-        status: 200,
-        body: JSON.stringify(resources[0])
-      };
-    } catch (error: any) {
-      context.log.error("Error fetching user by email:", error);
-      return {
-        status: 500,
-        body: JSON.stringify({
-          message: "Failed to fetch user",
-          error: error.message,
-        }),
-      };
-    }
-  },
-});
-
-// UPDATE - Update user by ID
-app.http("updateUser", {
-  methods: ["PUT"],
-  authLevel: "anonymous",
-  route: "users/{id}",
-  handler: async (request: any, context: any) => {
-    const { id } = request.params;
-    try {
-      const updates: any = await request.json();
-
-      // Read the existing user
-      const { resource: existingUser } = await container.item(id, id).read();
-      if (!existingUser) {
-        return {
-          status: 404,
-          body: JSON.stringify({ message: "User not found" })
-        };
-      }
-
-      // Merge updates (prevent changing id, email, and createdAt)
-      const updatedUser = {
-        ...existingUser,
-        ...updates,
-        id,
-        email: existingUser.email, // Don't allow email changes
-        createdAt: existingUser.createdAt,
-        updatedAt: new Date().toISOString()
-      };
-
-      const { resource } = await container.items.upsert(updatedUser);
-      return {
-        status: 200,
-        body: JSON.stringify({
-          message: `User ${id} updated`,
-          user: resource
-        }),
-      };
-    } catch (error: any) {
-      context.log.error("Error updating user:", error);
-      return {
-        status: 500,
-        body: JSON.stringify({
-          message: "Failed to update user",
-          error: error.message,
-        }),
-      };
-    }
-  },
-});
-
-// DELETE - Delete user by ID
-app.http("deleteUser", {
-  methods: ["DELETE"],
-  authLevel: "anonymous",
-  route: "users/{id}",
-  handler: async (request: any, context: any) => {
-    const { id } = request.params;
-    try {
-      await container.item(id, id).delete();
-      return {
-        status: 204,
-        body: null,
-      };
-    } catch (error: any) {
-      context.log.error("Error deleting user:", error);
-      return {
-        status: 500,
-        body: JSON.stringify({
-          message: "Failed to delete user",
-          error: error.message,
-        }),
-      };
-    }
+  handler: async (): Promise<HttpResponseInit> => {
+    const querySpec = { query: "SELECT * FROM c ORDER BY c.createdAt DESC" };
+    const { resources } = await usersContainer.items.query<User>(querySpec).fetchAll();
+    return json(200, resources);
   },
 });
