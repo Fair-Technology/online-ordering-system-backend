@@ -58,6 +58,13 @@ export interface CreateShopRequest {
   name: string;
   address: string;
   ownerUserId: string;
+  isActive: boolean;
+  status: ShopStatus;
+  acceptingOrders: boolean;
+  paymentPolicy: PaymentPolicy;
+  orderAcceptanceMode: OrderAcceptanceMode;
+  allowGuestCheckout: boolean;
+  fulfillmentOptions: FulfillmentOptions;
 }
 
 export type CreateShopResponse = ShopSummary;
@@ -188,8 +195,9 @@ export interface CreateProductRequest {
   ownerUserId: string;
   name: string;
   description?: string;
-  variantSchemes?: VariantScheme[];
-  addonGroups?: AddonGroup[];
+  variantSchemes: VariantScheme[];
+  addonGroups: AddonGroup[];
+  isActive: boolean;
 }
 
 export interface UpdateProductRequest {
@@ -215,8 +223,8 @@ export interface ProductInShopResponse {
 export interface CreateProductInShopRequest {
   productId: string;
   priceOverride?: number;
-  isAvailable?: boolean;
-  categoryIds?: string[];
+  isAvailable: boolean;
+  categoryIds: string[];
   sortOrder?: number;
 }
 
@@ -335,4 +343,3 @@ export interface UserShopView {
 }
 
 export type UserShopsResponse = UserShopView[];
-

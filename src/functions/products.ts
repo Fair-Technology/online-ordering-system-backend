@@ -4,6 +4,12 @@ type HttpResponseInit = HttpResponseInitLike;
 const { app } = require("@azure/functions");
 import { getContainer } from "../config/cosmosClient";
 import { Category, Product, ProductInShop, Shop } from "../types/models";
+import {
+  CreateProductInShopRequest,
+  CreateProductRequest,
+  UpdateProductInShopRequest,
+  UpdateProductRequest,
+} from "../types/apiTypes";
 import { newId, nowIso, writeAuditLog } from "../utils";
 
 const productsContainer = getContainer("products");
@@ -43,12 +49,21 @@ app.http("productsCreate", {
   route: "products",
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const payload = (await request.json()) ?? {};
+      const payload = ((await request.json()) ?? {}) as Partial<CreateProductRequest>;
       if (!payload.ownerUserId || typeof payload.ownerUserId !== "string") {
         return json(400, { message: "ownerUserId is required" });
       }
       if (!payload.name || typeof payload.name !== "string") {
-        return json(400, { message: "ownerUserId and name are required" });
+        return json(400, { message: "name is required" });
+      }
+      if (typeof payload.isActive !== "boolean") {
+        return json(400, { message: "isActive must be provided" });
+      }
+      if (!Array.isArray(payload.variantSchemes)) {
+        return json(400, { message: "variantSchemes must be an array" });
+      }
+      if (!Array.isArray(payload.addonGroups)) {
+        return json(400, { message: "addonGroups must be an array" });
       }
 
       const timestamp = nowIso();
@@ -57,11 +72,11 @@ app.http("productsCreate", {
         ownerUserId: payload.ownerUserId.trim(),
         name: payload.name.trim(),
         description: payload.description,
-        isActive: true,
+        isActive: payload.isActive,
         createdAt: timestamp,
         updatedAt: timestamp,
-        variantSchemes: Array.isArray(payload.variantSchemes) ? payload.variantSchemes : [],
-        addonGroups: Array.isArray(payload.addonGroups) ? payload.addonGroups : [],
+        variantSchemes: payload.variantSchemes,
+        addonGroups: payload.addonGroups,
       };
 
       await productsContainer.items.create(product);
@@ -92,7 +107,7 @@ app.http("productsUpdate", {
         return json(404, { message: "Product not found" });
       }
 
-      const payload = (await request.json()) ?? {};
+      const payload = ((await request.json()) ?? {}) as UpdateProductRequest;
       const allowed: Partial<Product> = {};
       if (payload.name !== undefined) {
         if (typeof payload.name !== "string") {
@@ -119,7 +134,10 @@ app.http("productsUpdate", {
         allowed.addonGroups = payload.addonGroups;
       }
       if (payload.isActive !== undefined) {
-        allowed.isActive = Boolean(payload.isActive);
+        if (typeof payload.isActive !== "boolean") {
+          return json(400, { message: "isActive must be a boolean" });
+        }
+        allowed.isActive = payload.isActive;
       }
 
       if (Object.keys(allowed).length === 0) {
@@ -160,9 +178,15 @@ app.http("productsInShopCreate", {
       return json(404, { message: "Shop not found" });
     }
 
-    const payload = (await request.json()) ?? {};
+    const payload = ((await request.json()) ?? {}) as Partial<CreateProductInShopRequest>;
     if (!payload.productId || typeof payload.productId !== "string") {
       return json(400, { message: "productId is required" });
+    }
+    if (payload.isAvailable === undefined || typeof payload.isAvailable !== "boolean") {
+      return json(400, { message: "isAvailable must be provided" });
+    }
+    if (!Array.isArray(payload.categoryIds)) {
+      return json(400, { message: "categoryIds must be an array" });
     }
 
     try {
@@ -177,7 +201,7 @@ app.http("productsInShopCreate", {
         productId: product.id,
         shopId: shop.id,
         priceOverride: payload.priceOverride !== undefined ? Number(payload.priceOverride) : undefined,
-        isAvailable: payload.isAvailable ?? true,
+        isAvailable: payload.isAvailable,
         categoryIds: sanitizeStringArray(payload.categoryIds),
         sortOrder: payload.sortOrder !== undefined ? Number(payload.sortOrder) : undefined,
         createdAt: timestamp,
@@ -213,10 +237,13 @@ app.http("productsInShopUpdate", {
         return json(404, { message: "Product listing not found" });
       }
 
-      const payload = (await request.json()) ?? {};
+      const payload = ((await request.json()) ?? {}) as UpdateProductInShopRequest;
       const allowed: Partial<ProductInShop> = {};
       if (payload.isAvailable !== undefined) {
-        allowed.isAvailable = Boolean(payload.isAvailable);
+        if (typeof payload.isAvailable !== "boolean") {
+          return json(400, { message: "isAvailable must be a boolean" });
+        }
+        allowed.isAvailable = payload.isAvailable;
       }
       if (payload.priceOverride !== undefined) {
         allowed.priceOverride = Number(payload.priceOverride);

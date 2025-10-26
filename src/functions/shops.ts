@@ -4,6 +4,7 @@ type HttpResponseInit = HttpResponseInitLike;
 const { app } = require("@azure/functions");
 import { getContainer } from "../config/cosmosClient";
 import { Shop, ShopHours, ShopMember } from "../types/models";
+import { CreateShopRequest, ShopSettingsUpdateRequest } from "../types/apiTypes";
 import { newId, nowIso, writeAuditLog } from "../utils";
 
 const shopsContainer = getContainer("shops");
@@ -27,6 +28,56 @@ function resolvePermissions(input: unknown): string[] {
   return sanitized.length > 0 ? sanitized : DEFAULT_PERMISSIONS;
 }
 
+function isValidFulfillmentOptions(value: any): value is CreateShopRequest["fulfillmentOptions"] {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  if (typeof value.pickupEnabled !== "boolean" || typeof value.deliveryEnabled !== "boolean") {
+    return false;
+  }
+  if (
+    value.deliveryRadiusKm !== undefined &&
+    typeof value.deliveryRadiusKm !== "number"
+  ) {
+    return false;
+  }
+  if (value.deliveryFee !== undefined && typeof value.deliveryFee !== "number") {
+    return false;
+  }
+  return true;
+}
+
+function isValidPartialFulfillmentOptions(
+  value: any,
+): value is Partial<CreateShopRequest["fulfillmentOptions"]> {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const { pickupEnabled, deliveryEnabled, deliveryRadiusKm, deliveryFee } = value;
+  if (
+    pickupEnabled !== undefined &&
+    typeof pickupEnabled !== "boolean"
+  ) {
+    return false;
+  }
+  if (
+    deliveryEnabled !== undefined &&
+    typeof deliveryEnabled !== "boolean"
+  ) {
+    return false;
+  }
+  if (
+    deliveryRadiusKm !== undefined &&
+    typeof deliveryRadiusKm !== "number"
+  ) {
+    return false;
+  }
+  if (deliveryFee !== undefined && typeof deliveryFee !== "number") {
+    return false;
+  }
+  return true;
+}
+
 async function readShop(shopId: string): Promise<Shop | undefined> {
   try {
     const { resource } = await shopsContainer.item(shopId, shopId).read<Shop>();
@@ -42,28 +93,58 @@ app.http("shopsCreate", {
   route: "shops",
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const payload = (await request.json()) ?? {};
-      const { name, address, ownerUserId } = payload;
-      if (!name || typeof name !== "string" || !address || typeof address !== "string" || !ownerUserId || typeof ownerUserId !== "string") {
-        return json(400, { message: "name, address, and ownerUserId are required" });
+      const payload = ((await request.json()) ?? {}) as Partial<CreateShopRequest>;
+      const requiredStrings: Array<keyof Pick<CreateShopRequest, "name" | "address" | "ownerUserId">> = [
+        "name",
+        "address",
+        "ownerUserId",
+      ];
+      const missingString = requiredStrings.find((key) => !payload[key] || typeof payload[key] !== "string");
+      if (missingString) {
+        return json(400, { message: `${missingString} is required` });
+      }
+      if (
+        payload.isActive === undefined ||
+        typeof payload.isActive !== "boolean" ||
+        !payload.status ||
+        typeof payload.status !== "string" ||
+        !["open", "closed"].includes(payload.status)
+      ) {
+        return json(400, { message: "Valid isActive and status are required" });
+      }
+      if (
+        payload.acceptingOrders === undefined ||
+        typeof payload.acceptingOrders !== "boolean" ||
+        !payload.paymentPolicy ||
+        !["pay_on_pickup", "prepaid_only"].includes(payload.paymentPolicy)
+      ) {
+        return json(400, { message: "Valid acceptingOrders and paymentPolicy are required" });
+      }
+      if (
+        !payload.orderAcceptanceMode ||
+        !["manual", "auto"].includes(payload.orderAcceptanceMode) ||
+        payload.allowGuestCheckout === undefined ||
+        typeof payload.allowGuestCheckout !== "boolean"
+      ) {
+        return json(400, { message: "Valid orderAcceptanceMode and allowGuestCheckout are required" });
+      }
+      if (!isValidFulfillmentOptions(payload.fulfillmentOptions)) {
+        return json(400, { message: "fulfillmentOptions must specify pickupEnabled and deliveryEnabled booleans" });
       }
 
       const timestamp = nowIso();
       const shop: Shop = {
         id: newId(),
-        ownerUserId: ownerUserId.trim(),
-        name: name.trim(),
-        address: address.trim(),
-        isActive: true,
-        status: "open",
-        acceptingOrders: true,
-        paymentPolicy: "pay_on_pickup",
-        orderAcceptanceMode: "manual",
-        allowGuestCheckout: true,
-        fulfillmentOptions: {
-          pickupEnabled: true,
-          deliveryEnabled: false,
-        },
+        ownerUserId: payload.ownerUserId!.trim(),
+        name: payload.name!.trim(),
+        address: payload.address!.trim(),
+        isActive: payload.isActive,
+        status: payload.status,
+        acceptingOrders: payload.acceptingOrders,
+        paymentPolicy: payload.paymentPolicy,
+        orderAcceptanceMode: payload.orderAcceptanceMode,
+        allowGuestCheckout: payload.allowGuestCheckout,
+        fulfillmentOptions: payload.fulfillmentOptions,
         createdAt: timestamp,
         updatedAt: timestamp,
       };
@@ -71,7 +152,7 @@ app.http("shopsCreate", {
       const member: ShopMember = {
         id: newId(),
         shopId: shop.id,
-        userId: ownerUserId,
+        userId: payload.ownerUserId!.trim(),
         role: "owner",
         permissions: DEFAULT_PERMISSIONS,
         isActive: true,
@@ -121,7 +202,7 @@ app.http("shopsUpdate", {
       return json(404, { message: "Shop not found" });
     }
 
-    const payload = await request.json();
+    const payload = ((await request.json()) ?? {}) as ShopSettingsUpdateRequest;
     const updates: Partial<Shop> = {};
     if (payload.status !== undefined) {
       if (typeof payload.status !== "string" || !["open", "closed"].includes(payload.status)) {
@@ -154,7 +235,7 @@ app.http("shopsUpdate", {
       updates.allowGuestCheckout = payload.allowGuestCheckout;
     }
     if (payload.fulfillmentOptions !== undefined) {
-      if (typeof payload.fulfillmentOptions !== "object" || payload.fulfillmentOptions === null) {
+      if (!isValidPartialFulfillmentOptions(payload.fulfillmentOptions)) {
         return json(400, { message: "fulfillmentOptions must be an object" });
       }
       updates.fulfillmentOptions = {
