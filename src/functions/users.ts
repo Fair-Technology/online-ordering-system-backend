@@ -3,11 +3,18 @@ type HttpRequest = HttpRequestLike;
 type HttpResponseInit = HttpResponseInitLike;
 const { app } = require("@azure/functions");
 import { getContainer } from "../config/cosmosClient";
-import { User } from "../types/models";
+import { Shop, ShopMember, User } from "../types/models";
 import { newId, nowIso } from "../utils";
 
 const usersContainer = getContainer("users");
+const shopMembersContainer = getContainer("shopMembers");
+const shopsContainer = getContainer("shops");
 const allowedRoles = new Set<User["role"]>(["customer", "shopAdmin"]);
+const ROLE_PRIORITY: Record<ShopMember["role"], number> = {
+  owner: 0,
+  admin: 1,
+  staff: 2,
+};
 
 function json(status: number, body: unknown): HttpResponseInit {
   return { status, jsonBody: body };
@@ -52,5 +59,71 @@ app.http("usersList", {
     const querySpec = { query: "SELECT * FROM c ORDER BY c.createdAt DESC" };
     const { resources } = await usersContainer.items.query<User>(querySpec).fetchAll();
     return json(200, resources);
+  },
+});
+
+app.http("usersGetShops", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "users/{userId}/shops",
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    try {
+      const userId = request.params?.userId?.trim();
+      if (!userId) {
+        return json(400, { error: "userId is required" });
+      }
+
+      const membershipQuery = {
+        query: "SELECT * FROM c WHERE c.userId = @userId AND c.isActive = true",
+        parameters: [{ name: "@userId", value: userId }],
+      };
+      const { resources: memberships } = await shopMembersContainer
+        .items.query<ShopMember>(membershipQuery)
+        .fetchAll();
+
+      if (memberships.length === 0) {
+        return json(200, []);
+      }
+
+      const shopIds = Array.from(new Set(memberships.map((member) => member.shopId)));
+      const shopQuery = {
+        query: "SELECT * FROM c WHERE ARRAY_CONTAINS(@ids, c.id)",
+        parameters: [{ name: "@ids", value: shopIds }],
+      };
+      const { resources: shops } = await shopsContainer.items.query<Shop>(shopQuery).fetchAll();
+      const shopById = new Map(shops.map((shop) => [shop.id, shop]));
+
+      const views = memberships
+        .map((membership) => {
+          const shop = shopById.get(membership.shopId);
+          if (!shop) {
+            return undefined;
+          }
+          return {
+            shopId: shop.id,
+            name: shop.name,
+            address: shop.address,
+            status: shop.status,
+            acceptingOrders: shop.acceptingOrders,
+            pickupEnabled: shop.fulfillmentOptions?.pickupEnabled === true,
+            role: membership.role,
+            isActiveMember: membership.isActive,
+            updatedAt: shop.updatedAt,
+          };
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+
+      views.sort((a, b) => {
+        const rankDiff = ROLE_PRIORITY[a.role] - ROLE_PRIORITY[b.role];
+        if (rankDiff !== 0) {
+          return rankDiff;
+        }
+        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      });
+
+      return json(200, views);
+    } catch (error) {
+      return json(500, { error: "Internal server error" });
+    }
   },
 });
