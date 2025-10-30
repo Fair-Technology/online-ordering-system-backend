@@ -11,6 +11,7 @@ import {
   UpdateProductRequest,
 } from "../types/apiTypes";
 import { newId, nowIso, writeAuditLog } from "../utils";
+import { FrontendProductInShop } from "../types/responseTypes";
 
 const productsContainer = getContainer("products");
 const productsInShopContainer = getContainer("productsInShop");
@@ -408,6 +409,12 @@ app.http("shopsMenu", {
   authLevel: "anonymous",
   route: "shops/{shopId}/menu",
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+
+      //Dummy response for noww
+    return json(200, {
+      products: productsInShop
+    });
+
     const { shopId } = request.params;
     const shop = await readShop(shopId);
     if (!shop) {
@@ -447,5 +454,270 @@ app.http("shopsMenu", {
       productsInShop: listings,
       products,
     });
+
+
   },
 });
+
+
+// ✅ Final dummy response to send to frontend
+export const productsInShop: FrontendProductInShop[] = [
+  // 🥘 MAINS
+  {
+    id: "prodInShop-001",
+    isAvailable: true,
+    price: 15.99,
+    categories: [{ id: "mains", name: "Mains" }],
+    product: {
+      id: "product-001",
+      name: "Grilled Chicken Plate",
+      description: "Juicy grilled chicken served with roasted veggies and garlic sauce.",
+      isActive: true,
+      variantSchemes: [
+        {
+          id: "variantScheme-001",
+          name: "Size",
+          variants: [
+            { id: "variant-001", label: "Regular", basePrice: 15.99, sku: "GC-R", isActive: true },
+            { id: "variant-002", label: "Large", basePrice: 18.99, sku: "GC-L", isActive: true },
+          ],
+        },
+      ],
+      addonGroups: [
+        {
+          id: "addonGroup-001",
+          name: "Extras",
+          options: [
+            { id: "addon-001", name: "Extra Sauce", priceDelta: 1.0, isActive: true },
+            { id: "addon-002", name: "Grilled Bread", priceDelta: 2.0, isActive: true },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    id: "prodInShop-002",
+    isAvailable: true,
+    price: 13.49,
+    categories: [{ id: "mains", name: "Mains" }],
+    product: {
+      id: "product-002",
+      name: "Beef Lasagna",
+      description: "Classic lasagna layered with seasoned beef, cheese, and tomato sauce.",
+      isActive: true,
+      variantSchemes: [
+        {
+          id: "variantScheme-002",
+          name: "Serving",
+          variants: [
+            { id: "variant-003", label: "Single", basePrice: 13.49, sku: "LAS-S", isActive: true },
+            { id: "variant-004", label: "Family", basePrice: 22.99, sku: "LAS-F", isActive: true },
+          ],
+        },
+      ],
+      addonGroups: [
+        {
+          id: "addonGroup-002",
+          name: "Add-ons",
+          options: [
+            { id: "addon-003", name: "Extra Cheese", priceDelta: 1.5, isActive: true },
+            { id: "addon-004", name: "Garlic Bread", priceDelta: 2.5, isActive: true },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    id: "prodInShop-003",
+    isAvailable: true,
+    price: 12.99,
+    categories: [{ id: "mains", name: "Mains" }],
+    product: {
+      id: "product-003",
+      name: "Veggie Stir Fry",
+      description: "Fresh mixed vegetables stir-fried with soy and sesame sauce.",
+      isActive: true,
+      variantSchemes: [],
+      addonGroups: [
+        {
+          id: "addonGroup-003",
+          name: "Add Protein",
+          options: [
+            { id: "addon-005", name: "Chicken", priceDelta: 3.0, isActive: true },
+            { id: "addon-006", name: "Tofu", priceDelta: 2.0, isActive: true },
+          ],
+        },
+      ],
+    },
+  },
+
+  // 🍟 SIDES
+  {
+    id: "prodInShop-004",
+    isAvailable: true,
+    price: 5.49,
+    categories: [{ id: "sides", name: "Sides" }],
+    product: {
+      id: "product-004",
+      name: "French Fries",
+      description: "Crispy golden fries served with ketchup or aioli.",
+      isActive: true,
+      variantSchemes: [],
+      addonGroups: [
+        {
+          id: "addonGroup-004",
+          name: "Sauce Choice",
+          options: [
+            { id: "addon-007", name: "Aioli", priceDelta: 0.5, isActive: true },
+            { id: "addon-008", name: "Chilli Sauce", priceDelta: 0.5, isActive: true },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    id: "prodInShop-005",
+    isAvailable: true,
+    price: 6.99,
+    categories: [{ id: "sides", name: "Sides" }],
+    product: {
+      id: "product-005",
+      name: "Onion Rings",
+      description: "Crispy battered onion rings served with BBQ dip.",
+      isActive: true,
+      variantSchemes: [],
+      addonGroups: [],
+    },
+  },
+
+  // 🥤 DRINKS
+  {
+    id: "prodInShop-006",
+    isAvailable: true,
+    price: 3.49,
+    categories: [{ id: "drinks", name: "Drinks" }],
+    product: {
+      id: "product-006",
+      name: "Coca-Cola",
+      description: "Classic Coke served chilled.",
+      isActive: true,
+      variantSchemes: [
+        {
+          id: "variantScheme-003",
+          name: "Size",
+          variants: [
+            { id: "variant-005", label: "Can 375ml", basePrice: 3.49, sku: "COKE-375", isActive: true },
+            { id: "variant-006", label: "Bottle 600ml", basePrice: 4.49, sku: "COKE-600", isActive: true },
+          ],
+        },
+      ],
+      addonGroups: [],
+    },
+  },
+  {
+    id: "prodInShop-007",
+    isAvailable: true,
+    price: 4.99,
+    categories: [{ id: "drinks", name: "Drinks" }],
+    product: {
+      id: "product-007",
+      name: "Iced Coffee",
+      description: "Cold brew with milk and ice cream topping.",
+      isActive: true,
+      variantSchemes: [],
+      addonGroups: [
+        {
+          id: "addonGroup-005",
+          name: "Sweetener",
+          options: [
+            { id: "addon-009", name: "Sugar", priceDelta: 0, isActive: true },
+            { id: "addon-010", name: "Honey", priceDelta: 0.5, isActive: true },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    id: "prodInShop-008",
+    isAvailable: true,
+    price: 2.99,
+    categories: [{ id: "drinks", name: "Drinks" }],
+    product: {
+      id: "product-008",
+      name: "Sparkling Water",
+      description: "Refreshing mineral sparkling water.",
+      isActive: true,
+      variantSchemes: [],
+      addonGroups: [],
+    },
+  },
+
+  // 🍪 SNACKS
+  {
+    id: "prodInShop-009",
+    isAvailable: true,
+    price: 4.49,
+    categories: [{ id: "snacks", name: "Snacks" }],
+    product: {
+      id: "product-009",
+      name: "Cheese Sticks",
+      description: "Mozzarella sticks coated in golden breadcrumbs.",
+      isActive: true,
+      variantSchemes: [],
+      addonGroups: [],
+    },
+  },
+  {
+    id: "prodInShop-010",
+    isAvailable: true,
+    price: 3.99,
+    categories: [{ id: "snacks", name: "Snacks" }],
+    product: {
+      id: "product-010",
+      name: "Mini Spring Rolls",
+      description: "Crispy mini rolls filled with vegetables.",
+      isActive: true,
+      variantSchemes: [],
+      addonGroups: [],
+    },
+  },
+
+  // 🍰 DESSERTS
+  {
+    id: "prodInShop-011",
+    isAvailable: true,
+    price: 6.99,
+    categories: [{ id: "desserts", name: "Desserts" }],
+    product: {
+      id: "product-011",
+      name: "Chocolate Lava Cake",
+      description: "Warm chocolate cake with gooey molten center.",
+      isActive: true,
+      variantSchemes: [],
+      addonGroups: [
+        {
+          id: "addonGroup-006",
+          name: "Toppings",
+          options: [
+            { id: "addon-011", name: "Vanilla Ice Cream", priceDelta: 2.0, isActive: true },
+            { id: "addon-012", name: "Whipped Cream", priceDelta: 1.0, isActive: true },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    id: "prodInShop-012",
+    isAvailable: true,
+    price: 5.49,
+    categories: [{ id: "desserts", name: "Desserts" }],
+    product: {
+      id: "product-012",
+      name: "Tiramisu Cup",
+      description: "Italian-style tiramisu in a cup, layered with mascarpone.",
+      isActive: true,
+      variantSchemes: [],
+      addonGroups: [],
+    },
+  },
+];;
