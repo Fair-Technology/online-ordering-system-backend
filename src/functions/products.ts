@@ -3,15 +3,16 @@ type HttpRequest = HttpRequestLike;
 type HttpResponseInit = HttpResponseInitLike;
 const { app } = require("@azure/functions");
 import { getContainer } from "../config/cosmosClient";
-import { Category, Product, ProductInShop, Shop } from "../types/models";
 import {
   CreateProductInShopRequest,
   CreateProductRequest,
+  ProductInShopResponse,
   UpdateProductInShopRequest,
   UpdateProductRequest,
 } from "../types/apiTypes";
 import { newId, nowIso, writeAuditLog } from "../utils";
 import { FrontendProductInShop } from "../types/responseTypes";
+import { Category, Product, Shop } from "../types/databaseTypes";
 
 const productsContainer = getContainer("products");
 const productsInShopContainer = getContainer("productsInShop");
@@ -197,7 +198,7 @@ app.http("productsInShopCreate", {
       }
 
       const timestamp = nowIso();
-      const record: ProductInShop = {
+      const record: ProductInShopResponse = {
         id: newId(),
         productId: product.id,
         shopId: shop.id,
@@ -233,13 +234,13 @@ app.http("productsInShopUpdate", {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     const { shopId, productInShopId } = request.params;
     try {
-      const { resource } = await productsInShopContainer.item(productInShopId, productInShopId).read<ProductInShop>();
+      const { resource } = await productsInShopContainer.item(productInShopId, productInShopId).read<ProductInShopResponse>();
       if (!resource || resource.shopId !== shopId) {
         return json(404, { message: "Product listing not found" });
       }
 
       const payload = ((await request.json()) ?? {}) as UpdateProductInShopRequest;
-      const allowed: Partial<ProductInShop> = {};
+      const allowed: Partial<ProductInShopResponse> = {};
       if (payload.isAvailable !== undefined) {
         if (typeof payload.isAvailable !== "boolean") {
           return json(400, { message: "isAvailable must be a boolean" });
@@ -263,7 +264,7 @@ app.http("productsInShopUpdate", {
         return json(400, { message: "No updatable fields provided" });
       }
 
-      const updated: ProductInShop = {
+      const updated: ProductInShopResponse = {
         ...resource,
         ...allowed,
         updatedAt: nowIso(),
@@ -429,7 +430,7 @@ app.http("shopsMenu", {
         })
         .fetchAll(),
       productsInShopContainer
-        .items.query<ProductInShop>({
+        .items.query<ProductInShopResponse>({
           query: "SELECT * FROM c WHERE c.shopId = @shopId AND c.isAvailable = true",
           parameters: [{ name: "@shopId", value: shopId }],
         })

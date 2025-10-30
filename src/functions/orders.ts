@@ -3,18 +3,10 @@ type HttpRequest = HttpRequestLike;
 type HttpResponseInit = HttpResponseInitLike;
 const { app } = require("@azure/functions");
 import { getContainer } from "../config/cosmosClient";
-import {
-  Cart,
-  CartItem,
-  CartItemRequest,
-  Order,
-  OrderItem,
-  OrderStatus,
-  Product,
-  ProductInShop,
-  Shop,
-} from "../types/models";
+
 import { canTransition, isShopOpenNow, newId, nowIso, writeAuditLog } from "../utils";
+import { Cart, CartItem, CartItemRequest, Order, OrderItem, OrderStatus, Product, Shop } from "../types/databaseTypes";
+import { ProductInShopResponse } from "../types/apiTypes";
 
 const cartsContainer = getContainer("carts");
 const ordersContainer = getContainer("orders");
@@ -69,7 +61,7 @@ async function buildCartItemsFromSelection(shopId: string, selections: CartItemR
   const productIds = Array.from(new Set(selections.map((item) => item.productId)));
   const [{ resources: listings }, { resources: products }] = await Promise.all([
     productsInShopContainer
-      .items.query<ProductInShop>({
+      .items.query<ProductInShopResponse>({
         query: "SELECT * FROM c WHERE c.shopId = @shopId AND ARRAY_CONTAINS(@ids, c.productId)",
         parameters: [
           { name: "@shopId", value: shopId },
@@ -85,7 +77,7 @@ async function buildCartItemsFromSelection(shopId: string, selections: CartItemR
       .fetchAll(),
   ]);
 
-  const listingByProductId = new Map<string, ProductInShop>();
+  const listingByProductId = new Map<string, ProductInShopResponse>();
   listings.forEach((listing) => listingByProductId.set(listing.productId, listing));
 
   const productById = new Map(products.map((p) => [p.id, p]));

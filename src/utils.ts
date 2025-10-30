@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { getContainer } from "./config/cosmosClient";
-import { AuditLog, OrderStatus } from "./types/models";
+import { AuditLog, OrderStatus } from "./types/databaseTypes";
 
 const auditLogContainer = getContainer("auditLogs");
 

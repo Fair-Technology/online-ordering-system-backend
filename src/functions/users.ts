@@ -3,18 +3,12 @@ type HttpRequest = HttpRequestLike;
 type HttpResponseInit = HttpResponseInitLike;
 const { app } = require("@azure/functions");
 import { getContainer } from "../config/cosmosClient";
-import { Shop, ShopMember, User } from "../types/models";
 import { newId, nowIso } from "../utils";
+import { Shop, ShopMember, User } from "../types/databaseTypes";
 
 const usersContainer = getContainer("users");
 const shopMembersContainer = getContainer("shopMembers");
 const shopsContainer = getContainer("shops");
-const allowedRoles = new Set<User["role"]>(["customer", "shopAdmin"]);
-const ROLE_PRIORITY: Record<ShopMember["role"], number> = {
-  owner: 0,
-  admin: 1,
-  staff: 2,
-};
 
 function json(status: number, body: unknown): HttpResponseInit {
   return { status, jsonBody: body };
@@ -30,16 +24,9 @@ app.http("usersCreate", {
       if (!payload.name || typeof payload.name !== "string") {
         return json(400, { message: "name is required" });
       }
-      if (!payload.role || !allowedRoles.has(payload.role)) {
-        return json(400, { message: "role must be 'customer' or 'shopAdmin'" });
-      }
 
       const user: User = {
         id: newId(),
-        name: payload.name.trim(),
-        role: payload.role,
-        phone: payload.phone,
-        email: payload.email,
         createdAt: nowIso(),
       };
 
@@ -113,13 +100,7 @@ app.http("usersGetShops", {
         })
         .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
 
-      views.sort((a, b) => {
-        const rankDiff = ROLE_PRIORITY[a.role] - ROLE_PRIORITY[b.role];
-        if (rankDiff !== 0) {
-          return rankDiff;
-        }
-        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-      });
+
 
       return json(200, views);
     } catch (error) {

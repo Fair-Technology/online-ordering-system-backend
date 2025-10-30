@@ -3,9 +3,9 @@ type HttpRequest = HttpRequestLike;
 type HttpResponseInit = HttpResponseInitLike;
 const { app } = require("@azure/functions");
 import { getContainer } from "../config/cosmosClient";
-import { Shop, ShopHours, ShopMember } from "../types/models";
 import { CreateShopRequest, ShopSettingsUpdateRequest } from "../types/apiTypes";
 import { newId, nowIso, writeAuditLog } from "../utils";
+import { Shop, ShopHours, ShopMember } from "../types/databaseTypes";
 
 const shopsContainer = getContainer("shops");
 const shopMembersContainer = getContainer("shopMembers");

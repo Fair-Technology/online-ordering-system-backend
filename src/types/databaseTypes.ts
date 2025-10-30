@@ -1,10 +1,7 @@
 export interface User {
-  id: string;
-  name: string;
-  phone?: string;
-  email?: string;
-  role: "customer" | "shopAdmin";
+  id: string
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Shop {
@@ -33,7 +30,7 @@ export interface ShopMember {
   id: string;
   shopId: string;
   userId: string;
-  role: "owner" | "admin" | "staff";
+  role: "owner" | "staff";
   permissions: string[]; // e.g. ["manage_products","manage_orders"]
   isActive: boolean;
   addedAt: string;
@@ -112,17 +109,43 @@ export interface Product {
   addonGroups: AddonGroup[];        // e.g. toppings, extras
 }
 
-export interface ProductInShop {
+export type OrderStatus =
+  | "placed"
+  | "accepted"
+  | "rejected"
+  | "ready_for_pickup"
+  | "completed"
+  | "cancelled";
+
+export type PaymentStatus = "unpaid" | "paid";
+
+export interface Order {
   id: string;
-  productId: string;        // links to Product
   shopId: string;
-  priceOverride?: number;   // shop-specific base price override
-  isAvailable: boolean;     // can be ordered right now
-  categoryIds: string[];    // ["kids","lunch"] - product can live in multiple menu sections
-  sortOrder?: number;
-  createdAt: string;
+  userId: string; // can be "guest"
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  totalAmount: number;
+  submittedAt: string;
   updatedAt: string;
+
+  customerName: string;
+  customerPhone?: string;
+  customerNotes?: string; // e.g. "no onions", "I'll pick up in 15 mins"
+
+  items: OrderItem[];
 }
+
+export interface OrderItem {
+  productId: string;
+  productVariantId: string;
+  productNameSnapshot: string;
+  variantLabelSnapshot: string;
+  finalUnitPrice: number;
+  quantity: number;
+//   addons: CartItemAddonSnapshot[];
+}
+
 
 export interface CartItemAddonSnapshot {
   addonOptionId: string;
@@ -154,43 +177,6 @@ export interface CartItemRequest {
   productVariantId: string;
   quantity: number;
   addonOptionIds?: string[];
-}
-
-export type OrderStatus =
-  | "placed"
-  | "accepted"
-  | "rejected"
-  | "ready_for_pickup"
-  | "completed"
-  | "cancelled";
-
-export type PaymentStatus = "unpaid" | "paid";
-
-export interface OrderItem {
-  productId: string;
-  productVariantId: string;
-  productNameSnapshot: string;
-  variantLabelSnapshot: string;
-  finalUnitPrice: number;
-  quantity: number;
-  addons: CartItemAddonSnapshot[];
-}
-
-export interface Order {
-  id: string;
-  shopId: string;
-  userId: string; // can be "guest"
-  status: OrderStatus;
-  paymentStatus: PaymentStatus;
-  totalAmount: number;
-  submittedAt: string;
-  updatedAt: string;
-
-  customerName: string;
-  customerPhone?: string;
-  customerNotes?: string; // e.g. "no onions", "I'll pick up in 15 mins"
-
-  items: OrderItem[];
 }
 
 export interface AuditLog {
