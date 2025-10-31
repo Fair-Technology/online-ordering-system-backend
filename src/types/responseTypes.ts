@@ -1,35 +1,35 @@
-export type FrontendProductInShop = {
+export type ProductResponse = {
   id: string;
-  isAvailable: boolean;
-  price?: number;
-  categories: { id: string; name: string }[];
-  product: FrontendProduct;
-};
-
-export type FrontendProduct = {
-  id: string;
-  name: string;
+  label: string;
+  imageURL?: string;
   description?: string;
-  isActive: boolean;
-  variantSchemes: {
+  isAvailable: boolean;
+  price: number;
+  categories: { id: string; name: string }[];
+  variantTypes: {
     id: string;
-    name: string;
+    label: string;
+    description?: string;
     variants: {
       id: string;
       label: string;
-      basePrice: number;
-      sku?: string;
-      isActive: boolean;
+      imageURL?: string;
+      priceDelta: number;
+      isAvailable: boolean;
     }[];
   }[];
-  addonGroups: {
+  addons: {
     id: string;
-    name: string;
+    label: string;
+    description?: string;
     options: {
       id: string;
-      name: string;
+      label: string;
+      imageURL?: string;
       priceDelta: number;
-      isActive: boolean;
+      isAvailable: boolean;
     }[];
   }[];
 };
+
+

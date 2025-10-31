@@ -102,7 +102,7 @@ export interface Product {
   ownerUserId: string;
   name: string;
   description?: string;
-  isActive: boolean;
+  isAvailable: boolean;
   createdAt: string;
   updatedAt: string;
   variantSchemes: VariantScheme[];  // e.g. pizza size, shirt size/color

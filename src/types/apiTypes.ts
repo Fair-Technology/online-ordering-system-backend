@@ -1,4 +1,4 @@
-// Shared enums and helpers
+// Enums and helper unions describing the possible status/role values returned by the API
 export const SHOP_STATUSES = ["open", "closed"] as const;
 export type ShopStatus = (typeof SHOP_STATUSES)[number];
 
@@ -20,7 +20,7 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export const PAYMENT_STATUSES = ["unpaid", "paid"] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
-// Shared structures
+// Generic pieces that many API payloads reuse
 export interface FulfillmentOptions {
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
@@ -53,7 +53,7 @@ export interface ShopSettingsUpdateRequest {
   isActive?: boolean;
 }
 
-// Shops
+// Shop CRUD payloads
 export interface CreateShopRequest {
   name: string;
   address: string;
@@ -71,7 +71,7 @@ export type CreateShopResponse = ShopSummary;
 export type GetShopResponse = ShopSummary;
 export type UpdateShopResponse = ShopSummary;
 
-// Shop Members
+// Shop member management payloads
 export interface ShopMemberResponse {
   id: string;
   shopId: string;
@@ -97,7 +97,7 @@ export interface UpdateShopMemberRequest {
 
 export type ListShopMembersResponse = ShopMemberResponse[];
 
-// Shop Hours
+// Shop hours (opening times) payloads
 export interface ShopHoursWindow {
   open: string;
   close: string;
@@ -121,7 +121,7 @@ export type GetShopHoursResponse = ShopHoursPayload | Record<string, never>;
 export type UpsertShopHoursRequest = ShopHoursPayload;
 export type UpsertShopHoursResponse = ShopHoursPayload;
 
-// Categories
+// Menu category payloads
 export interface CategoryResponse {
   id: string;
   shopId: string;
@@ -149,7 +149,7 @@ export interface UpdateCategoryRequest {
 
 export type ListCategoriesResponse = CategoryResponse[];
 
-// Products
+// Catalog product payloads
 export interface ProductVariant {
   id: string;
   label: string;
@@ -179,6 +179,7 @@ export interface AddonGroup {
   options: AddonOption[];
 }
 
+// Global product definition owned by a user (variants/addons shared across shops)
 export interface ProductResponse {
   id: string;
   ownerUserId: string;
@@ -208,6 +209,7 @@ export interface UpdateProductRequest {
   isActive?: boolean;
 }
 
+// Shop-specific listing that references a global product and adds merchandising info
 export interface ProductInShopResponse {
   id: string;
   productId: string;
@@ -235,7 +237,7 @@ export interface UpdateProductInShopRequest {
   sortOrder?: number;
 }
 
-// Menu
+// Customer-facing menu payload
 export interface ShopMenuResponse {
   shop: ShopSummary;
   categories: CategoryResponse[];
@@ -243,7 +245,7 @@ export interface ShopMenuResponse {
   products: ProductResponse[];
 }
 
-// Cart
+// Cart payloads for customer checkout
 export interface CartItemAddonSnapshot {
   addonOptionId: string;
   nameSnapshot: string;
@@ -281,7 +283,7 @@ export interface UpdateCartRequest {
   items: CartItemRequest[];
 }
 
-// Orders
+// Order queue payloads
 export interface OrderItemSnapshot {
   productId: string;
   productVariantId: string;
@@ -329,7 +331,7 @@ export interface UpdateOrderStatusRequest {
 
 export type UpdateOrderStatusResponse = OrderResponse;
 
-// User Shops (frontend-facing user entry point)
+// Lightweight view returned by GET /users/{userId}/shops for management UI
 export interface UserShopView {
   shopId: string;
   name: string;

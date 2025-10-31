@@ -157,6 +157,7 @@ function convertCartItemsToOrderItems(items: CartItem[]): OrderItem[] {
   }));
 }
 
+// GET /shops/{shopId}/cart -> fetch or initialize the user's cart for that shop
 app.http("cartGet", {
   methods: ["GET"],
   authLevel: "anonymous",
@@ -189,6 +190,7 @@ app.http("cartGet", {
   },
 });
 
+// PUT /shops/{shopId}/cart -> replace the cart with validated items
 app.http("cartPut", {
   methods: ["PUT"],
   authLevel: "anonymous",
@@ -230,6 +232,7 @@ app.http("cartPut", {
   },
 });
 
+// POST /shops/{shopId}/orders -> place an order after validating shop/business rules
 app.http("ordersCreate", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -326,6 +329,7 @@ app.http("ordersCreate", {
   },
 });
 
+// GET /shops/{shopId}/orders -> list orders for the shop (with optional status filter)
 app.http("ordersList", {
   methods: ["GET"],
   authLevel: "anonymous",
@@ -353,6 +357,7 @@ app.http("ordersList", {
   },
 });
 
+// PATCH /shops/{shopId}/orders/{orderId}/status -> advance an order through workflow
 app.http("ordersUpdateStatus", {
   methods: ["PATCH"],
   authLevel: "anonymous",

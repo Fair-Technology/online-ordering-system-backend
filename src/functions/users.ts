@@ -3,41 +3,34 @@ type HttpRequest = HttpRequestLike;
 type HttpResponseInit = HttpResponseInitLike;
 const { app } = require("@azure/functions");
 import { getContainer } from "../config/cosmosClient";
-import { newId, nowIso } from "../utils";
+import { bodyGuard, idempotentGuard, json, newId, nowIso, runGuards } from "../utils";
 import { Shop, ShopMember, User } from "../types/databaseTypes";
 
 const usersContainer = getContainer("users");
 const shopMembersContainer = getContainer("shopMembers");
 const shopsContainer = getContainer("shops");
 
-function json(status: number, body: unknown): HttpResponseInit {
-  return { status, jsonBody: body };
-}
 
+// POST /users -> create a simple user record
 app.http("usersCreate", {
   methods: ["POST"],
-  authLevel: "anonymous",
   route: "users",
-  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+  handler: async (req) => {
     try {
-      const payload = (await request.json()) ?? {};
-      if (!payload.name || typeof payload.name !== "string") {
-        return json(400, { message: "name is required" });
-      }
+      const result = await runGuards(req, [ bodyGuard, idempotentGuard]);
+      if (!result.next) return result.response;
 
-      const user: User = {
-        id: newId(),
-        createdAt: nowIso(),
-      };
-
+      const { body } = result.ctx;
+      const user = { id: body.id, createdAt: nowIso() };
       const { resource } = await usersContainer.items.create(user);
       return json(201, resource);
-    } catch (error: any) {
-      return json(500, { message: "Failed to create user", error: error?.message ?? String(error) });
+    } catch (err: any) {
+      return json(500, { message: "Internal Server Error", error: err.message });
     }
   },
 });
 
+// GET /users -> list all users (admin tooling)
 app.http("usersList", {
   methods: ["GET"],
   authLevel: "anonymous",
@@ -49,6 +42,7 @@ app.http("usersList", {
   },
 });
 
+// GET /users/{userId}/shops -> list shops the user can manage
 app.http("usersGetShops", {
   methods: ["GET"],
   authLevel: "anonymous",

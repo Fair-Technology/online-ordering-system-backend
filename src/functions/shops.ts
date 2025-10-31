@@ -87,6 +87,7 @@ async function readShop(shopId: string): Promise<Shop | undefined> {
   }
 }
 
+// POST /shops -> create a new shop plus its owner membership and audit log
 app.http("shopsCreate", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -177,6 +178,7 @@ app.http("shopsCreate", {
   },
 });
 
+// GET /shops/{shopId} -> fetch a single shop by id
 app.http("shopsGetById", {
   methods: ["GET"],
   authLevel: "anonymous",
@@ -191,6 +193,7 @@ app.http("shopsGetById", {
   },
 });
 
+// PATCH /shops/{shopId} -> update shop operational settings with auditing
 app.http("shopsUpdate", {
   methods: ["PATCH"],
   authLevel: "anonymous",
@@ -275,6 +278,7 @@ app.http("shopsUpdate", {
   },
 });
 
+// GET /shops/{shopId}/members -> list all members attached to the shop
 app.http("shopMembersList", {
   methods: ["GET"],
   authLevel: "anonymous",
@@ -290,6 +294,7 @@ app.http("shopMembersList", {
   },
 });
 
+// POST /shops/{shopId}/members -> add a new staff/admin member
 app.http("shopMembersCreate", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -337,6 +342,7 @@ app.http("shopMembersCreate", {
   },
 });
 
+// PATCH /shops/{shopId}/members/{memberId} -> modify member role/status/permissions
 app.http("shopMembersUpdate", {
   methods: ["PATCH"],
   authLevel: "anonymous",
@@ -386,6 +392,7 @@ app.http("shopMembersUpdate", {
   },
 });
 
+// GET /shops/{shopId}/hours -> read the configured operating hours for a shop
 app.http("shopHoursGet", {
   methods: ["GET"],
   authLevel: "anonymous",
@@ -404,6 +411,7 @@ app.http("shopHoursGet", {
   },
 });
 
+// PUT /shops/{shopId}/hours -> replace/create the operating hours document
 app.http("shopHoursUpsert", {
   methods: ["PUT"],
   authLevel: "anonymous",
