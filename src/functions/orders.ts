@@ -1,10 +1,10 @@
-import { HttpRequestLike, HttpResponseInitLike } from "../types/http";
+import { HttpRequestLike, HttpResponseInitLike, json } from "../types/otherTypes";
 type HttpRequest = HttpRequestLike;
 type HttpResponseInit = HttpResponseInitLike;
 const { app } = require("@azure/functions");
 import { getContainer } from "../config/cosmosClient";
 
-import { canTransition, isShopOpenNow, newId, nowIso, writeAuditLog } from "../utils";
+import { canTransition, isShopOpenNow, newId, nowIso, writeAuditLog } from "../utils/general";
 import { Cart, CartItem, CartItemRequest, Order, OrderItem, OrderStatus, Product, Shop } from "../types/databaseTypes";
 import { ProductInShopResponse } from "../types/apiTypes";
 
@@ -13,10 +13,6 @@ const ordersContainer = getContainer("orders");
 const shopsContainer = getContainer("shops");
 const productsInShopContainer = getContainer("productsInShop");
 const productsContainer = getContainer("products");
-
-function json(status: number, body: unknown): HttpResponseInit {
-  return { status, jsonBody: body };
-}
 
 function getActorUserId(request: HttpRequest): string {
   return request.headers.get("x-user-id") ?? "system";
