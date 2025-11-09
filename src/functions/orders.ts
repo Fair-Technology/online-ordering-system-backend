@@ -5,12 +5,18 @@ const { app } = require("@azure/functions");
 import { getContainer } from "../config/cosmosClient";
 
 import { canTransition, isShopOpenNow, newId, nowIso, writeAuditLog } from "../utils/general";
-import { Cart, CartItem, CartItemRequest, Order, OrderItem, OrderStatus, Product, Shop } from "../types/databaseTypes";
+import { Cart, CartItem, CartItemRequest, Order, OrderItem, OrderStatus, Product } from "../types/databaseTypes";
 import { ProductInShopResponse } from "../types/apiTypes";
+import {
+  validateCartGet,
+  validateCartPut,
+  validateOrdersCreate,
+  validateOrdersList,
+  validateOrdersUpdateStatus,
+} from "../utils/businessLogic";
 
 const cartsContainer = getContainer("carts");
 const ordersContainer = getContainer("orders");
-const shopsContainer = getContainer("shops");
 const productsInShopContainer = getContainer("productsInShop");
 const productsContainer = getContainer("products");
 
@@ -20,15 +26,6 @@ function getActorUserId(request: HttpRequest): string {
 
 function buildCartId(shopId: string, userId: string): string {
   return `${shopId}:${userId}`;
-}
-
-async function readShop(shopId: string): Promise<Shop | undefined> {
-  try {
-    const { resource } = await shopsContainer.item(shopId, shopId).read<Shop>();
-    return resource ?? undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 async function readCart(cartId: string): Promise<Cart | undefined> {
@@ -159,30 +156,25 @@ app.http("cartGet", {
   authLevel: "anonymous",
   route: "shops/{shopId}/cart",
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
-    const { shopId } = request.params;
-    const userId = request.query.get("userId");
-    if (!userId) {
-      return json(400, { message: "userId query parameter is required" });
+    try {
+      const { shopId, userId } = validateCartGet(request);
+      const cartId = buildCartId(shopId, userId);
+      let cart = await readCart(cartId);
+      if (!cart) {
+        cart = {
+          id: cartId,
+          userId,
+          shopId,
+          items: [],
+          updatedAt: nowIso(),
+        };
+        await cartsContainer.items.create(cart);
+      }
+      return json(200, cart);
+    } catch (error: any) {
+      const status = error.status || 500;
+      return { status, body: error.message || "Internal Server Error" };
     }
-
-    const trimmedUserId = userId.trim();
-    if (!trimmedUserId) {
-      return json(400, { message: "userId query parameter is required" });
-    }
-
-    const cartId = buildCartId(shopId, trimmedUserId);
-    let cart = await readCart(cartId);
-    if (!cart) {
-      cart = {
-        id: cartId,
-        userId: trimmedUserId,
-        shopId,
-        items: [],
-        updatedAt: nowIso(),
-      };
-      await cartsContainer.items.create(cart);
-    }
-    return json(200, cart);
   },
 });
 
@@ -192,38 +184,31 @@ app.http("cartPut", {
   authLevel: "anonymous",
   route: "shops/{shopId}/cart",
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
-    const { shopId } = request.params;
-    const payload = (await request.json()) ?? {};
-    if (!payload.userId || typeof payload.userId !== "string") {
-      return json(400, { message: "userId is required" });
-    }
-    const trimmedUserId = payload.userId.trim();
-    if (!trimmedUserId) {
-      return json(400, { message: "userId is required" });
-    }
-    if (!Array.isArray(payload.items)) {
-      return json(400, { message: "items must be an array" });
-    }
-
-    const cartId = buildCartId(shopId, trimmedUserId);
-    const existing = await readCart(cartId);
-    if (existing && existing.shopId !== shopId) {
-      return json(400, { message: "Cart belongs to a different shop" });
-    }
-
     try {
-      const items = await buildCartItemsFromSelection(shopId, payload.items as CartItemRequest[]);
-      const cart: Cart = {
-        id: cartId,
-        userId: trimmedUserId,
-        shopId,
-        items,
-        updatedAt: nowIso(),
-      };
-      await cartsContainer.items.upsert(cart);
-      return json(200, cart);
+      const { shopId, userId, items: requestedItems } = await validateCartPut(request);
+      const cartId = buildCartId(shopId, userId);
+      const existing = await readCart(cartId);
+      if (existing && existing.shopId !== shopId) {
+        return json(400, { message: "Cart belongs to a different shop" });
+      }
+
+      try {
+        const items = await buildCartItemsFromSelection(shopId, requestedItems);
+        const cart: Cart = {
+          id: cartId,
+          userId,
+          shopId,
+          items,
+          updatedAt: nowIso(),
+        };
+        await cartsContainer.items.upsert(cart);
+        return json(200, cart);
+      } catch (error: any) {
+        return json(400, { message: error?.message ?? "Failed to update cart" });
+      }
     } catch (error: any) {
-      return json(400, { message: error?.message ?? "Failed to update cart" });
+      const status = error.status || 500;
+      return { status, body: error.message || "Internal Server Error" };
     }
   },
 });
@@ -234,94 +219,91 @@ app.http("ordersCreate", {
   authLevel: "anonymous",
   route: "shops/{shopId}/orders",
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
-    const { shopId } = request.params;
-    const shop = await readShop(shopId);
-    if (!shop) {
-      return json(404, { message: "Shop not found" });
-    }
+    try {
+      const {
+        shop,
+        shopId,
+        userId,
+        customerName,
+        customerPhone,
+        customerNotes,
+        cartId,
+        items,
+      } = await validateOrdersCreate(request);
 
-    const payload = (await request.json()) ?? {};
-    const rawUserId = typeof payload.userId === "string" ? payload.userId.trim() : "";
-    const customerName: string | undefined =
-      typeof payload.customerName === "string" ? payload.customerName.trim() : undefined;
-    const customerPhone: string | undefined = payload.customerPhone;
-    const customerNotes: string | undefined = payload.customerNotes;
-    if (!rawUserId || !customerName) {
-      return json(400, { message: "userId and customerName are required" });
-    }
-    const userId = rawUserId;
-
-    const shopIsActive = shop.isActive ?? true;
-    const shopAcceptingOrders = shop.acceptingOrders ?? true;
-    const pickupEnabled = shop.fulfillmentOptions?.pickupEnabled ?? true;
-    if (!shopIsActive || !shopAcceptingOrders || !pickupEnabled) {
-      return json(400, { message: "Shop is not accepting orders right now" });
-    }
-    if (userId === "guest" && shop.allowGuestCheckout === false) {
-      return json(400, { message: "Guest checkout is disabled for this shop" });
-    }
-    if (shop.paymentPolicy === "prepaid_only") {
-      return json(400, { message: "This shop currently requires prepaid orders" });
-    }
-    if (!(await isShopOpenNow(shopId))) {
-      return json(400, { message: "Shop is currently closed" });
-    }
-
-    let cartItems: CartItem[] = [];
-    if (payload.cartId) {
-      const cart = await readCart(payload.cartId);
-      if (!cart || cart.shopId !== shopId) {
-        return json(400, { message: "Cart not found for this shop" });
+      const shopIsActive = shop.isActive ?? true;
+      const shopAcceptingOrders = shop.acceptingOrders ?? true;
+      const pickupEnabled = shop.fulfillmentOptions?.pickupEnabled ?? true;
+      if (!shopIsActive || !shopAcceptingOrders || !pickupEnabled) {
+        return json(400, { message: "Shop is not accepting orders right now" });
       }
-      if (cart.userId !== userId) {
-        return json(400, { message: "Cart does not belong to this user" });
+      if (userId === "guest" && shop.allowGuestCheckout === false) {
+        return json(400, { message: "Guest checkout is disabled for this shop" });
       }
-      cartItems = cart.items;
-    } else if (Array.isArray(payload.items)) {
-      try {
-        cartItems = await buildCartItemsFromSelection(shopId, payload.items as CartItemRequest[]);
-      } catch (error: any) {
-        return json(400, { message: error?.message ?? "Invalid order items" });
+      if (shop.paymentPolicy === "prepaid_only") {
+        return json(400, { message: "This shop currently requires prepaid orders" });
       }
-    } else {
-      return json(400, { message: "Provide either cartId or items" });
+      if (!(await isShopOpenNow(shopId))) {
+        return json(400, { message: "Shop is currently closed" });
+      }
+
+      let cartItems: CartItem[] = [];
+      if (cartId) {
+        const cart = await readCart(cartId);
+        if (!cart || cart.shopId !== shopId) {
+          return json(400, { message: "Cart not found for this shop" });
+        }
+        if (cart.userId !== userId) {
+          return json(400, { message: "Cart does not belong to this user" });
+        }
+        cartItems = cart.items;
+      } else if (items) {
+        try {
+          cartItems = await buildCartItemsFromSelection(shopId, items);
+        } catch (error: any) {
+          return json(400, { message: error?.message ?? "Invalid order items" });
+        }
+      }
+
+      if (cartItems.length === 0) {
+        return json(400, { message: "Order must contain at least one item" });
+      }
+
+      const orderItems = convertCartItemsToOrderItems(cartItems);
+      const totalAmount = orderItems.reduce((sum, item) => sum + item.finalUnitPrice * item.quantity, 0);
+      const timestamp = nowIso();
+      const status: OrderStatus = shop.orderAcceptanceMode === "auto" ? "accepted" : "placed";
+
+      const order: Order = {
+        id: newId(),
+        shopId,
+        userId,
+        status,
+        paymentStatus: "unpaid",
+        totalAmount,
+        submittedAt: timestamp,
+        updatedAt: timestamp,
+        customerName,
+        customerPhone,
+        customerNotes,
+        items: orderItems,
+      };
+
+      await ordersContainer.items.create(order);
+      await writeAuditLog({
+        actorUserId: getActorUserId(request),
+        entityType: "order",
+        entityId: order.id,
+        shopId,
+        action: "CREATE",
+        after: order,
+      });
+
+      return json(201, order);
+    } catch (error: any) {
+      const status = error.status || 500;
+      return { status, body: error.message || "Internal Server Error" };
     }
-
-    if (cartItems.length === 0) {
-      return json(400, { message: "Order must contain at least one item" });
-    }
-
-    const orderItems = convertCartItemsToOrderItems(cartItems);
-    const totalAmount = orderItems.reduce((sum, item) => sum + item.finalUnitPrice * item.quantity, 0);
-    const timestamp = nowIso();
-    const status: OrderStatus = shop.orderAcceptanceMode === "auto" ? "accepted" : "placed";
-
-    const order: Order = {
-      id: newId(),
-      shopId,
-      userId,
-      status,
-      paymentStatus: "unpaid",
-      totalAmount,
-      submittedAt: timestamp,
-      updatedAt: timestamp,
-      customerName,
-      customerPhone,
-      customerNotes,
-      items: orderItems,
-    };
-
-    await ordersContainer.items.create(order);
-    await writeAuditLog({
-      actorUserId: getActorUserId(request),
-      entityType: "order",
-      entityId: order.id,
-      shopId,
-      action: "CREATE",
-      after: order,
-    });
-
-    return json(201, order);
   },
 });
 
@@ -331,25 +313,28 @@ app.http("ordersList", {
   authLevel: "anonymous",
   route: "shops/{shopId}/orders",
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
-    const { shopId } = request.params;
-    const statusFilter = request.query.get("status");
-    const statuses = statusFilter ? statusFilter.split(",").map((value) => value.trim()).filter(Boolean) : [];
+    try {
+      const { shopId, statuses } = validateOrdersList(request);
 
-    let query = "SELECT * FROM c WHERE c.shopId = @shopId";
-    const parameters: any[] = [{ name: "@shopId", value: shopId }];
+      let query = "SELECT * FROM c WHERE c.shopId = @shopId";
+      const parameters: any[] = [{ name: "@shopId", value: shopId }];
 
-    if (statuses.length === 1) {
-      query += " AND c.status = @status";
-      parameters.push({ name: "@status", value: statuses[0] });
-    } else if (statuses.length > 1) {
-      query += " AND ARRAY_CONTAINS(@statuses, c.status)";
-      parameters.push({ name: "@statuses", value: statuses });
+      if (statuses.length === 1) {
+        query += " AND c.status = @status";
+        parameters.push({ name: "@status", value: statuses[0] });
+      } else if (statuses.length > 1) {
+        query += " AND ARRAY_CONTAINS(@statuses, c.status)";
+        parameters.push({ name: "@statuses", value: statuses });
+      }
+
+      query += " ORDER BY c.submittedAt DESC";
+
+      const { resources } = await ordersContainer.items.query<Order>({ query, parameters }).fetchAll();
+      return json(200, resources);
+    } catch (error: any) {
+      const status = error.status || 500;
+      return { status, body: error.message || "Internal Server Error" };
     }
-
-    query += " ORDER BY c.submittedAt DESC";
-
-    const { resources } = await ordersContainer.items.query<Order>({ query, parameters }).fetchAll();
-    return json(200, resources);
   },
 });
 
@@ -359,40 +344,32 @@ app.http("ordersUpdateStatus", {
   authLevel: "anonymous",
   route: "shops/{shopId}/orders/{orderId}/status",
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
-    const { shopId, orderId } = request.params;
-    const payload = (await request.json()) ?? {};
-    if (!payload.nextStatus || typeof payload.nextStatus !== "string") {
-      return json(400, { message: "nextStatus is required" });
-    }
-
     try {
-      const { resource } = await ordersContainer.item(orderId, orderId).read<Order>();
-      if (!resource || resource.shopId !== shopId) {
-        return json(404, { message: "Order not found" });
-      }
+      const { shopId, order, nextStatus } = await validateOrdersUpdateStatus(request);
 
-      if (!canTransition(resource.status, payload.nextStatus)) {
-        return json(400, { message: `Cannot change status from ${resource.status} to ${payload.nextStatus}` });
+      if (!canTransition(order.status, nextStatus)) {
+        return json(400, { message: `Cannot change status from ${order.status} to ${nextStatus}` });
       }
 
       const updated: Order = {
-        ...resource,
-        status: payload.nextStatus,
+        ...order,
+        status: nextStatus,
         updatedAt: nowIso(),
       };
       await ordersContainer.items.upsert(updated);
       await writeAuditLog({
         actorUserId: getActorUserId(request),
         entityType: "order",
-        entityId: orderId,
+        entityId: order.id,
         shopId,
         action: "UPDATE_STATUS",
-        before: { status: resource.status },
+        before: { status: order.status },
         after: { status: updated.status },
       });
       return json(200, updated);
-    } catch {
-      return json(404, { message: "Order not found" });
+    } catch (error: any) {
+      const status = error.status || 500;
+      return { status, body: error.message || "Internal Server Error" };
     }
   },
 });
