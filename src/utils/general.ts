@@ -1,13 +1,15 @@
-import { randomUUID } from "crypto";
-import { getContainer } from "../config/cosmosClient";
-import { AuditLog, OrderStatus } from "../types/databaseTypes";
+import { randomUUID } from 'crypto';
+import { getContainer } from '../config/cosmosClient';
+import { AuditLog, OrderStatus } from '../types/databaseTypes';
+import { HttpRequestLike } from '../types/otherTypes';
+type HttpRequest = HttpRequestLike;
 
-const auditLogContainer = getContainer("auditLogs");
+const auditLogContainer = getContainer('auditLogs');
 
 const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  placed: ["accepted", "rejected", "cancelled"],
-  accepted: ["ready_for_pickup", "cancelled"],
-  ready_for_pickup: ["completed"],
+  placed: ['accepted', 'rejected', 'cancelled'],
+  accepted: ['ready_for_pickup', 'cancelled'],
+  ready_for_pickup: ['completed'],
   completed: [],
   cancelled: [],
   rejected: [],
@@ -21,7 +23,10 @@ export function nowIso(): string {
   return new Date().toISOString();
 }
 
-export function canTransition(fromStatus: OrderStatus, toStatus: OrderStatus): boolean {
+export function canTransition(
+  fromStatus: OrderStatus,
+  toStatus: OrderStatus,
+): boolean {
   if (fromStatus === toStatus) {
     return false;
   }
@@ -35,7 +40,9 @@ export async function isShopOpenNow(shopId: string): Promise<boolean> {
   return true;
 }
 
-type AuditLogInput = Omit<AuditLog, "id" | "timestamp"> & { timestamp?: string };
+type AuditLogInput = Omit<AuditLog, 'id' | 'timestamp'> & {
+  timestamp?: string;
+};
 
 export async function writeAuditLog(entry: AuditLogInput): Promise<void> {
   const payload: AuditLog = {
@@ -47,5 +54,6 @@ export async function writeAuditLog(entry: AuditLogInput): Promise<void> {
   await auditLogContainer.items.create(payload);
 }
 
-
-
+export const getActorUserId = (request: HttpRequest): string => {
+  return request.headers.get('x-user-id') ?? 'system';
+};

@@ -8,8 +8,8 @@ type HttpResponseInit = HttpResponseInitLike;
 const { app } = require('@azure/functions');
 import { getContainer } from '../config/cosmosClient';
 import { ProductInShopResponse } from '../types/apiTypes';
-import { newId, nowIso, writeAuditLog } from '../utils/general';
-import { Category, Product } from '../types/databaseTypes';
+import { getActorUserId, newId, nowIso, writeAuditLog } from '../utils/general';
+import { Category, Product, Shop } from '../types/databaseTypes';
 import {
   validateCategoriesList,
   validateCategoryCreate,
@@ -23,9 +23,15 @@ import {
 const productsContainer = getContainer('products');
 const productsInShopContainer = getContainer('productsInShop');
 const categoriesContainer = getContainer('categories');
+const shopsContainer = getContainer('shops');
 
-function getActorUserId(request: HttpRequest): string {
-  return request.headers.get('x-user-id') ?? 'system';
+async function readShop(shopId: string): Promise<Shop | undefined> {
+  try {
+    const { resource } = await shopsContainer.item(shopId, shopId).read<Shop>();
+    return resource ?? undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // POST /products -> create a global catalog product definition
@@ -74,12 +80,16 @@ app.http('productsUpdate', {
   route: 'products/{productId}',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const { product, updates, productId } = await validateProductUpdate(
-        request,
-      );
+      const { productId, updates } = await validateProductUpdate(request);
+      const { resource } = await productsContainer
+        .item(productId, productId)
+        .read<Product>();
+      if (!resource) {
+        return json(404, { message: 'Product not found' });
+      }
 
       const updated: Product = {
-        ...product,
+        ...resource,
         ...updates,
         updatedAt: nowIso(),
       };
@@ -90,7 +100,7 @@ app.http('productsUpdate', {
         entityType: 'product',
         entityId: productId,
         action: 'UPDATE',
-        before: product,
+        before: resource,
         after: updated,
       });
 
@@ -109,9 +119,19 @@ app.http('productsInShopCreate', {
   route: 'shops/{shopId}/products',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const { shop, product, data } = await validateProductInShopCreate(
+      const { shopId, productId, data } = await validateProductInShopCreate(
         request,
       );
+      const shop = await readShop(shopId);
+      if (!shop) {
+        return json(404, { message: 'Shop not found' });
+      }
+      const { resource: product } = await productsContainer
+        .item(productId, productId)
+        .read<Product>();
+      if (!product) {
+        return json(404, { message: 'Product not found' });
+      }
 
       const timestamp = nowIso();
       const record: ProductInShopResponse = {
@@ -151,10 +171,17 @@ app.http('productsInShopUpdate', {
   route: 'shops/{shopId}/products/{productInShopId}',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const { listing, updates } = await validateProductInShopUpdate(request);
+      const { shopId, productInShopId, updates } =
+        await validateProductInShopUpdate(request);
+      const { resource } = await productsInShopContainer
+        .item(productInShopId, productInShopId)
+        .read<ProductInShopResponse>();
+      if (!resource || resource.shopId !== shopId) {
+        return json(404, { message: 'Product listing not found' });
+      }
 
       const updated: ProductInShopResponse = {
-        ...listing,
+        ...resource,
         ...updates,
         updatedAt: nowIso(),
       };
@@ -163,10 +190,10 @@ app.http('productsInShopUpdate', {
       await writeAuditLog({
         actorUserId: getActorUserId(request),
         entityType: 'productInShop',
-        entityId: listing.id,
-        shopId: listing.shopId,
+        entityId: resource.id,
+        shopId: resource.shopId,
         action: 'UPDATE',
-        before: listing,
+        before: resource,
         after: updated,
       });
 
@@ -210,6 +237,10 @@ app.http('categoriesCreate', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const { shopId, data } = await validateCategoryCreate(request);
+      const shop = await readShop(shopId);
+      if (!shop) {
+        return json(404, { message: 'Shop not found' });
+      }
 
       const timestamp = nowIso();
       const category: Category = {
@@ -248,10 +279,17 @@ app.http('categoriesUpdate', {
   route: 'shops/{shopId}/categories/{categoryId}',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const { category, updates } = await validateCategoryUpdate(request);
+      const { shopId, categoryId, updates } =
+        await validateCategoryUpdate(request);
+      const { resource } = await categoriesContainer
+        .item(categoryId, categoryId)
+        .read<Category>();
+      if (!resource || resource.shopId !== shopId) {
+        return json(404, { message: 'Category not found' });
+      }
 
       const updated: Category = {
-        ...category,
+        ...resource,
         ...updates,
         updatedAt: nowIso(),
       };
@@ -260,10 +298,10 @@ app.http('categoriesUpdate', {
       await writeAuditLog({
         actorUserId: getActorUserId(request),
         entityType: 'category',
-        entityId: category.id,
-        shopId: category.shopId,
+        entityId: resource.id,
+        shopId: resource.shopId,
         action: 'UPDATE',
-        before: category,
+        before: resource,
         after: updated,
       });
 

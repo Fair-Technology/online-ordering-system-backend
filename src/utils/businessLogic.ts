@@ -10,7 +10,6 @@ import {
   CreateShopRequest,
   ProductInShopResponse,
   ShopSettingsUpdateRequest,
-  UpdateCategoryRequest,
   UpdateOrderStatusRequest,
   UpdateProductInShopRequest,
   UpdateProductRequest,
@@ -26,10 +25,6 @@ import {
 const usersContainer = getContainer('users');
 const shopsContainer = getContainer('shops');
 const shopMembersContainer = getContainer('shopMembers');
-const productsContainer = getContainer('products');
-const productsInShopContainer = getContainer('productsInShop');
-const categoriesContainer = getContainer('categories');
-const ordersContainer = getContainer('orders');
 
 const DEFAULT_PERMISSIONS = ['manage_products', 'manage_orders'];
 
@@ -172,9 +167,7 @@ function isValidPartialFulfillmentOptions(
   return true;
 }
 
-export async function validateShopCreate(
-  req: HttpRequestLike,
-): Promise<
+export async function validateShopCreate(req: HttpRequestLike): Promise<
   Partial<CreateShopRequest> & {
     name: string;
     address: string;
@@ -386,7 +379,10 @@ export async function validateShopHoursUpsert(req: HttpRequestLike) {
   ) {
     throw new ValidationError('weekly schedule is required');
   }
-  return { shopId, payload: { timezone: payload.timezone.trim(), weekly: payload.weekly } };
+  return {
+    shopId,
+    payload: { timezone: payload.timezone.trim(), weekly: payload.weekly },
+  };
 }
 
 export async function validateUsersManagedShops(
@@ -439,13 +435,6 @@ export async function validateProductCreate(req: HttpRequestLike) {
 
 export async function validateProductUpdate(req: HttpRequestLike) {
   const productId = getRouteParam(req, 'productId');
-  const { resource } = await productsContainer
-    .item(productId, productId)
-    .read<Product>();
-  if (!resource) {
-    throw new ValidationError('Product not found', 404);
-  }
-
   const payload = ((await req.json().catch(() => null)) ??
     {}) as UpdateProductRequest;
   const updates: Partial<Product> = {};
@@ -485,11 +474,11 @@ export async function validateProductUpdate(req: HttpRequestLike) {
     throw new ValidationError('No updatable fields provided');
   }
 
-  return { product: resource, updates, productId };
+  return { productId, updates };
 }
 
 export async function validateProductInShopCreate(req: HttpRequestLike) {
-  const shop = await getShopOrThrow(getRouteParam(req, 'shopId'));
+  const shopId = getRouteParam(req, 'shopId');
   const payload = (await req
     .json()
     .catch(() => null)) as Partial<CreateProductInShopRequest> | null;
@@ -498,13 +487,6 @@ export async function validateProductInShopCreate(req: HttpRequestLike) {
   }
   if (!payload.productId || typeof payload.productId !== 'string') {
     throw new ValidationError('productId is required');
-  }
-  const productId = payload.productId.trim();
-  const { resource: product } = await productsContainer
-    .item(productId, productId)
-    .read<Product>();
-  if (!product) {
-    throw new ValidationError('Product not found', 404);
   }
   if (
     payload.isAvailable === undefined ||
@@ -517,10 +499,9 @@ export async function validateProductInShopCreate(req: HttpRequestLike) {
   }
 
   return {
-    shop,
-    product,
+    shopId,
+    productId: payload.productId.trim(),
     data: {
-      productId: product.id,
       priceOverride:
         payload.priceOverride !== undefined
           ? Number(payload.priceOverride)
@@ -536,13 +517,6 @@ export async function validateProductInShopCreate(req: HttpRequestLike) {
 export async function validateProductInShopUpdate(req: HttpRequestLike) {
   const shopId = getRouteParam(req, 'shopId');
   const listingId = getRouteParam(req, 'productInShopId');
-  const { resource } = await productsInShopContainer
-    .item(listingId, listingId)
-    .read<ProductInShopResponse>();
-  if (!resource || resource.shopId !== shopId) {
-    throw new ValidationError('Product listing not found', 404);
-  }
-
   const payload = ((await req.json().catch(() => null)) ??
     {}) as UpdateProductInShopRequest;
   const updates: Partial<ProductInShopResponse> = {};
@@ -570,16 +544,16 @@ export async function validateProductInShopUpdate(req: HttpRequestLike) {
     throw new ValidationError('No updatable fields provided');
   }
 
-  return { listing: resource, updates };
+  return { shopId, productInShopId: listingId, updates };
 }
 
 export async function validateCategoriesList(req: HttpRequestLike) {
-  const shop = await getShopOrThrow(getRouteParam(req, 'shopId'));
-  return { shopId: shop.id };
+  const shopId = getRouteParam(req, 'shopId');
+  return { shopId };
 }
 
 export async function validateCategoryCreate(req: HttpRequestLike) {
-  const shop = await getShopOrThrow(getRouteParam(req, 'shopId'));
+  const shopId = getRouteParam(req, 'shopId');
   const payload = (await req
     .json()
     .catch(() => null)) as Partial<CreateCategoryRequest> | null;
@@ -591,7 +565,7 @@ export async function validateCategoryCreate(req: HttpRequestLike) {
   }
 
   return {
-    shopId: shop.id,
+    shopId,
     data: {
       name: payload.name.trim(),
       description:
@@ -608,13 +582,6 @@ export async function validateCategoryCreate(req: HttpRequestLike) {
 export async function validateCategoryUpdate(req: HttpRequestLike) {
   const shopId = getRouteParam(req, 'shopId');
   const categoryId = getRouteParam(req, 'categoryId');
-  const { resource } = await categoriesContainer
-    .item(categoryId, categoryId)
-    .read<Category>();
-  if (!resource || resource.shopId !== shopId) {
-    throw new ValidationError('Category not found', 404);
-  }
-
   const payload = (await req.json().catch(() => null)) ?? {};
   const updates: Partial<Category> = {};
 
@@ -641,7 +608,7 @@ export async function validateCategoryUpdate(req: HttpRequestLike) {
     throw new ValidationError('No updatable fields provided');
   }
 
-  return { category: resource, updates };
+  return { shopId, categoryId, updates };
 }
 
 export function validateCartGet(req: HttpRequestLike) {
@@ -652,9 +619,7 @@ export function validateCartGet(req: HttpRequestLike) {
 
 export async function validateCartPut(req: HttpRequestLike) {
   const shopId = getRouteParam(req, 'shopId');
-  const payload = (await req
-    .json()
-    .catch(() => null)) as Partial<{
+  const payload = (await req.json().catch(() => null)) as Partial<{
     userId: string;
     items: CartItemRequest[];
   }> | null;
@@ -676,7 +641,7 @@ export async function validateCartPut(req: HttpRequestLike) {
 }
 
 export async function validateOrdersCreate(req: HttpRequestLike) {
-  const shop = await getShopOrThrow(getRouteParam(req, 'shopId'));
+  const shopId = getRouteParam(req, 'shopId');
   const payload = (await req
     .json()
     .catch(() => null)) as Partial<CreateOrderRequest> | null;
@@ -687,9 +652,7 @@ export async function validateOrdersCreate(req: HttpRequestLike) {
   const userId =
     typeof payload.userId === 'string' ? payload.userId.trim() : '';
   const customerName =
-    typeof payload.customerName === 'string'
-      ? payload.customerName.trim()
-      : '';
+    typeof payload.customerName === 'string' ? payload.customerName.trim() : '';
 
   if (!userId || !customerName) {
     throw new ValidationError('userId and customerName are required');
@@ -708,13 +671,16 @@ export async function validateOrdersCreate(req: HttpRequestLike) {
   }
 
   const customerPhone =
-    typeof payload.customerPhone === 'string' ? payload.customerPhone : undefined;
+    typeof payload.customerPhone === 'string'
+      ? payload.customerPhone
+      : undefined;
   const customerNotes =
-    typeof payload.customerNotes === 'string' ? payload.customerNotes : undefined;
+    typeof payload.customerNotes === 'string'
+      ? payload.customerNotes
+      : undefined;
 
   return {
-    shop,
-    shopId: shop.id,
+    shopId,
     userId,
     customerName,
     customerPhone,
@@ -749,12 +715,5 @@ export async function validateOrdersUpdateStatus(req: HttpRequestLike) {
     throw new ValidationError('nextStatus is required');
   }
 
-  const { resource } = await ordersContainer
-    .item(orderId, orderId)
-    .read<Order>();
-  if (!resource || resource.shopId !== shopId) {
-    throw new ValidationError('Order not found', 404);
-  }
-
-  return { shopId, order: resource, nextStatus: payload.nextStatus };
+  return { shopId, orderId, nextStatus: payload.nextStatus };
 }
