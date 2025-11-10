@@ -164,14 +164,6 @@ export interface CartItem {
   quantity: number;
 }
 
-export interface Cart {
-  id: string;
-  userId: string; // can be "guest"
-  shopId: string;
-  items: CartItem[];
-  updatedAt: string;
-}
-
 export interface CartItemRequest {
   productId: string;
   productVariantId: string;

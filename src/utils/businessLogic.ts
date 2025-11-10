@@ -45,10 +45,15 @@ export async function validateUserCreate(req: HttpRequestLike) {
     throw new ValidationError('Id is missing', 400);
   }
   const itemRef = usersContainer.item(body.id);
-  const existing = await itemRef.read();
-  console.log(existing);
-  if (existing) {
-    throw new ValidationError('User already existttt', 400);
+  const existing = await itemRef.read().catch((error: any) => {
+    const status = error?.statusCode ?? error?.code ?? error?.status;
+    if (status === 404) {
+      return { resource: undefined };
+    }
+    throw error;
+  });
+  if (existing?.resource) {
+    throw new ValidationError('User already exists', 400);
   }
 
   return body;
@@ -75,19 +80,6 @@ function getRouteParam(
     throw new ValidationError(`${friendlyName} is required`, 400);
   }
   return value.trim();
-}
-
-function getQueryParam(
-  req: HttpRequestLike,
-  name: string,
-  friendlyName = name,
-): string {
-  const value = req.query?.get(name) ?? '';
-  const trimmed = value.trim();
-  if (!trimmed) {
-    throw new ValidationError(`${friendlyName} is required`, 400);
-  }
-  return trimmed;
 }
 
 function sanitizeStringArray(value: unknown): string[] {
@@ -611,35 +603,6 @@ export async function validateCategoryUpdate(req: HttpRequestLike) {
   return { shopId, categoryId, updates };
 }
 
-export function validateCartGet(req: HttpRequestLike) {
-  const shopId = getRouteParam(req, 'shopId');
-  const userId = getQueryParam(req, 'userId', 'userId query parameter');
-  return { shopId, userId };
-}
-
-export async function validateCartPut(req: HttpRequestLike) {
-  const shopId = getRouteParam(req, 'shopId');
-  const payload = (await req.json().catch(() => null)) as Partial<{
-    userId: string;
-    items: CartItemRequest[];
-  }> | null;
-  if (!payload || typeof payload !== 'object') {
-    throw new ValidationError('Invalid request body');
-  }
-  if (!payload.userId || typeof payload.userId !== 'string') {
-    throw new ValidationError('userId is required');
-  }
-  const userId = payload.userId.trim();
-  if (!userId) {
-    throw new ValidationError('userId is required');
-  }
-  if (!Array.isArray(payload.items)) {
-    throw new ValidationError('items must be an array');
-  }
-
-  return { shopId, userId, items: payload.items as CartItemRequest[] };
-}
-
 export async function validateOrdersCreate(req: HttpRequestLike) {
   const shopId = getRouteParam(req, 'shopId');
   const payload = (await req
@@ -658,17 +621,10 @@ export async function validateOrdersCreate(req: HttpRequestLike) {
     throw new ValidationError('userId and customerName are required');
   }
 
-  const cartId =
-    typeof payload.cartId === 'string' && payload.cartId.trim().length > 0
-      ? payload.cartId.trim()
-      : undefined;
-  const items = Array.isArray(payload.items)
-    ? (payload.items as CartItemRequest[])
-    : undefined;
-
-  if (!cartId && !items) {
-    throw new ValidationError('Provide either cartId or items');
+  if (!Array.isArray(payload.items) || payload.items.length === 0) {
+    throw new ValidationError('items must be a non-empty array');
   }
+  const items = payload.items as CartItemRequest[];
 
   const customerPhone =
     typeof payload.customerPhone === 'string'
@@ -685,7 +641,6 @@ export async function validateOrdersCreate(req: HttpRequestLike) {
     customerName,
     customerPhone,
     customerNotes,
-    cartId,
     items,
   };
 }

@@ -252,35 +252,11 @@ export interface CartItemAddonSnapshot {
   priceDeltaSnapshot: number;
 }
 
-export interface CartItemSnapshot {
-  productId: string;
-  productVariantId: string;
-  productNameSnapshot: string;
-  variantLabelSnapshot: string;
-  unitBasePriceSnapshot: number;
-  addons: CartItemAddonSnapshot[];
-  finalUnitPrice: number;
-  quantity: number;
-}
-
 export interface CartItemRequest {
   productId: string;
   productVariantId: string;
   quantity: number;
   addonOptionIds?: string[];
-}
-
-export interface CartResponse {
-  id: string;
-  userId: string;
-  shopId: string;
-  items: CartItemSnapshot[];
-  updatedAt: string;
-}
-
-export interface UpdateCartRequest {
-  userId: string;
-  items: CartItemRequest[];
 }
 
 // Order queue payloads
@@ -314,8 +290,7 @@ export interface CreateOrderRequest {
   customerName: string;
   customerPhone?: string;
   customerNotes?: string;
-  cartId?: string;
-  items?: CartItemRequest[];
+  items: CartItemRequest[];
 }
 
 export interface ListOrdersQuery {

@@ -8,7 +8,6 @@ const requiredContainers = [
   "categories",
   "products",
   "productsInShop",
-  "carts",
   "orders",
   "auditLogs",
 ];

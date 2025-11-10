@@ -17,7 +17,6 @@ import {
   writeAuditLog,
 } from '../utils/general';
 import {
-  Cart,
   CartItem,
   CartItemRequest,
   Order,
@@ -28,35 +27,19 @@ import {
 } from '../types/databaseTypes';
 import { ProductInShopResponse } from '../types/apiTypes';
 import {
-  validateCartGet,
-  validateCartPut,
   validateOrdersCreate,
   validateOrdersList,
   validateOrdersUpdateStatus,
 } from '../utils/businessLogic';
 
-const cartsContainer = getContainer('carts');
 const ordersContainer = getContainer('orders');
 const productsInShopContainer = getContainer('productsInShop');
 const productsContainer = getContainer('products');
 const shopsContainer = getContainer('shops');
 
-function buildCartId(shopId: string, userId: string): string {
-  return `${shopId}:${userId}`;
-}
-
 async function readShop(shopId: string): Promise<Shop | undefined> {
   try {
     const { resource } = await shopsContainer.item(shopId, shopId).read<Shop>();
-    return resource ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-async function readCart(cartId: string): Promise<Cart | undefined> {
-  try {
-    const { resource } = await cartsContainer.item(cartId, cartId).read<Cart>();
     return resource ?? undefined;
   } catch {
     return undefined;
@@ -202,75 +185,6 @@ function convertCartItemsToOrderItems(items: CartItem[]): OrderItem[] {
   }));
 }
 
-// GET /shops/{shopId}/cart -> fetch or initialize the user's cart for that shop
-app.http('cartGet', {
-  methods: ['GET'],
-  authLevel: 'anonymous',
-  route: 'shops/{shopId}/cart',
-  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
-    try {
-      const { shopId, userId } = validateCartGet(request);
-      const cartId = buildCartId(shopId, userId);
-      let cart = await readCart(cartId);
-      if (!cart) {
-        cart = {
-          id: cartId,
-          userId,
-          shopId,
-          items: [],
-          updatedAt: nowIso(),
-        };
-        await cartsContainer.items.create(cart);
-      }
-      return json(200, cart);
-    } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
-    }
-  },
-});
-
-// PUT /shops/{shopId}/cart -> replace the cart with validated items
-app.http('cartPut', {
-  methods: ['PUT'],
-  authLevel: 'anonymous',
-  route: 'shops/{shopId}/cart',
-  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
-    try {
-      const {
-        shopId,
-        userId,
-        items: requestedItems,
-      } = await validateCartPut(request);
-      const cartId = buildCartId(shopId, userId);
-      const existing = await readCart(cartId);
-      if (existing && existing.shopId !== shopId) {
-        return json(400, { message: 'Cart belongs to a different shop' });
-      }
-
-      try {
-        const items = await buildCartItemsFromSelection(shopId, requestedItems);
-        const cart: Cart = {
-          id: cartId,
-          userId,
-          shopId,
-          items,
-          updatedAt: nowIso(),
-        };
-        await cartsContainer.items.upsert(cart);
-        return json(200, cart);
-      } catch (error: any) {
-        return json(400, {
-          message: error?.message ?? 'Failed to update cart',
-        });
-      }
-    } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
-    }
-  },
-});
-
 // POST /shops/{shopId}/orders -> place an order after validating shop/business rules
 app.http('ordersCreate', {
   methods: ['POST'],
@@ -284,7 +198,6 @@ app.http('ordersCreate', {
         customerName,
         customerPhone,
         customerNotes,
-        cartId,
         items,
       } = await validateOrdersCreate(request);
       const shop = await readShop(shopId);
@@ -313,23 +226,12 @@ app.http('ordersCreate', {
       }
 
       let cartItems: CartItem[] = [];
-      if (cartId) {
-        const cart = await readCart(cartId);
-        if (!cart || cart.shopId !== shopId) {
-          return json(400, { message: 'Cart not found for this shop' });
-        }
-        if (cart.userId !== userId) {
-          return json(400, { message: 'Cart does not belong to this user' });
-        }
-        cartItems = cart.items;
-      } else if (items) {
-        try {
-          cartItems = await buildCartItemsFromSelection(shopId, items);
-        } catch (error: any) {
-          return json(400, {
-            message: error?.message ?? 'Invalid order items',
-          });
-        }
+      try {
+        cartItems = await buildCartItemsFromSelection(shopId, items);
+      } catch (error: any) {
+        return json(400, {
+          message: error?.message ?? 'Invalid order items',
+        });
       }
 
       if (cartItems.length === 0) {
