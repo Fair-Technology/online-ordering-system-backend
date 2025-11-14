@@ -41,13 +41,13 @@ app.http('shopMembersListAll', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const shopId = request.query.get('shopId')?.trim();
-      let query = 'SELECT * FROM c';
-      const parameters: any[] = [];
+      let query = 'SELECT * FROM c WHERE c.kind = @kind';
+      const parameters: any[] = [{ name: '@kind', value: 'association' }];
       if (shopId) {
-        query += ' WHERE c.shopId = @shopId';
+        query += ' AND c.shopId = @shopId';
         parameters.push({ name: '@shopId', value: shopId });
       }
-      query += ' ORDER BY c.addedAt DESC';
+      query += ' ORDER BY c.createdAt DESC';
 
       const { resources } = await shopMembersContainer.items
         .query<ShopMember>({ query, parameters })
@@ -102,14 +102,18 @@ app.http('shopMembersCreateGeneral', {
         return missingField('userId');
       }
 
+      const timestamp = nowIso();
       const member: ShopMember = {
         id: newId(),
+        kind: 'association',
         shopId: body.shopId.trim(),
         userId: body.userId.trim(),
         role: body.role ?? 'staff',
         permissions: normalizePermissions(body.permissions),
         isActive: body.isActive ?? true,
-        addedAt: nowIso(),
+        invitationStatus: body.invitationStatus ?? 'accepted',
+        createdAt: timestamp,
+        updatedAt: timestamp,
       };
 
       await shopMembersContainer.items.create(member);
@@ -148,6 +152,7 @@ app.http('shopMembersUpdateGeneral', {
           updates.permissions !== undefined
             ? normalizePermissions(updates.permissions)
             : resource.permissions,
+        updatedAt: nowIso(),
       };
 
       await shopMembersContainer.items.upsert(updated);

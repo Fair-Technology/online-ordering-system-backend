@@ -1,32 +1,48 @@
+import { randomUUID } from 'crypto';
 import { getContainer } from '../config/cosmosClient';
 import { HttpRequestLike } from '../types/otherTypes';
-import { UserCreatePayload } from '../types/payloadTypes';
 import {
-  CartItemRequest,
+  CatalogAddonGroupPayload,
+  CatalogVariantGroupPayload,
+  CreateCatalogProductRequest,
   CreateCategoryRequest,
   CreateOrderRequest,
-  CreateProductInShopRequest,
-  CreateProductRequest,
+  CreateShopCatalogEntryRequest,
   CreateShopRequest,
-  ProductInShopResponse,
-  ShopSettingsUpdateRequest,
+  MoneyInput,
+  OrderItemPayload,
+  ShopHoursPayload,
+  ShopMemberInvitePayload,
+  ShopMemberUpdatePayload,
+  ShopSettingsPayload,
+  UpdateCatalogProductRequest,
+  UpdateCategoryRequest,
   UpdateOrderStatusRequest,
-  UpdateProductInShopRequest,
-  UpdateProductRequest,
-} from '../types/apiTypes-old';
+  UpdateShopRequest,
+  UserCreatePayload,
+} from '../types/payloadTypes';
 import {
+  CatalogAddonGroup,
+  CatalogAddonOption,
+  CatalogProduct,
+  CatalogVariant,
+  CatalogVariantGroup,
   Category,
+  FulfillmentOptions,
+  Money,
   Order,
-  Product,
   Shop,
+  ShopCatalogEntry,
+  ShopHours,
   ShopMember,
 } from '../types/databaseTypes';
 
 const usersContainer = getContainer('users');
 const shopsContainer = getContainer('shops');
 const shopMembersContainer = getContainer('shopMembers');
-
-const DEFAULT_PERMISSIONS = ['manage_products', 'manage_orders'];
+const catalogProductsContainer = getContainer('products');
+const shopCatalogEntriesContainer = getContainer('productsInShop');
+const categoriesContainer = getContainer('categories');
 
 export class ValidationError extends Error {
   status: number;
@@ -36,41 +52,37 @@ export class ValidationError extends Error {
   }
 }
 
-export async function validateUserCreate(req: HttpRequestLike) {
-  const body: UserCreatePayload = await req.json().catch(() => null);
-  if (!body) {
-    throw new ValidationError('Body is missing', 400);
-  }
-  if (!body.id) {
-    throw new ValidationError('Id is missing', 400);
-  }
-  const itemRef = usersContainer.item(body.id);
-  const existing = await itemRef.read().catch((error: any) => {
-    const status = error?.statusCode ?? error?.code ?? error?.status;
-    if (status === 404) {
-      return { resource: undefined };
+type CatalogProductDraft = Omit<
+  CatalogProduct,
+  'id' | 'kind' | 'createdAt' | 'updatedAt'
+>;
+
+type ShopDraft = Omit<Shop, 'id' | 'kind' | 'createdAt' | 'updatedAt'> & {
+  ownerUserId: string;
+};
+
+async function readJson<T>(req: HttpRequestLike): Promise<T | null> {
+  return (await req.json().catch(() => null)) as T | null;
+}
+
+function ensureString(
+  value: unknown,
+  message: string,
+  required = true,
+): string | undefined {
+  if (value === undefined || value === null) {
+    if (required) {
+      throw new ValidationError(message);
     }
-    throw error;
-  });
-  if (existing?.resource) {
-    throw new ValidationError('User already exists', 400);
+    return undefined;
   }
-
-  return body;
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new ValidationError(message);
+  }
+  return value.trim();
 }
 
-// Validate request for GET /users/{userId} and return the user resource if found.
-export async function validateUsersGetById(req: HttpRequestLike) {
-  const userId = req.params?.userId ?? null;
-  if (!userId || typeof userId !== 'string' || userId.trim() === '') {
-    throw new ValidationError('userId is required', 400);
-  }
-
-  // validation only: return true and let the caller perform the DB read
-  return true;
-}
-
-function getRouteParam(
+function requireRouteParam(
   req: HttpRequestLike,
   name: string,
   friendlyName = name,
@@ -82,13 +94,25 @@ function getRouteParam(
   return value.trim();
 }
 
-function sanitizeStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
+function toMoney(
+  input: MoneyInput | undefined,
+  fallbackCurrency = 'USD',
+  message = 'amount must be provided',
+): Money | undefined {
+  if (input === undefined) {
+    return undefined;
   }
-  return value
-    .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
-    .filter((entry) => entry.length > 0);
+  if (
+    typeof input !== 'object' ||
+    typeof input.amount !== 'number' ||
+    Number.isNaN(input.amount)
+  ) {
+    throw new ValidationError(message);
+  }
+  return {
+    amount: Number(input.amount),
+    currency: input.currency ?? fallbackCurrency,
+  };
 }
 
 async function getShopOrThrow(shopId: string): Promise<Shop> {
@@ -99,576 +123,496 @@ async function getShopOrThrow(shopId: string): Promise<Shop> {
   return resource;
 }
 
-function resolvePermissions(input: unknown): string[] {
-  if (!Array.isArray(input)) {
-    return DEFAULT_PERMISSIONS;
-  }
-  const sanitized = input.filter(
-    (perm) => typeof perm === 'string' && perm.length > 0,
-  );
-  return sanitized.length > 0 ? sanitized : DEFAULT_PERMISSIONS;
-}
-
-function isValidFulfillmentOptions(
-  value: any,
-): value is CreateShopRequest['fulfillmentOptions'] {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  if (
-    typeof value.pickupEnabled !== 'boolean' ||
-    typeof value.deliveryEnabled !== 'boolean'
-  ) {
-    return false;
-  }
-  if (
-    value.deliveryRadiusKm !== undefined &&
-    typeof value.deliveryRadiusKm !== 'number'
-  ) {
-    return false;
-  }
-  if (
-    value.deliveryFee !== undefined &&
-    typeof value.deliveryFee !== 'number'
-  ) {
-    return false;
-  }
-  return true;
-}
-
-function isValidPartialFulfillmentOptions(
-  value: any,
-): value is Partial<CreateShopRequest['fulfillmentOptions']> {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  const { pickupEnabled, deliveryEnabled, deliveryRadiusKm, deliveryFee } =
-    value;
-  if (pickupEnabled !== undefined && typeof pickupEnabled !== 'boolean') {
-    return false;
-  }
-  if (deliveryEnabled !== undefined && typeof deliveryEnabled !== 'boolean') {
-    return false;
-  }
-  if (deliveryRadiusKm !== undefined && typeof deliveryRadiusKm !== 'number') {
-    return false;
-  }
-  if (deliveryFee !== undefined && typeof deliveryFee !== 'number') {
-    return false;
-  }
-  return true;
-}
-
-export async function validateShopCreate(req: HttpRequestLike): Promise<
-  Partial<CreateShopRequest> & {
-    name: string;
-    address: string;
-    ownerUserId: string;
-  }
-> {
-  const payload = (await req
-    .json()
-    .catch(() => null)) as Partial<CreateShopRequest> | null;
+export async function validateUserCreate(
+  req: HttpRequestLike,
+): Promise<UserCreatePayload> {
+  const payload = await readJson<UserCreatePayload>(req);
   if (!payload || typeof payload !== 'object') {
-    throw new ValidationError('Invalid request body');
+    throw new ValidationError('Invalid body');
   }
-  if (!isValidFulfillmentOptions(payload.fulfillmentOptions ?? {})) {
-    payload.fulfillmentOptions = {
-      pickupEnabled: payload.fulfillmentOptions?.pickupEnabled ?? true,
-      deliveryEnabled: payload.fulfillmentOptions?.deliveryEnabled ?? false,
-      deliveryRadiusKm: payload.fulfillmentOptions?.deliveryRadiusKm,
-      deliveryFee: payload.fulfillmentOptions?.deliveryFee,
-    };
+  const id = ensureString(payload.id, 'id is required');
+  if (!id) throw new ValidationError('id is required');
+
+  const existing = await usersContainer
+    .item(id, id)
+    .read()
+    .catch((error: any) => {
+      const status = error?.statusCode ?? error?.code ?? error?.status;
+      if (status === 404) {
+        return { resource: undefined };
+      }
+      throw error;
+    });
+  if (existing.resource) {
+    throw new ValidationError('User already exists');
   }
-  const { name, address, ownerUserId } = payload;
-  if (!name || typeof name !== 'string') {
-    throw new ValidationError('name is required');
+  return {
+    id,
+    primaryEmail: payload.primaryEmail?.trim(),
+    roles: Array.isArray(payload.roles) ? payload.roles : undefined,
+  };
+}
+
+export async function validateUsersGetById(req: HttpRequestLike) {
+  const userId = requireRouteParam(req, 'userId');
+  void userId;
+  return true;
+}
+
+export async function validateShopCreate(
+  req: HttpRequestLike,
+): Promise<ShopDraft> {
+  const payload = await readJson<CreateShopRequest>(req);
+  if (!payload) {
+    throw new ValidationError('Invalid body');
   }
-  if (!address || typeof address !== 'string') {
-    throw new ValidationError('address is required');
-  }
-  if (!ownerUserId || typeof ownerUserId !== 'string') {
-    throw new ValidationError('ownerUserId is required');
-  }
+  const ownerUserId = ensureString(
+    payload.ownerUserId,
+    'ownerUserId is required',
+  );
+  const name = ensureString(payload.name, 'name is required');
+  const currency = ensureString(
+    payload.defaultCurrency ?? 'USD',
+    'defaultCurrency is required',
+  );
+
+  const rawFulfillment = payload.fulfillmentOptions ?? {};
+  const fulfillmentOptions: FulfillmentOptions = {
+    pickupEnabled: rawFulfillment.pickupEnabled ?? true,
+    deliveryEnabled: rawFulfillment.deliveryEnabled ?? false,
+    deliveryRadiusKm: rawFulfillment.deliveryRadiusKm,
+    deliveryFee: rawFulfillment.deliveryFee,
+    leadTimeMinutes: rawFulfillment.leadTimeMinutes,
+  };
 
   return {
-    ...payload,
-    name: name.trim(),
-    address: address.trim(),
-    ownerUserId: ownerUserId.trim(),
+    ownerUserId: ownerUserId!,
+    name: name!,
+    legalName: payload.legalName,
+    address: payload.address,
+    timezone: payload.timezone,
+    status: payload.status ?? 'draft',
+    acceptingOrders: payload.acceptingOrders ?? true,
+    paymentPolicy: payload.paymentPolicy ?? 'pay_on_pickup',
+    orderAcceptanceMode: payload.orderAcceptanceMode ?? 'manual',
+    allowGuestCheckout: payload.allowGuestCheckout ?? true,
+    fulfillmentOptions,
+    defaultCurrency: currency!,
   };
 }
 
 export async function validateShopGetById(req: HttpRequestLike) {
-  const shopId = getRouteParam(req, 'shopId');
+  const shopId = requireRouteParam(req, 'shopId');
   return getShopOrThrow(shopId);
 }
 
-export async function validateShopUpdate(req: HttpRequestLike) {
+export async function validateShopUpdate(
+  req: HttpRequestLike,
+): Promise<{ shop: Shop; updates: UpdateShopRequest }> {
   const shop = await validateShopGetById(req);
-  const payload = ((await req.json().catch(() => null)) ??
-    {}) as ShopSettingsUpdateRequest;
-  const updates: Partial<Shop> = {};
-
-  if (payload.status !== undefined) {
-    if (
-      typeof payload.status !== 'string' ||
-      !['open', 'closed'].includes(payload.status)
-    ) {
-      throw new ValidationError("status must be 'open' or 'closed'");
-    }
-    updates.status = payload.status;
-  }
-  if (payload.acceptingOrders !== undefined) {
-    if (typeof payload.acceptingOrders !== 'boolean') {
-      throw new ValidationError('acceptingOrders must be a boolean');
-    }
-    updates.acceptingOrders = payload.acceptingOrders;
-  }
-  if (payload.paymentPolicy !== undefined) {
-    if (
-      typeof payload.paymentPolicy !== 'string' ||
-      !['pay_on_pickup', 'prepaid_only'].includes(payload.paymentPolicy)
-    ) {
-      throw new ValidationError(
-        'paymentPolicy must be pay_on_pickup or prepaid_only',
-      );
-    }
-    updates.paymentPolicy = payload.paymentPolicy;
-  }
-  if (payload.orderAcceptanceMode !== undefined) {
-    if (
-      typeof payload.orderAcceptanceMode !== 'string' ||
-      !['manual', 'auto'].includes(payload.orderAcceptanceMode)
-    ) {
-      throw new ValidationError('orderAcceptanceMode must be manual or auto');
-    }
-    updates.orderAcceptanceMode = payload.orderAcceptanceMode;
-  }
-  if (payload.allowGuestCheckout !== undefined) {
-    if (typeof payload.allowGuestCheckout !== 'boolean') {
-      throw new ValidationError('allowGuestCheckout must be a boolean');
-    }
-    updates.allowGuestCheckout = payload.allowGuestCheckout;
-  }
-  if (payload.fulfillmentOptions !== undefined) {
-    if (!isValidPartialFulfillmentOptions(payload.fulfillmentOptions)) {
-      throw new ValidationError('fulfillmentOptions must be an object');
-    }
-    updates.fulfillmentOptions = {
-      ...shop.fulfillmentOptions,
-      ...payload.fulfillmentOptions,
-    };
-  }
-  if (payload.isActive !== undefined) {
-    if (typeof payload.isActive !== 'boolean') {
-      throw new ValidationError('isActive must be a boolean');
-    }
-    updates.isActive = payload.isActive;
-  }
-
-  if (Object.keys(updates).length === 0) {
-    throw new ValidationError('No updatable fields provided');
-  }
-
-  return { shop, updates };
+  const payload = (await readJson<UpdateShopRequest>(req)) ?? {};
+  return { shop, updates: payload };
 }
 
 export async function validateShopMembersList(req: HttpRequestLike) {
-  const shop = await getShopOrThrow(getRouteParam(req, 'shopId'));
-  return { shopId: shop.id };
+  const shopId = requireRouteParam(req, 'shopId');
+  await getShopOrThrow(shopId);
+  return { shopId };
 }
 
-export async function validateShopMembersCreate(req: HttpRequestLike) {
-  const shop = await getShopOrThrow(getRouteParam(req, 'shopId'));
-  const body = (await req.json().catch(() => null)) ?? {};
-  if (!body || typeof body !== 'object') {
-    throw new ValidationError('Body is required');
+export async function validateShopMembersCreate(
+  req: HttpRequestLike,
+): Promise<{ shopId: string; payload: ShopMemberInvitePayload }> {
+  const shopId = requireRouteParam(req, 'shopId');
+  await getShopOrThrow(shopId);
+  const payload = await readJson<ShopMemberInvitePayload>(req);
+  if (!payload) {
+    throw new ValidationError('Invalid body');
   }
-  if (!body.userId || typeof body.userId !== 'string') {
-    throw new ValidationError('userId is required');
-  }
-  if (!body.role || typeof body.role !== 'string') {
+  const userId = ensureString(payload.userId, 'userId is required');
+  if (!userId) throw new ValidationError('userId is required');
+  if (!payload.role) {
     throw new ValidationError('role is required');
   }
-  if (!['admin', 'staff'].includes(body.role)) {
-    throw new ValidationError("role must be 'admin' or 'staff'");
-  }
-  if (body.isActive !== undefined && typeof body.isActive !== 'boolean') {
-    throw new ValidationError('isActive must be a boolean');
-  }
-
   return {
-    shopId: shop.id,
-    member: {
-      userId: body.userId.trim(),
-      role: body.role,
-      permissions: resolvePermissions(body.permissions),
-      isActive: body.isActive ?? true,
+    shopId,
+    payload: {
+      userId,
+      role: payload.role,
+      permissions:
+        Array.isArray(payload.permissions) && payload.permissions.length > 0
+          ? payload.permissions
+          : ['manage_catalog', 'manage_orders'],
     },
   };
 }
 
-export async function validateShopMembersUpdate(req: HttpRequestLike) {
-  const shopId = getRouteParam(req, 'shopId');
-  const memberId = getRouteParam(req, 'memberId');
+export async function validateShopMembersUpdate(
+  req: HttpRequestLike,
+): Promise<{ member: ShopMember; updates: ShopMemberUpdatePayload }> {
+  const shopId = requireRouteParam(req, 'shopId');
+  const memberId = requireRouteParam(req, 'memberId');
+  await getShopOrThrow(shopId);
   const { resource } = await shopMembersContainer
     .item(memberId, memberId)
     .read<ShopMember>();
   if (!resource || resource.shopId !== shopId) {
     throw new ValidationError('Member not found', 404);
   }
-
-  const body = (await req.json().catch(() => null)) ?? {};
-  if (!body || typeof body !== 'object') {
-    throw new ValidationError('Body is required');
-  }
-
-  const updates: Partial<ShopMember> = {};
-  if (body.role !== undefined) {
-    if (typeof body.role !== 'string') {
-      throw new ValidationError('role must be owner, admin, or staff');
-    }
-    if (!['owner', 'admin', 'staff'].includes(body.role)) {
-      throw new ValidationError('role must be owner, admin, or staff');
-    }
-    updates.role = body.role;
-  }
-  if (body.isActive !== undefined) {
-    if (typeof body.isActive !== 'boolean') {
-      throw new ValidationError('isActive must be a boolean');
-    }
-    updates.isActive = body.isActive;
-  }
-  if (body.permissions !== undefined) {
-    updates.permissions = resolvePermissions(body.permissions);
-  }
-
-  if (Object.keys(updates).length === 0) {
-    throw new ValidationError('No updatable fields provided');
-  }
-
-  return { member: resource, updates };
+  const payload = (await readJson<ShopMemberUpdatePayload>(req)) ?? {};
+  return { member: resource, updates: payload };
 }
 
 export async function validateShopHoursGet(req: HttpRequestLike) {
-  const shopId = getRouteParam(req, 'shopId');
+  const shopId = requireRouteParam(req, 'shopId');
   await getShopOrThrow(shopId);
   return { shopId };
 }
 
-export async function validateShopHoursUpsert(req: HttpRequestLike) {
-  const shopId = getRouteParam(req, 'shopId');
+export async function validateShopHoursUpsert(
+  req: HttpRequestLike,
+): Promise<{ shopId: string; payload: ShopHoursPayload }> {
+  const shopId = requireRouteParam(req, 'shopId');
   await getShopOrThrow(shopId);
-  const payload = (await req.json().catch(() => null)) ?? {};
-  if (!payload.timezone || typeof payload.timezone !== 'string') {
+  const payload = await readJson<ShopHoursPayload>(req);
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    typeof payload.timezone !== 'string'
+  ) {
     throw new ValidationError('timezone is required');
   }
-  if (
-    !payload.weekly ||
-    typeof payload.weekly !== 'object' ||
-    Array.isArray(payload.weekly)
-  ) {
+  if (!payload.weekly || typeof payload.weekly !== 'object') {
     throw new ValidationError('weekly schedule is required');
   }
-  return {
-    shopId,
-    payload: { timezone: payload.timezone.trim(), weekly: payload.weekly },
-  };
+  return { shopId, payload };
 }
 
-export async function validateUsersManagedShops(
-  req: HttpRequestLike,
-): Promise<{ userId: string }> {
-  const userId = getRouteParam(req, 'userId');
+export async function validateUsersManagedShops(req: HttpRequestLike) {
+  const userId = requireRouteParam(req, 'userId');
   return { userId };
 }
 
 export async function validateShopsMenuRequest(req: HttpRequestLike) {
-  const shopId = getRouteParam(req, 'shopId');
-  const shop = await getShopOrThrow(shopId);
-  return { shopId, shop };
+  const shop = await validateShopGetById(req);
+  return { shopId: shop.id, shop };
 }
 
-export async function validateProductCreate(req: HttpRequestLike) {
-  const payload = (await req
-    .json()
-    .catch(() => null)) as Partial<CreateProductRequest> | null;
-  if (!payload || typeof payload !== 'object') {
-    throw new ValidationError('Invalid request body');
+function sanitizeVariantGroup(
+  group: CatalogVariantGroupPayload,
+  currency: string,
+): CatalogVariantGroup {
+  if (!group || typeof group !== 'object') {
+    throw new ValidationError('variant group is invalid');
   }
-
-  if (!payload.ownerUserId || typeof payload.ownerUserId !== 'string') {
-    throw new ValidationError('ownerUserId is required');
+  if (!group.name) {
+    throw new ValidationError('variant group name is required');
   }
-  if (!payload.name || typeof payload.name !== 'string') {
-    throw new ValidationError('name is required');
+  if (!Array.isArray(group.variants) || group.variants.length === 0) {
+    throw new ValidationError('variant group must contain variants');
   }
-  if (typeof payload.isActive !== 'boolean') {
-    throw new ValidationError('isActive must be a boolean');
-  }
-  if (!Array.isArray(payload.variantSchemes)) {
-    throw new ValidationError('variantSchemes must be an array');
-  }
-  if (!Array.isArray(payload.addonGroups)) {
-    throw new ValidationError('addonGroups must be an array');
-  }
-
+  const variants: CatalogVariant[] = group.variants.map((variant) => {
+    if (!variant.label) {
+      throw new ValidationError('variant label is required');
+    }
+    const price = toMoney(
+      variant.basePrice,
+      currency,
+      'variant price must be provided',
+    );
+    if (!price) {
+      throw new ValidationError('variant price must be provided');
+    }
+    return {
+      id: variant.id ?? randomUUID(),
+      label: variant.label,
+      basePrice: price,
+      sku: variant.sku,
+      isActive: variant.isActive ?? true,
+      attributes: variant.attributes ?? {},
+    };
+  });
   return {
-    ownerUserId: payload.ownerUserId.trim(),
-    name: payload.name.trim(),
-    description:
-      typeof payload.description === 'string' ? payload.description : undefined,
-    isActive: payload.isActive,
-    variantSchemes: payload.variantSchemes,
-    addonGroups: payload.addonGroups,
+    id: group.id ?? randomUUID(),
+    name: group.name,
+    selectionMode: group.selectionMode ?? 'single',
+    variants,
+  };
+}
+
+function sanitizeAddonGroup(
+  group: CatalogAddonGroupPayload,
+  currency: string,
+): CatalogAddonGroup {
+  if (!group.name) {
+    throw new ValidationError('addon group name is required');
+  }
+  if (!Array.isArray(group.options)) {
+    throw new ValidationError('addon group options are required');
+  }
+  const options: CatalogAddonOption[] = group.options.map((option) => {
+    if (!option.label) {
+      throw new ValidationError('addon option label is required');
+    }
+    const money = toMoney(
+      option.priceDelta,
+      currency,
+      'addon option priceDelta is required',
+    );
+    if (!money) {
+      throw new ValidationError('addon price is required');
+    }
+    return {
+      id: option.id ?? randomUUID(),
+      label: option.label,
+      priceDelta: money,
+      isActive: option.isActive ?? true,
+    };
+  });
+  return {
+    id: group.id ?? randomUUID(),
+    name: group.name,
+    required: group.required ?? false,
+    maxSelectable: group.maxSelectable,
+    options,
+  };
+}
+
+export async function validateProductCreate(
+  req: HttpRequestLike,
+): Promise<CatalogProductDraft> {
+  const payload = await readJson<CreateCatalogProductRequest>(req);
+  if (!payload) {
+    throw new ValidationError('Invalid body');
+  }
+  const title = ensureString(payload.title, 'title is required');
+  if (!title) {
+    throw new ValidationError('title is required');
+  }
+  const currency = payload.variantGroups?.[0]?.variants?.[0]?.basePrice?.currency ?? 'USD';
+  const variantGroups = (payload.variantGroups ?? []).map((group) =>
+    sanitizeVariantGroup(group, currency),
+  );
+  if (variantGroups.length === 0) {
+    throw new ValidationError('At least one variant group is required');
+  }
+  const addonGroups = (payload.addonGroups ?? []).map((group) =>
+    sanitizeAddonGroup(group, currency),
+  );
+  return {
+    ownerUserId: payload.ownerUserId,
+    title,
+    description: payload.description,
+    media: payload.media ?? [],
+    tags: payload.tags ?? [],
+    allergyInfo: payload.allergyInfo ?? [],
+    variantGroups,
+    addonGroups,
+    isActive: payload.isActive ?? true,
   };
 }
 
 export async function validateProductUpdate(req: HttpRequestLike) {
-  const productId = getRouteParam(req, 'productId');
-  const payload = ((await req.json().catch(() => null)) ??
-    {}) as UpdateProductRequest;
-  const updates: Partial<Product> = {};
-
-  if (payload.name !== undefined) {
-    if (typeof payload.name !== 'string') {
-      throw new ValidationError('name must be a string');
-    }
-    updates.name = payload.name.trim();
+  const productId = requireRouteParam(req, 'productId');
+  const payload = (await readJson<UpdateCatalogProductRequest>(req)) ?? {};
+  const { resource } = await catalogProductsContainer
+    .item(productId, productId)
+    .read<CatalogProduct>();
+  if (!resource) {
+    throw new ValidationError('Product not found', 404);
   }
-  if (payload.description !== undefined) {
-    if (typeof payload.description !== 'string') {
-      throw new ValidationError('description must be a string');
-    }
-    updates.description = payload.description;
+  let variantGroups: CatalogVariantGroup[] | undefined;
+  if (payload.variantGroups) {
+    const currency =
+      payload.variantGroups[0]?.variants[0]?.basePrice?.currency ??
+      resource.variantGroups[0]?.variants[0]?.basePrice.currency ??
+      'USD';
+    variantGroups = payload.variantGroups.map((group) =>
+      sanitizeVariantGroup(group, currency),
+    );
   }
-  if (payload.variantSchemes !== undefined) {
-    if (!Array.isArray(payload.variantSchemes)) {
-      throw new ValidationError('variantSchemes must be an array');
-    }
-    updates.variantSchemes = payload.variantSchemes;
+  let addonGroups: CatalogAddonGroup[] | undefined;
+  if (payload.addonGroups) {
+    const currency =
+      variantGroups?.[0]?.variants[0]?.basePrice.currency ??
+      resource.variantGroups[0]?.variants[0]?.basePrice.currency ??
+      'USD';
+    addonGroups = payload.addonGroups.map((group) =>
+      sanitizeAddonGroup(group, currency),
+    );
   }
-  if (payload.addonGroups !== undefined) {
-    if (!Array.isArray(payload.addonGroups)) {
-      throw new ValidationError('addonGroups must be an array');
-    }
-    updates.addonGroups = payload.addonGroups;
-  }
-  if (payload.isActive !== undefined) {
-    if (typeof payload.isActive !== 'boolean') {
-      throw new ValidationError('isActive must be a boolean');
-    }
-    updates.isAvailable = payload.isActive;
-  }
-
-  if (Object.keys(updates).length === 0) {
-    throw new ValidationError('No updatable fields provided');
-  }
-
-  return { productId, updates };
+  return {
+    product: resource,
+    updates: {
+      ...payload,
+      variantGroups,
+      addonGroups,
+    },
+  };
 }
 
 export async function validateProductInShopCreate(req: HttpRequestLike) {
-  const shopId = getRouteParam(req, 'shopId');
-  const payload = (await req
-    .json()
-    .catch(() => null)) as Partial<CreateProductInShopRequest> | null;
-  if (!payload || typeof payload !== 'object') {
-    throw new ValidationError('Invalid request body');
+  const shopId = requireRouteParam(req, 'shopId');
+  await getShopOrThrow(shopId);
+  const payload = await readJson<CreateShopCatalogEntryRequest>(req);
+  if (!payload) {
+    throw new ValidationError('Invalid body');
   }
-  if (!payload.productId || typeof payload.productId !== 'string') {
+  const productId = ensureString(
+    payload.productId,
+    'productId is required',
+  );
+  if (!productId) {
     throw new ValidationError('productId is required');
   }
-  if (
-    payload.isAvailable === undefined ||
-    typeof payload.isAvailable !== 'boolean'
-  ) {
-    throw new ValidationError('isAvailable must be provided');
-  }
-  if (!Array.isArray(payload.categoryIds)) {
-    throw new ValidationError('categoryIds must be an array');
-  }
-
+  const priceOverride = toMoney(payload.priceOverride);
   return {
     shopId,
-    productId: payload.productId.trim(),
+    productId,
     data: {
-      priceOverride:
-        payload.priceOverride !== undefined
-          ? Number(payload.priceOverride)
-          : undefined,
-      isAvailable: payload.isAvailable,
-      categoryIds: sanitizeStringArray(payload.categoryIds),
-      sortOrder:
-        payload.sortOrder !== undefined ? Number(payload.sortOrder) : undefined,
+      isAvailable: payload.isAvailable ?? true,
+      categoryIds: Array.isArray(payload.categoryIds)
+        ? payload.categoryIds
+        : [],
+      priceOverride,
+      sortOrder: payload.sortOrder,
+      salesChannels: payload.salesChannels ?? ['online'],
     },
   };
 }
 
 export async function validateProductInShopUpdate(req: HttpRequestLike) {
-  const shopId = getRouteParam(req, 'shopId');
-  const listingId = getRouteParam(req, 'productInShopId');
-  const payload = ((await req.json().catch(() => null)) ??
-    {}) as UpdateProductInShopRequest;
-  const updates: Partial<ProductInShopResponse> = {};
-
+  const shopId = requireRouteParam(req, 'shopId');
+  const entryId = requireRouteParam(req, 'productInShopId');
+  await getShopOrThrow(shopId);
+  const { resource } = await shopCatalogEntriesContainer
+    .item(entryId, entryId)
+    .read<ShopCatalogEntry>();
+  if (!resource || resource.shopId !== shopId) {
+    throw new ValidationError('Catalog entry not found', 404);
+  }
+  const payload =
+    (await readJson<Partial<CreateShopCatalogEntryRequest>>(req)) ?? {};
+  const updates: Partial<ShopCatalogEntry> = {};
   if (payload.isAvailable !== undefined) {
-    if (typeof payload.isAvailable !== 'boolean') {
-      throw new ValidationError('isAvailable must be a boolean');
-    }
     updates.isAvailable = payload.isAvailable;
   }
-  if (payload.priceOverride !== undefined) {
-    updates.priceOverride = Number(payload.priceOverride);
-  }
   if (payload.categoryIds !== undefined) {
-    if (!Array.isArray(payload.categoryIds)) {
-      throw new ValidationError('categoryIds must be an array');
-    }
-    updates.categoryIds = sanitizeStringArray(payload.categoryIds);
+    updates.categoryIds = Array.isArray(payload.categoryIds)
+      ? payload.categoryIds
+      : resource.categoryIds;
+  }
+  if (payload.priceOverride !== undefined) {
+    updates.priceOverride =
+      toMoney(
+        payload.priceOverride,
+        resource.priceOverride?.currency ?? 'USD',
+      ) ?? undefined;
   }
   if (payload.sortOrder !== undefined) {
-    updates.sortOrder = Number(payload.sortOrder);
+    updates.sortOrder = payload.sortOrder;
   }
-
-  if (Object.keys(updates).length === 0) {
-    throw new ValidationError('No updatable fields provided');
+  if (payload.salesChannels !== undefined) {
+    updates.salesChannels = payload.salesChannels;
   }
-
-  return { shopId, productInShopId: listingId, updates };
+  return {
+    shopId,
+    entry: resource,
+    updates,
+  };
 }
 
 export async function validateCategoriesList(req: HttpRequestLike) {
-  const shopId = getRouteParam(req, 'shopId');
+  const shopId = requireRouteParam(req, 'shopId');
+  await getShopOrThrow(shopId);
   return { shopId };
 }
 
 export async function validateCategoryCreate(req: HttpRequestLike) {
-  const shopId = getRouteParam(req, 'shopId');
-  const payload = (await req
-    .json()
-    .catch(() => null)) as Partial<CreateCategoryRequest> | null;
-  if (!payload || typeof payload !== 'object') {
-    throw new ValidationError('Invalid request body');
+  const shopId = requireRouteParam(req, 'shopId');
+  await getShopOrThrow(shopId);
+  const payload = await readJson<CreateCategoryRequest>(req);
+  if (!payload) {
+    throw new ValidationError('Invalid body');
   }
-  if (!payload.name || typeof payload.name !== 'string') {
-    throw new ValidationError('name is required');
-  }
-
+  const name = ensureString(payload.name, 'name is required');
   return {
     shopId,
     data: {
-      name: payload.name.trim(),
-      description:
-        payload.description && typeof payload.description === 'string'
-          ? payload.description
-          : undefined,
-      sortOrder:
-        payload.sortOrder !== undefined ? Number(payload.sortOrder) : undefined,
+      name: name!,
+      description: payload.description,
+      parentCategoryId: payload.parentCategoryId,
+      sortOrder: payload.sortOrder,
       isActive: payload.isActive ?? true,
     },
   };
 }
 
 export async function validateCategoryUpdate(req: HttpRequestLike) {
-  const shopId = getRouteParam(req, 'shopId');
-  const categoryId = getRouteParam(req, 'categoryId');
-  const payload = (await req.json().catch(() => null)) ?? {};
-  const updates: Partial<Category> = {};
-
-  if (payload.name !== undefined) {
-    if (typeof payload.name !== 'string') {
-      throw new ValidationError('name must be a string');
-    }
-    updates.name = payload.name.trim();
+  const shopId = requireRouteParam(req, 'shopId');
+  const categoryId = requireRouteParam(req, 'categoryId');
+  await getShopOrThrow(shopId);
+  const { resource } = await categoriesContainer
+    .item(categoryId, categoryId)
+    .read<Category>();
+  if (!resource) {
+    throw new ValidationError('Category not found', 404);
   }
-  if (payload.description !== undefined) {
-    if (typeof payload.description !== 'string') {
-      throw new ValidationError('description must be a string');
-    }
-    updates.description = payload.description;
-  }
-  if (payload.sortOrder !== undefined) {
-    updates.sortOrder = Number(payload.sortOrder);
-  }
-  if (payload.isActive !== undefined) {
-    updates.isActive = Boolean(payload.isActive);
-  }
-
-  if (Object.keys(updates).length === 0) {
-    throw new ValidationError('No updatable fields provided');
-  }
-
-  return { shopId, categoryId, updates };
-}
-
-export async function validateOrdersCreate(req: HttpRequestLike) {
-  const shopId = getRouteParam(req, 'shopId');
-  const payload = (await req
-    .json()
-    .catch(() => null)) as Partial<CreateOrderRequest> | null;
-  if (!payload || typeof payload !== 'object') {
-    throw new ValidationError('Invalid request body');
-  }
-
-  const userId =
-    typeof payload.userId === 'string' ? payload.userId.trim() : '';
-  const customerName =
-    typeof payload.customerName === 'string' ? payload.customerName.trim() : '';
-
-  if (!userId || !customerName) {
-    throw new ValidationError('userId and customerName are required');
-  }
-
-  if (!Array.isArray(payload.items) || payload.items.length === 0) {
-    throw new ValidationError('items must be a non-empty array');
-  }
-  const items = payload.items as CartItemRequest[];
-
-  const customerPhone =
-    typeof payload.customerPhone === 'string'
-      ? payload.customerPhone
-      : undefined;
-  const customerNotes =
-    typeof payload.customerNotes === 'string'
-      ? payload.customerNotes
-      : undefined;
-
-  return {
-    shopId,
-    userId,
-    customerName,
-    customerPhone,
-    customerNotes,
-    items,
-  };
+  const payload = (await readJson<UpdateCategoryRequest>(req)) ?? {};
+  return { shopId, category: resource, updates: payload };
 }
 
 export function validateOrdersList(req: HttpRequestLike) {
-  const shopId = getRouteParam(req, 'shopId');
-  const statusFilter = req.query?.get('status') ?? '';
-  const statuses = statusFilter
-    .split(',')
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
+  const shopId = requireRouteParam(req, 'shopId');
+  const statusesParam = req.query?.get('status');
+  const statuses = statusesParam
+    ? statusesParam
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
   return { shopId, statuses };
 }
 
+export async function validateOrdersCreate(req: HttpRequestLike) {
+  const shopId = requireRouteParam(req, 'shopId');
+  await getShopOrThrow(shopId);
+  const payload = await readJson<CreateOrderRequest>(req);
+  if (!payload) {
+    throw new ValidationError('Invalid body');
+  }
+  const userId = ensureString(payload.userId, 'userId is required');
+  const customerName = ensureString(
+    payload.customerName,
+    'customerName is required',
+  );
+  if (!Array.isArray(payload.items) || payload.items.length === 0) {
+    throw new ValidationError('items must be provided');
+  }
+  return {
+    shopId,
+    userId: userId!,
+    customerName: customerName!,
+    customerPhone: payload.customerPhone?.trim(),
+    customerNotes: payload.customerNotes?.trim(),
+    items: payload.items as OrderItemPayload[],
+    fulfillmentType: payload.fulfillmentType ?? 'pickup',
+    scheduledFor: payload.scheduledFor,
+  };
+}
+
 export async function validateOrdersUpdateStatus(req: HttpRequestLike) {
-  const shopId = getRouteParam(req, 'shopId');
-  const orderId = getRouteParam(req, 'orderId');
-  const payload = (await req
-    .json()
-    .catch(() => null)) as UpdateOrderStatusRequest | null;
-  if (
-    !payload ||
-    typeof payload !== 'object' ||
-    !payload.nextStatus ||
-    typeof payload.nextStatus !== 'string'
-  ) {
+  const shopId = requireRouteParam(req, 'shopId');
+  const orderId = requireRouteParam(req, 'orderId');
+  const payload = await readJson<UpdateOrderStatusRequest>(req);
+  if (!payload || typeof payload.nextStatus !== 'string') {
     throw new ValidationError('nextStatus is required');
   }
-
-  return { shopId, orderId, nextStatus: payload.nextStatus };
+  const { resource } = await getContainer('orders')
+    .item(orderId, orderId)
+    .read<Order>();
+  if (!resource || resource.shopId !== shopId) {
+    throw new ValidationError('Order not found', 404);
+  }
+  return { order: resource, nextStatus: payload.nextStatus };
 }

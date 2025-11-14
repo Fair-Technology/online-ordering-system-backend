@@ -1,50 +1,120 @@
-export interface User {
-  id: string
-  createdAt: string;
-  updatedAt?: string;
-}
+/**
+ * Canonical database schema for the ordering platform.
+ * The model is split into three conceptual layers:
+ * 1. Catalog  - reusable product definitions and merchandising data.
+ * 2. Associations - how catalog entities attach to shops, menus, and workflows.
+ * 3. ACL       - fine‑grained access control entries for every resource.
+ * Everything extends a common document contract to keep the store future-proof.
+ */
 
-export interface Shop {
+/* -------------------------------------------------------------------------- */
+/* Base document & shared helpers                                             */
+/* -------------------------------------------------------------------------- */
+
+export type DocumentKind =
+  | 'user'
+  | 'shop'
+  | 'catalogProduct'
+  | 'shopCatalogEntry'
+  | 'category'
+  | 'order'
+  | 'auditLog'
+  | 'aclEntry'
+  | 'association';
+
+export interface DocumentBase {
   id: string;
-  ownerUserId: string;
-  name: string;
-  address: string;
-  isActive: boolean; // visible to customers
-  status: "open" | "closed"; // public label
-  acceptingOrders: boolean; // pause switch for new orders
-  paymentPolicy: "pay_on_pickup" | "prepaid_only";
-  orderAcceptanceMode: "auto" | "manual";
-  allowGuestCheckout: boolean;
-  fulfillmentOptions: {
-    pickupEnabled: boolean;
-    deliveryEnabled: boolean; // false for v1
-    deliveryRadiusKm?: number;
-    deliveryFee?: number;
-  };
+  kind: DocumentKind;
+  tenantId?: string;
   createdAt: string;
   updatedAt: string;
+  archivedAt?: string;
+  version?: number;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
 }
 
-// multiple admins/staff per shop
-export interface ShopMember {
-  id: string;
+export type Money = {
+  amount: number;
+  currency: string;
+};
+
+export type UserRole = 'customer' | 'shopAdmin' | 'platformAdmin';
+export type ShopStatus = 'draft' | 'open' | 'closed' | 'suspended';
+export type PaymentPolicy = 'pay_on_pickup' | 'prepaid_only';
+export type OrderAcceptanceMode = 'auto' | 'manual';
+export type ShopMemberRole = 'owner' | 'manager' | 'staff' | 'viewer';
+export type OrderStatus =
+  | 'placed'
+  | 'accepted'
+  | 'rejected'
+  | 'ready_for_pickup'
+  | 'completed'
+  | 'cancelled';
+export type PaymentStatus = 'unpaid' | 'authorized' | 'paid' | 'refunded';
+
+/* -------------------------------------------------------------------------- */
+/* Users & shops                                                              */
+/* -------------------------------------------------------------------------- */
+
+export interface UserProfile {
+  displayName?: string;
+  phoneNumber?: string;
+  avatarUrl?: string;
+  locale?: string;
+}
+
+export interface User extends DocumentBase {
+  kind: 'user';
+  primaryEmail?: string;
+  roles: UserRole[];
+  profile?: UserProfile;
+  lastActiveAt?: string;
+}
+
+export interface FulfillmentOptions {
+  pickupEnabled: boolean;
+  deliveryEnabled: boolean;
+  deliveryRadiusKm?: number;
+  deliveryFee?: Money;
+  leadTimeMinutes?: number;
+}
+
+export interface Shop extends DocumentBase {
+  kind: 'shop';
+  name: string;
+  legalName?: string;
+  address?: string;
+  timezone?: string;
+  status: ShopStatus;
+  acceptingOrders: boolean;
+  paymentPolicy: PaymentPolicy;
+  orderAcceptanceMode: OrderAcceptanceMode;
+  allowGuestCheckout: boolean;
+  fulfillmentOptions: FulfillmentOptions;
+  defaultCurrency: string;
+}
+
+export interface ShopMember extends DocumentBase {
+  kind: 'association';
   shopId: string;
   userId: string;
-  role: "owner" | "staff";
-  permissions: string[]; // e.g. ["manage_products","manage_orders"]
+  role: ShopMemberRole;
+  permissions: string[];
+  invitationStatus?: 'pending' | 'accepted' | 'revoked';
   isActive: boolean;
-  addedAt: string;
 }
 
 export interface ShopHoursWindow {
-  open: string;  // "09:00"
-  close: string; // "17:00"
+  opensAt: string; // "09:00"
+  closesAt: string; // "17:00"
+  isClosed?: boolean;
 }
 
-export interface ShopHours {
-  id: string;
+export interface ShopHours extends DocumentBase {
+  kind: 'association';
   shopId: string;
-  timezone: string; // e.g. "Australia/Sydney"
+  timezone: string;
   weekly: {
     monday?: ShopHoursWindow[];
     tuesday?: ShopHoursWindow[];
@@ -54,139 +124,162 @@ export interface ShopHours {
     saturday?: ShopHoursWindow[];
     sunday?: ShopHoursWindow[];
   };
-  updatedAt: string;
 }
 
-export interface Category {
+/* -------------------------------------------------------------------------- */
+/* Catalog layer                                                              */
+/* -------------------------------------------------------------------------- */
+
+export interface CatalogVariant {
   id: string;
+  label: string;
+  basePrice: Money;
+  sku?: string;
+  isActive: boolean;
+  attributes?: Record<string, string | number | boolean>;
+}
+
+export interface CatalogVariantGroup {
+  id: string;
+  name: string;
+  selectionMode: 'single' | 'multiple';
+  variants: CatalogVariant[];
+}
+
+export interface CatalogAddonOption {
+  id: string;
+  label: string;
+  priceDelta: Money;
+  isActive: boolean;
+}
+
+export interface CatalogAddonGroup {
+  id: string;
+  name: string;
+  required: boolean;
+  maxSelectable?: number;
+  options: CatalogAddonOption[];
+}
+
+export interface CatalogProduct extends DocumentBase {
+  kind: 'catalogProduct';
+  ownerUserId?: string;
+  title: string;
+  description?: string;
+  media?: { url: string; alt?: string; kind?: 'image' | 'video' }[];
+  tags?: string[];
+  allergyInfo?: string[];
+  variantGroups: CatalogVariantGroup[];
+  addonGroups: CatalogAddonGroup[];
+  isActive: boolean;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Associations & merchandising                                               */
+/* -------------------------------------------------------------------------- */
+
+export interface Category extends DocumentBase {
+  kind: 'category';
   shopId: string;
-  name: string; // "Breakfast", "Lunch", "Kids", "Drinks"
+  productIds?: string[]; // optional denormalized helper
+  name: string;
   description?: string;
   sortOrder?: number;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  parentCategoryId?: string;
 }
 
-export interface ProductVariant {
-  id: string;
-  label: string; // "Small", "Large", "Medium / Blue"
-  basePrice: number;
-  sku?: string;
-  isActive: boolean;
-}
-
-export interface VariantScheme {
-  id: string;
-  name: string; // "Size", "Size / Color"
-  variants: ProductVariant[];
-}
-
-export interface AddonOption {
-  id: string;
-  name: string; // "Extra cheese"
-  priceDelta: number; // +1.50
-  isActive: boolean;
-}
-
-export interface AddonGroup {
-  id: string;
-  name: string; // "Toppings"
-  required: boolean;
-  maxSelectable?: number;
-  options: AddonOption[];
-}
-
-export interface Product {
-  id: string;
-  ownerUserId: string;
-  name: string;
-  description?: string;
-  isAvailable: boolean;
-  createdAt: string;
-  updatedAt: string;
-  variantSchemes: VariantScheme[];  // e.g. pizza size, shirt size/color
-  addonGroups: AddonGroup[];        // e.g. toppings, extras
-}
-
-export type OrderStatus =
-  | "placed"
-  | "accepted"
-  | "rejected"
-  | "ready_for_pickup"
-  | "completed"
-  | "cancelled";
-
-export type PaymentStatus = "unpaid" | "paid";
-
-export interface Order {
-  id: string;
+export interface ShopCatalogEntry extends DocumentBase {
+  kind: 'shopCatalogEntry';
   shopId: string;
-  userId: string; // can be "guest"
-  status: OrderStatus;
-  paymentStatus: PaymentStatus;
-  totalAmount: number;
-  submittedAt: string;
-  updatedAt: string;
+  productId: string;
+  isAvailable: boolean;
+  categoryIds: string[];
+  priceOverride?: Money;
+  sortOrder?: number;
+  salesChannels?: Array<'pos' | 'online' | 'kiosk'>;
+}
 
-  customerName: string;
-  customerPhone?: string;
-  customerNotes?: string; // e.g. "no onions", "I'll pick up in 15 mins"
+export interface ProductCategoryLink extends DocumentBase {
+  kind: 'association';
+  shopId: string;
+  productId: string;
+  categoryId: string;
+  sortOrder?: number;
+}
 
-  items: OrderItem[];
+/* -------------------------------------------------------------------------- */
+/* Orders                                                                     */
+/* -------------------------------------------------------------------------- */
+
+export interface OrderItemAddonSnapshot {
+  addonOptionId: string;
+  nameSnapshot: string;
+  priceDeltaSnapshot: Money;
 }
 
 export interface OrderItem {
   productId: string;
+  shopCatalogEntryId?: string;
   productVariantId: string;
   productNameSnapshot: string;
   variantLabelSnapshot: string;
-  finalUnitPrice: number;
+  finalUnitPrice: Money;
   quantity: number;
-//   addons: CartItemAddonSnapshot[];
+  addons: OrderItemAddonSnapshot[];
 }
 
-
-export interface CartItemAddonSnapshot {
-  addonOptionId: string;
-  nameSnapshot: string;
-  priceDeltaSnapshot: number;
+export interface Order extends DocumentBase {
+  kind: 'order';
+  shopId: string;
+  userId: string; // can be "guest"
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  totalAmount: Money;
+  submittedAt: string;
+  customerName: string;
+  customerPhone?: string;
+  customerNotes?: string;
+  fulfillmentSlot?: {
+    type: 'pickup' | 'delivery';
+    scheduledFor?: string;
+  };
+  items: OrderItem[];
 }
 
-export interface CartItem {
-  productId: string;
-  productVariantId: string;
-  productNameSnapshot: string;
-  variantLabelSnapshot: string;
-  unitBasePriceSnapshot: number;
-  addons: CartItemAddonSnapshot[];
-  finalUnitPrice: number; // base + addons at time added
-  quantity: number;
-}
+/* -------------------------------------------------------------------------- */
+/* Access control                                                             */
+/* -------------------------------------------------------------------------- */
 
-export interface CartItemRequest {
-  productId: string;
-  productVariantId: string;
-  quantity: number;
-  addonOptionIds?: string[];
-}
+export type PrincipalType = 'user' | 'role' | 'service' | 'apiKey';
 
-export interface AuditLog {
+export interface PrincipalRef {
+  type: PrincipalType;
   id: string;
-  actorUserId: string;
+  scope?: string; // e.g. shopId for role principals
+}
+
+export interface AccessControlEntry extends DocumentBase {
+  kind: 'aclEntry';
+  resourceType: DocumentKind | 'category' | 'shopHours';
+  resourceId: string;
+  principal: PrincipalRef;
+  permissions: string[];
+  effect: 'allow' | 'deny';
+  expiresAt?: string;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Observability                                                              */
+/* -------------------------------------------------------------------------- */
+
+export interface AuditLog extends DocumentBase {
+  kind: 'auditLog';
+  actor: PrincipalRef;
   shopId?: string;
-  entityType:
-    | "shop"
-    | "shopSettings"
-    | "shopHours"
-    | "product"
-    | "productInShop"
-    | "order"
-    | "category"
-    | "membership";
+  entityType: DocumentKind | 'shopSettings' | 'shopHours' | 'category';
   entityId: string;
-  action: string; // "CREATE","UPDATE_STATUS","CHANGE_PRICE",etc.
-  before?: any;
-  after?: any;
-  timestamp: string;
+  action: string;
+  before?: unknown;
+  after?: unknown;
 }

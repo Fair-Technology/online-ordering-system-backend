@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { getContainer } from '../config/cosmosClient';
-import { AuditLog, OrderStatus } from '../types/databaseTypes';
+import { AuditLog, OrderStatus, PrincipalRef } from '../types/databaseTypes';
 import { HttpRequestLike } from '../types/otherTypes';
 type HttpRequest = HttpRequestLike;
 
@@ -40,15 +40,38 @@ export async function isShopOpenNow(shopId: string): Promise<boolean> {
   return true;
 }
 
-type AuditLogInput = Omit<AuditLog, 'id' | 'timestamp'> & {
-  timestamp?: string;
+type AuditLogInput = {
+  actorUserId?: string;
+  actor?: PrincipalRef;
+  shopId?: string;
+  entityType: AuditLog['entityType'];
+  entityId: string;
+  action: string;
+  before?: unknown;
+  after?: unknown;
 };
 
 export async function writeAuditLog(entry: AuditLogInput): Promise<void> {
+  const timestamp = nowIso();
+  const actor: PrincipalRef =
+    entry.actor ??
+    ({
+      type: 'user',
+      id: entry.actorUserId ?? 'system',
+    } as PrincipalRef);
+
   const payload: AuditLog = {
     id: newId(),
-    timestamp: entry.timestamp ?? nowIso(),
-    ...entry,
+    kind: 'auditLog',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    actor,
+    shopId: entry.shopId,
+    entityType: entry.entityType,
+    entityId: entry.entityId,
+    action: entry.action,
+    before: entry.before,
+    after: entry.after,
   };
 
   await auditLogContainer.items.create(payload);

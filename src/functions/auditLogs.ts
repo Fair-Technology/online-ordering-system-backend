@@ -5,7 +5,7 @@ import {
   HttpResponseInitLike,
   json,
 } from '../types/otherTypes';
-import { AuditLog } from '../types/databaseTypes';
+import { AuditLog, PrincipalRef } from '../types/databaseTypes';
 import { getContainer } from '../config/cosmosClient';
 import { getActorUserId, newId, nowIso } from '../utils/general';
 
@@ -38,7 +38,7 @@ app.http('auditLogsList', {
       const entityId = request.query.get('entityId')?.trim();
 
       const filters: string[] = [];
-      const parameters: any[] = [];
+      const parameters: any[] = [{ name: '@kind', value: 'auditLog' }];
 
       if (shopId) {
         filters.push('c.shopId = @shopId');
@@ -53,11 +53,11 @@ app.http('auditLogsList', {
         parameters.push({ name: '@entityId', value: entityId });
       }
 
-      let query = 'SELECT * FROM c';
+      let query = 'SELECT * FROM c WHERE c.kind = @kind';
       if (filters.length > 0) {
-        query += ` WHERE ${filters.join(' AND ')}`;
+        query += ` AND ${filters.join(' AND ')}`;
       }
-      query += ' ORDER BY c.timestamp DESC';
+      query += ' ORDER BY c.createdAt DESC';
 
       const { resources } = await auditLogsContainer.items
         .query<AuditLog>({ query, parameters })
@@ -103,7 +103,9 @@ app.http('auditLogsCreate', {
   route: 'auditLogs',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const payload = await readBody<Partial<AuditLog>>(request);
+      const payload = await readBody<
+        Partial<AuditLog> & { actor?: PrincipalRef; actorUserId?: string }
+      >(request);
       if (!payload.entityType) {
         return missingField('entityType');
       }
@@ -114,16 +116,24 @@ app.http('auditLogsCreate', {
         return missingField('action');
       }
 
+      const timestamp = nowIso();
       const log: AuditLog = {
         id: newId(),
-        actorUserId: payload.actorUserId ?? getActorUserId(request),
+        kind: 'auditLog',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        actor:
+          payload.actor ??
+          ({
+            type: 'user',
+            id: payload.actorUserId ?? getActorUserId(request),
+          } as PrincipalRef),
         shopId: payload.shopId,
         entityType: payload.entityType,
         entityId: payload.entityId,
         action: payload.action,
         before: payload.before,
         after: payload.after,
-        timestamp: payload.timestamp ?? nowIso(),
       };
 
       await auditLogsContainer.items.create(log);
@@ -157,8 +167,8 @@ app.http('auditLogsUpdate', {
       const updated: AuditLog = {
         ...resource,
         ...updates,
-        id: resource.id,
-        timestamp: updates.timestamp ?? nowIso(),
+        actor: updates.actor ?? resource.actor,
+        updatedAt: nowIso(),
       };
 
       await auditLogsContainer.items.upsert(updated);

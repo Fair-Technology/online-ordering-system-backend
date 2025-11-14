@@ -34,10 +34,10 @@ app.http('categoriesCrudList', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const shopId = request.query.get('shopId')?.trim();
-      let query = 'SELECT * FROM c';
-      const parameters: any[] = [];
+      let query = 'SELECT * FROM c WHERE c.kind = @kind';
+      const parameters: any[] = [{ name: '@kind', value: 'category' }];
       if (shopId) {
-        query += ' WHERE c.shopId = @shopId';
+        query += ' AND c.shopId = @shopId';
         parameters.push({ name: '@shopId', value: shopId });
       }
       query += ' ORDER BY c.sortOrder ASC';
@@ -97,11 +97,13 @@ app.http('categoriesCrudCreate', {
       const timestamp = nowIso();
       const category: Category = {
         id: newId(),
+        kind: 'category',
         shopId: body.shopId.trim(),
         name: body.name,
         description: body.description,
         sortOrder: body.sortOrder,
         isActive: body.isActive ?? true,
+        parentCategoryId: body.parentCategoryId,
         createdAt: timestamp,
         updatedAt: timestamp,
       };

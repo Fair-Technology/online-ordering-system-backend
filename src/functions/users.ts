@@ -10,7 +10,7 @@ import {
   validateUserCreate,
   validateUsersGetById,
 } from '../utils/businessLogic';
-import { nowIso } from '../utils/general';
+import { newId, nowIso } from '../utils/general';
 
 const usersContainer = getContainer('users');
 
@@ -48,7 +48,15 @@ app.http('userCreate', {
     const body = await validateUserCreate(request);
 
     try {
-      const user = { id: body.id, createdAt: nowIso() };
+      const timestamp = nowIso();
+      const user: User = {
+        id: body.id ?? newId(),
+        kind: 'user',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        roles: body.roles ?? ['customer'],
+        primaryEmail: body.primaryEmail,
+      };
       const { resource } = await usersContainer.items.create(user);
       return json(201, resource);
     } catch (err: any) {
@@ -100,6 +108,7 @@ app.http('usersUpdate', {
         ...resource,
         ...updates,
         id: resource.id,
+        kind: 'user',
         updatedAt: nowIso(),
       };
 

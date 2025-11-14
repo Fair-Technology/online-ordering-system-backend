@@ -5,7 +5,7 @@ import {
   HttpResponseInitLike,
   json,
 } from '../types/otherTypes';
-import { ProductInShopResponse } from '../types/apiTypes-old';
+import { ShopCatalogEntry } from '../types/databaseTypes';
 import { getContainer } from '../config/cosmosClient';
 import { newId, nowIso } from '../utils/general';
 
@@ -36,7 +36,7 @@ app.http('productsInShopListAll', {
       const shopId = request.query.get('shopId')?.trim();
       const productId = request.query.get('productId')?.trim();
       const filters: string[] = [];
-      const parameters: any[] = [];
+      const parameters: any[] = [{ name: '@kind', value: 'shopCatalogEntry' }];
 
       if (shopId) {
         filters.push('c.shopId = @shopId');
@@ -47,14 +47,14 @@ app.http('productsInShopListAll', {
         parameters.push({ name: '@productId', value: productId });
       }
 
-      let query = 'SELECT * FROM c';
+      let query = 'SELECT * FROM c WHERE c.kind = @kind';
       if (filters.length > 0) {
-        query += ` WHERE ${filters.join(' AND ')}`;
+        query += ` AND ${filters.join(' AND ')}`;
       }
       query += ' ORDER BY c.updatedAt DESC';
 
       const { resources } = await productsInShopContainer.items
-        .query<ProductInShopResponse>({ query, parameters })
+        .query<ShopCatalogEntry>({ query, parameters })
         .fetchAll();
       return json(200, resources);
     } catch (error: any) {
@@ -77,7 +77,7 @@ app.http('productsInShopGetById', {
       }
       const { resource } = await productsInShopContainer
         .item(listingId, listingId)
-        .read<ProductInShopResponse>();
+        .read<ShopCatalogEntry>();
       if (!resource) {
         return json(404, { message: 'Product listing not found' });
       }
@@ -96,7 +96,7 @@ app.http('productsInShopCreateGeneral', {
   route: 'productsInShop',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const body = await readBody<Partial<ProductInShopResponse>>(request);
+      const body = await readBody<Partial<ShopCatalogEntry>>(request);
       if (!body.shopId) {
         return missingField('shopId');
       }
@@ -105,17 +105,16 @@ app.http('productsInShopCreateGeneral', {
       }
 
       const timestamp = nowIso();
-      const record: ProductInShopResponse = {
+      const record: ShopCatalogEntry = {
         id: newId(),
+        kind: 'shopCatalogEntry',
         shopId: body.shopId.trim(),
         productId: body.productId.trim(),
-        priceOverride:
-          typeof body.priceOverride === 'number'
-            ? Number(body.priceOverride)
-            : undefined,
+        priceOverride: body.priceOverride,
         isAvailable: body.isAvailable ?? true,
         categoryIds: Array.isArray(body.categoryIds) ? body.categoryIds : [],
         sortOrder: body.sortOrder,
+        salesChannels: body.salesChannels ?? ['online'],
         createdAt: timestamp,
         updatedAt: timestamp,
       };
@@ -143,12 +142,12 @@ app.http('productsInShopUpdateGeneral', {
 
       const { resource } = await productsInShopContainer
         .item(listingId, listingId)
-        .read<ProductInShopResponse>();
+        .read<ShopCatalogEntry>();
       if (!resource) {
         return json(404, { message: 'Product listing not found' });
       }
 
-      const updates = await readBody<Partial<ProductInShopResponse>>(request);
+      const updates = await readBody<Partial<ShopCatalogEntry>>(request);
       if (
         updates.categoryIds !== undefined &&
         !Array.isArray(updates.categoryIds)
@@ -156,7 +155,7 @@ app.http('productsInShopUpdateGeneral', {
         return json(400, { message: 'categoryIds must be an array' });
       }
 
-      const updated: ProductInShopResponse = {
+      const updated: ShopCatalogEntry = {
         ...resource,
         ...updates,
         categoryIds:
@@ -189,7 +188,7 @@ app.http('productsInShopDeleteGeneral', {
 
       const { resource } = await productsInShopContainer
         .item(listingId, listingId)
-        .read<ProductInShopResponse>();
+        .read<ShopCatalogEntry>();
       if (!resource) {
         return json(404, { message: 'Product listing not found' });
       }

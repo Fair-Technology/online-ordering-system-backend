@@ -5,8 +5,15 @@ import {
   HttpResponseInitLike,
   json,
 } from '../types/otherTypes';
-import { ProductInShopResponse } from '../types/apiTypes-old';
-import { newId, nowIso, writeAuditLog } from '../utils/general';
+import {
+  CatalogProduct,
+  Category,
+  Shop,
+  ShopCatalogEntry,
+  ShopHours,
+  ShopMember,
+} from '../types/databaseTypes';
+import { getContainer } from '../config/cosmosClient';
 import {
   validateShopCreate,
   validateShopGetById,
@@ -19,66 +26,53 @@ import {
   validateUsersManagedShops,
   validateShopsMenuRequest,
 } from '../utils/businessLogic';
-import {
-  Category,
-  Product,
-  Shop,
-  ShopHours,
-  ShopMember,
-} from '../types/databaseTypes';
-import { getContainer } from '../config/cosmosClient';
+import { getActorUserId, newId, nowIso, writeAuditLog } from '../utils/general';
+
 type HttpRequest = HttpRequestLike;
 type HttpResponseInit = HttpResponseInitLike;
 
-const productsContainer = getContainer('products');
-const productsInShopContainer = getContainer('productsInShop');
+const catalogProductsContainer = getContainer('products');
+const shopCatalogEntriesContainer = getContainer('productsInShop');
 const categoriesContainer = getContainer('categories');
 const shopsContainer = getContainer('shops');
 const shopMembersContainer = getContainer('shopMembers');
 const shopHoursContainer = getContainer('shopHours');
 
-const DEFAULT_PERMISSIONS = ['manage_products', 'manage_orders'];
-
-function getActorUserId(request: HttpRequestLike): string {
-  return request.headers.get('x-user-id') ?? 'system';
-}
+const DEFAULT_PERMISSIONS = [
+  'manage_catalog',
+  'manage_orders',
+  'manage_settings',
+];
 
 function parseBoolean(value: string | null | undefined): boolean | undefined {
   if (!value) {
     return undefined;
   }
   const normalized = value.toLowerCase();
-  if (normalized === 'true') {
-    return true;
-  }
-  if (normalized === 'false') {
-    return false;
-  }
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
   return undefined;
 }
 
-// GET /shops -> list shops with optional filters
+/* -------------------------------------------------------------------------- */
+/* Shops                                                                      */
+/* -------------------------------------------------------------------------- */
+
 app.http('shopsListAll', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'shops',
-  handler: async (request: HttpRequestLike): Promise<HttpResponseInitLike> => {
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const ownerUserId = request.query.get('ownerUserId')?.trim();
-      const isActive = parseBoolean(request.query.get('isActive'));
+      const statusFilter = request.query.get('status')?.trim();
       const acceptingOrders = parseBoolean(
         request.query.get('acceptingOrders'),
       );
-
       const filters: string[] = [];
       const parameters: any[] = [];
-      if (ownerUserId) {
-        filters.push('c.ownerUserId = @ownerUserId');
-        parameters.push({ name: '@ownerUserId', value: ownerUserId });
-      }
-      if (isActive !== undefined) {
-        filters.push('c.isActive = @isActive');
-        parameters.push({ name: '@isActive', value: isActive });
+      if (statusFilter) {
+        filters.push('c.status = @status');
+        parameters.push({ name: '@status', value: statusFilter });
       }
       if (acceptingOrders !== undefined) {
         filters.push('c.acceptingOrders = @acceptingOrders');
@@ -87,350 +81,339 @@ app.http('shopsListAll', {
           value: acceptingOrders,
         });
       }
-
       let query = 'SELECT * FROM c';
       if (filters.length > 0) {
         query += ` WHERE ${filters.join(' AND ')}`;
       }
       query += ' ORDER BY c.updatedAt DESC';
-
       const { resources } = await shopsContainer.items
         .query<Shop>({ query, parameters })
         .fetchAll();
       return json(200, resources);
     } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
+      return {
+        status: error.status || 500,
+        body: error.message || 'Internal Server Error',
+      };
     }
   },
 });
 
-// POST /shops -> create a new shop plus its owner membership and audit log
 app.http('shopsCreate', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'shops',
-  handler: async (request: HttpRequestLike): Promise<HttpResponseInitLike> => {
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const body = await validateShopCreate(request);
-      const { name, address, ownerUserId } = body;
-
+      const payload = await validateShopCreate(request);
       const timestamp = nowIso();
+      const shopId = newId();
       const shop: Shop = {
-        id: newId(),
-        ownerUserId,
-        name,
-        address,
-        isActive: body.isActive ?? true,
-        status: body.status ?? 'open',
-        acceptingOrders: body.acceptingOrders ?? true,
-        paymentPolicy: body.paymentPolicy ?? 'pay_on_pickup',
-        orderAcceptanceMode: body.orderAcceptanceMode ?? 'manual',
-        allowGuestCheckout: body.allowGuestCheckout ?? true,
-        fulfillmentOptions: {
-          pickupEnabled: body.fulfillmentOptions?.pickupEnabled ?? true,
-          deliveryEnabled: body.fulfillmentOptions?.deliveryEnabled ?? false,
-          deliveryRadiusKm: body.fulfillmentOptions?.deliveryRadiusKm,
-          deliveryFee: body.fulfillmentOptions?.deliveryFee,
+        id: shopId,
+        kind: 'shop',
+        name: payload.name,
+        legalName: payload.legalName,
+        address: payload.address,
+        timezone: payload.timezone,
+        status: payload.status ?? 'draft',
+        acceptingOrders: payload.acceptingOrders ?? true,
+        paymentPolicy: payload.paymentPolicy ?? 'pay_on_pickup',
+        orderAcceptanceMode: payload.orderAcceptanceMode ?? 'manual',
+        allowGuestCheckout: payload.allowGuestCheckout ?? true,
+        fulfillmentOptions: payload.fulfillmentOptions ?? {
+          pickupEnabled: true,
+          deliveryEnabled: false,
         },
+        defaultCurrency: payload.defaultCurrency ?? 'USD',
         createdAt: timestamp,
         updatedAt: timestamp,
       };
 
-      const member: ShopMember = {
+      const ownerMembership: ShopMember = {
         id: newId(),
-        shopId: shop.id,
-        userId: ownerUserId.trim(),
+        kind: 'association',
+        shopId,
+        userId: payload.ownerUserId.trim(),
         role: 'owner',
         permissions: DEFAULT_PERMISSIONS,
+        invitationStatus: 'accepted',
         isActive: true,
-        addedAt: timestamp,
+        createdAt: timestamp,
+        updatedAt: timestamp,
       };
 
       const { resource } = await shopsContainer.items.create(shop);
-      await shopMembersContainer.items.create(member);
+      await shopMembersContainer.items.create(ownerMembership);
       await writeAuditLog({
         actorUserId: getActorUserId(request),
+        shopId,
         entityType: 'shop',
-        entityId: shop.id,
-        shopId: shop.id,
+        entityId: shopId,
         action: 'CREATE',
         after: shop,
       });
-
       return json(201, resource);
     } catch (error: any) {
-      return json(500, {
-        message: 'Failed to create shop',
-        error: error?.message ?? String(error),
-      });
+      return {
+        status: error.status || 500,
+        body: error.message || 'Failed to create shop',
+      };
     }
   },
 });
 
-// GET /shops/{shopId} -> fetch a single shop by id
 app.http('shopsGetById', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'shops/{shopId}',
-  handler: async (request: HttpRequestLike): Promise<HttpResponseInitLike> => {
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const shop = await validateShopGetById(request);
       return json(200, shop);
-    } catch (err: any) {
-      const status = err.status || 500;
-      return { status, body: err.message || 'Internal Server Error' };
+    } catch (error: any) {
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// PATCH /shops/{shopId} -> update shop operational settings with auditing
 app.http('shopsUpdate', {
   methods: ['PATCH'],
   authLevel: 'anonymous',
   route: 'shops/{shopId}',
-  handler: async (request: HttpRequestLike): Promise<HttpResponseInitLike> => {
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const { shop, updates } = await validateShopUpdate(request);
-      const updatedShop: Shop = {
+      const timestamp = nowIso();
+      const updated: Shop = {
         ...shop,
         ...updates,
-        updatedAt: nowIso(),
+        fulfillmentOptions: {
+          ...shop.fulfillmentOptions,
+          ...(updates.fulfillmentOptions ?? {}),
+        },
+        updatedAt: timestamp,
       };
-
-      await shopsContainer.items.upsert(updatedShop);
+      await shopsContainer.items.upsert(updated);
       await writeAuditLog({
         actorUserId: getActorUserId(request),
-        entityType: 'shopSettings',
-        entityId: updatedShop.id,
-        shopId: updatedShop.id,
+        shopId: shop.id,
+        entityType: 'shop',
+        entityId: shop.id,
         action: 'UPDATE',
         before: shop,
-        after: updatedShop,
+        after: updated,
       });
-
-      return json(200, updatedShop);
-    } catch (err: any) {
-      const status = err.status || 500;
-      return { status, body: err.message || 'Internal Server Error' };
+      return json(200, updated);
+    } catch (error: any) {
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// DELETE /shops/{shopId} -> delete a shop
 app.http('shopsDelete', {
   methods: ['DELETE'],
   authLevel: 'anonymous',
   route: 'shops/{shopId}',
-  handler: async (request: HttpRequestLike): Promise<HttpResponseInitLike> => {
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const shopId = request.params?.shopId?.trim();
-      if (!shopId) {
-        return json(400, { message: 'shopId is required' });
-      }
-      const { resource: shop } = await shopsContainer
-        .item(shopId, shopId)
-        .read<Shop>();
-      if (!shop) {
-        return json(404, { message: 'Shop not found' });
-      }
-
-      await shopsContainer.item(shopId, shopId).delete();
+      const shop = await validateShopGetById(request);
+      await shopsContainer.item(shop.id, shop.id).delete();
       await writeAuditLog({
         actorUserId: getActorUserId(request),
+        shopId: shop.id,
         entityType: 'shop',
-        entityId: shopId,
-        shopId,
+        entityId: shop.id,
         action: 'DELETE',
         before: shop,
       });
       return { status: 204 };
-    } catch (err: any) {
-      const status = err.status || 500;
-      return { status, body: err.message || 'Internal Server Error' };
+    } catch (error: any) {
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// GET /shops/{shopId}/members -> list all members attached to the shop
+/* -------------------------------------------------------------------------- */
+/* Shop members                                                               */
+/* -------------------------------------------------------------------------- */
+
 app.http('shopMembersList', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'shops/{shopId}/members',
-  handler: async (request: HttpRequestLike): Promise<HttpResponseInitLike> => {
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const { shopId } = await validateShopMembersList(request);
       const querySpec = {
-        query: 'SELECT * FROM c WHERE c.shopId = @shopId',
-        parameters: [{ name: '@shopId', value: shopId }],
+        query:
+          'SELECT * FROM c WHERE c.shopId = @shopId AND c.kind = @kind ORDER BY c.createdAt DESC',
+        parameters: [
+          { name: '@shopId', value: shopId },
+          { name: '@kind', value: 'association' },
+        ],
       };
       const { resources } = await shopMembersContainer.items
         .query<ShopMember>(querySpec)
         .fetchAll();
       return json(200, resources);
-    } catch (err: any) {
-      const status = err.status || 500;
-      return { status, body: err.message || 'Internal Server Error' };
+    } catch (error: any) {
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// POST /shops/{shopId}/members -> add a new staff/admin member
 app.http('shopMembersCreate', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'shops/{shopId}/members',
-  handler: async (request: HttpRequestLike): Promise<HttpResponseInitLike> => {
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const { shopId, member } = await validateShopMembersCreate(request);
-      const record: ShopMember = {
+      const { shopId, payload } = await validateShopMembersCreate(request);
+      const timestamp = nowIso();
+      const member: ShopMember = {
         id: newId(),
+        kind: 'association',
         shopId,
-        ...member,
-        addedAt: nowIso(),
+        userId: payload.userId,
+        role: payload.role,
+        permissions: payload.permissions ?? DEFAULT_PERMISSIONS,
+        invitationStatus: 'accepted',
+        isActive: true,
+        createdAt: timestamp,
+        updatedAt: timestamp,
       };
-
-      await shopMembersContainer.items.create(record);
+      await shopMembersContainer.items.create(member);
       await writeAuditLog({
         actorUserId: getActorUserId(request),
-        entityType: 'membership',
-        entityId: record.id,
         shopId,
+        entityType: 'association',
+        entityId: member.id,
         action: 'CREATE',
-        after: record,
+        after: member,
       });
-
-      return json(201, record);
-    } catch (err: any) {
-      const status = err.status || 500;
-      return { status, body: err.message || 'Internal Server Error' };
+      return json(201, member);
+    } catch (error: any) {
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// PATCH /shops/{shopId}/members/{memberId} -> modify member role/status/permissions
 app.http('shopMembersUpdate', {
   methods: ['PATCH'],
   authLevel: 'anonymous',
   route: 'shops/{shopId}/members/{memberId}',
-  handler: async (request: HttpRequestLike): Promise<HttpResponseInitLike> => {
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const { member, updates } = await validateShopMembersUpdate(request);
-      const updatedMember: ShopMember = { ...member, ...updates };
-
-      await shopMembersContainer.items.upsert(updatedMember);
+      const timestamp = nowIso();
+      const updated: ShopMember = {
+        ...member,
+        ...updates,
+        permissions:
+          updates.permissions && updates.permissions.length > 0
+            ? updates.permissions
+            : member.permissions,
+        updatedAt: timestamp,
+      };
+      await shopMembersContainer.items.upsert(updated);
       await writeAuditLog({
         actorUserId: getActorUserId(request),
-        entityType: 'membership',
-        entityId: updatedMember.id,
-        shopId: updatedMember.shopId,
+        shopId: member.shopId,
+        entityType: 'association',
+        entityId: updated.id,
         action: 'UPDATE',
         before: member,
-        after: updatedMember,
+        after: updated,
       });
-      return json(200, updatedMember);
-    } catch (err: any) {
-      const status = err.status || 500;
-      return { status, body: err.message || 'Internal Server Error' };
+      return json(200, updated);
+    } catch (error: any) {
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// GET /shops/{shopId}/hours -> read the configured operating hours for a shop
+/* -------------------------------------------------------------------------- */
+/* Shop hours                                                                 */
+/* -------------------------------------------------------------------------- */
+
 app.http('shopHoursGet', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'shops/{shopId}/hours',
-  handler: async (request: HttpRequestLike): Promise<HttpResponseInitLike> => {
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const { shopId } = await validateShopHoursGet(request);
-      try {
-        const { resource } = await shopHoursContainer
-          .item(shopId, shopId)
-          .read<ShopHours>();
-        if (!resource) {
-          return json(200, {});
-        }
-        return json(200, resource);
-      } catch {
-        return json(200, {});
-      }
-    } catch (err: any) {
-      const status = err.status || 500;
-      return { status, body: err.message || 'Internal Server Error' };
+      const { resource } = await shopHoursContainer
+        .item(shopId, shopId)
+        .read<ShopHours>();
+      return json(200, resource ?? {});
+    } catch (error: any) {
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// PUT /shops/{shopId}/hours -> replace/create the operating hours document
 app.http('shopHoursUpsert', {
   methods: ['PUT'],
   authLevel: 'anonymous',
   route: 'shops/{shopId}/hours',
-  handler: async (request: HttpRequestLike): Promise<HttpResponseInitLike> => {
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const { shopId, payload } = await validateShopHoursUpsert(request);
       const timestamp = nowIso();
-      let existing: ShopHours | undefined;
-      try {
-        const { resource } = await shopHoursContainer
-          .item(shopId, shopId)
-          .read<ShopHours>();
-        existing = resource ?? undefined;
-      } catch {
-        existing = undefined;
-      }
-
-      const record: ShopHours = {
+      const { resource } = await shopHoursContainer
+        .item(shopId, shopId)
+        .read<ShopHours>()
+        .catch(() => ({ resource: undefined }));
+      const hours: ShopHours = {
         id: shopId,
+        kind: 'association',
         shopId,
         timezone: payload.timezone,
         weekly: payload.weekly,
+        createdAt: resource?.createdAt ?? timestamp,
         updatedAt: timestamp,
       };
-
-      await shopHoursContainer.items.upsert(record);
+      await shopHoursContainer.items.upsert(hours);
       await writeAuditLog({
         actorUserId: getActorUserId(request),
+        shopId,
         entityType: 'shopHours',
         entityId: shopId,
-        shopId,
-        action: existing ? 'UPDATE' : 'CREATE',
-        before: existing,
-        after: record,
+        action: resource ? 'UPDATE' : 'CREATE',
+        before: resource,
+        after: hours,
       });
-
-      return json(existing ? 200 : 201, record);
-    } catch (err: any) {
-      const status = err.status || 500;
-      return { status, body: err.message || 'Internal Server Error' };
+      return json(resource ? 200 : 201, hours);
+    } catch (error: any) {
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// GET /users/{userId}/shops -> list shops the user can manage
+/* -------------------------------------------------------------------------- */
+/* User-managed shops view                                                    */
+/* -------------------------------------------------------------------------- */
+
 app.http('usersGetShops', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'users/{userId}/shops',
-  handler: async (request: HttpRequestLike): Promise<HttpResponseInitLike> => {
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const { userId } = await validateUsersManagedShops(request);
       const membershipQuery = {
-        query: 'SELECT * FROM c WHERE c.userId = @userId AND c.isActive = true',
+        query:
+          'SELECT * FROM c WHERE c.userId = @userId AND c.isActive = true',
         parameters: [{ name: '@userId', value: userId }],
       };
       const { resources: memberships } = await shopMembersContainer.items
         .query<ShopMember>(membershipQuery)
         .fetchAll();
-
       if (memberships.length === 0) {
         return json(200, []);
       }
-
-      const shopIds = Array.from(
-        new Set(memberships.map((member) => member.shopId)),
-      );
+      const shopIds = [...new Set(memberships.map((m) => m.shopId))];
       const shopQuery = {
         query: 'SELECT * FROM c WHERE ARRAY_CONTAINS(@ids, c.id)',
         parameters: [{ name: '@ids', value: shopIds }],
@@ -438,37 +421,32 @@ app.http('usersGetShops', {
       const { resources: shops } = await shopsContainer.items
         .query<Shop>(shopQuery)
         .fetchAll();
-      const shopById = new Map(shops.map((shop) => [shop.id, shop]));
-
+      const shopById = new Map(shops.map((s) => [s.id, s]));
       const views = memberships
         .map((membership) => {
           const shop = shopById.get(membership.shopId);
-          if (!shop) {
-            return undefined;
-          }
+          if (!shop) return undefined;
           return {
             shopId: shop.id,
             name: shop.name,
-            address: shop.address,
             status: shop.status,
             acceptingOrders: shop.acceptingOrders,
-            pickupEnabled: shop.fulfillmentOptions?.pickupEnabled === true,
             role: membership.role,
-            isActiveMember: membership.isActive,
-            updatedAt: shop.updatedAt,
+            permissions: membership.permissions,
           };
         })
-        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
-
+        .filter(Boolean);
       return json(200, views);
-    } catch (err: any) {
-      const status = err.status || 500;
-      return { status, body: err.message || 'Internal Server Error' };
+    } catch (error: any) {
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// GET /shops/{shopId}/menu -> fetch the full customer-facing menu payload
+/* -------------------------------------------------------------------------- */
+/* Menu                                                                       */
+/* -------------------------------------------------------------------------- */
+
 app.http('shopsMenu', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -476,7 +454,7 @@ app.http('shopsMenu', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const { shopId, shop } = await validateShopsMenuRequest(request);
-      const [{ resources: categories }, { resources: listings }] =
+      const [{ resources: categories }, { resources: entries }] =
         await Promise.all([
           categoriesContainer.items
             .query<Category>({
@@ -485,38 +463,38 @@ app.http('shopsMenu', {
               parameters: [{ name: '@shopId', value: shopId }],
             })
             .fetchAll(),
-          productsInShopContainer.items
-            .query<ProductInShopResponse>({
+          shopCatalogEntriesContainer.items
+            .query<ShopCatalogEntry>({
               query:
                 'SELECT * FROM c WHERE c.shopId = @shopId AND c.isAvailable = true',
               parameters: [{ name: '@shopId', value: shopId }],
             })
             .fetchAll(),
         ]);
-
-      const productIds = Array.from(
-        new Set(listings.map((item) => item.productId)),
-      );
-      let products: Product[] = [];
-      if (productIds.length > 0) {
-        const { resources } = await productsContainer.items
-          .query<Product>({
-            query: 'SELECT * FROM c WHERE ARRAY_CONTAINS(@ids, c.id)',
-            parameters: [{ name: '@ids', value: productIds }],
-          })
-          .fetchAll();
-        products = resources;
-      }
+      const productIds = [
+        ...new Set(entries.map((entry) => entry.productId)),
+      ];
+      const products: CatalogProduct[] =
+        productIds.length === 0
+          ? []
+          : (
+              await catalogProductsContainer.items
+                .query<CatalogProduct>({
+                  query: 'SELECT * FROM c WHERE ARRAY_CONTAINS(@ids, c.id)',
+                  parameters: [{ name: '@ids', value: productIds }],
+                })
+                .fetchAll()
+            ).resources;
 
       return json(200, {
         shop,
         categories,
-        productsInShop: listings,
-        products,
+        catalogEntries: entries,
+        catalogProducts: products,
       });
-    } catch (err: any) {
-      const status = err.status || 500;
-      return { status, body: err.message || 'Internal Server Error' };
+    } catch (error: any) {
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
+

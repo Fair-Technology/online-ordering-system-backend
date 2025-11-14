@@ -3,13 +3,14 @@ import {
   HttpResponseInitLike,
   json,
 } from '../types/otherTypes';
-type HttpRequest = HttpRequestLike;
-type HttpResponseInit = HttpResponseInitLike;
 const { app } = require('@azure/functions');
 import { getContainer } from '../config/cosmosClient';
-import { ProductInShopResponse } from '../types/apiTypes-old';
-import { getActorUserId, newId, nowIso, writeAuditLog } from '../utils/general';
-import { Category, Product, Shop } from '../types/databaseTypes';
+import {
+  CatalogProduct,
+  Category,
+  Shop,
+  ShopCatalogEntry,
+} from '../types/databaseTypes';
 import {
   validateCategoriesList,
   validateCategoryCreate,
@@ -19,9 +20,13 @@ import {
   validateProductInShopUpdate,
   validateProductUpdate,
 } from '../utils/businessLogic';
+import { getActorUserId, newId, nowIso, writeAuditLog } from '../utils/general';
 
-const productsContainer = getContainer('products');
-const productsInShopContainer = getContainer('productsInShop');
+type HttpRequest = HttpRequestLike;
+type HttpResponseInit = HttpResponseInitLike;
+
+const catalogProductsContainer = getContainer('products');
+const shopCatalogEntriesContainer = getContainer('productsInShop');
 const categoriesContainer = getContainer('categories');
 const shopsContainer = getContainer('shops');
 
@@ -34,7 +39,10 @@ async function readShop(shopId: string): Promise<Shop | undefined> {
   }
 }
 
-// GET /products -> list products with optional owner filter
+/* -------------------------------------------------------------------------- */
+/* Catalog products                                                           */
+/* -------------------------------------------------------------------------- */
+
 app.http('productsListAll', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -42,26 +50,24 @@ app.http('productsListAll', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const ownerUserId = request.query.get('ownerUserId')?.trim();
-      let query = 'SELECT * FROM c';
-      const parameters: any[] = [];
+      let query = 'SELECT * FROM c WHERE c.kind = @kind';
+      const parameters: any[] = [{ name: '@kind', value: 'catalogProduct' }];
       if (ownerUserId) {
-        query += ' WHERE c.ownerUserId = @ownerUserId';
+        query += ' AND c.ownerUserId = @ownerUserId';
         parameters.push({ name: '@ownerUserId', value: ownerUserId });
       }
       query += ' ORDER BY c.updatedAt DESC';
 
-      const { resources } = await productsContainer.items
-        .query<Product>({ query, parameters })
+      const { resources } = await catalogProductsContainer.items
+        .query<CatalogProduct>({ query, parameters })
         .fetchAll();
       return json(200, resources);
     } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// POST /products -> create a global catalog product definition
 app.http('productsCreate', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -69,38 +75,37 @@ app.http('productsCreate', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const payload = await validateProductCreate(request);
-
       const timestamp = nowIso();
-      const product: Product = {
+      const product: CatalogProduct = {
         id: newId(),
+        kind: 'catalogProduct',
         ownerUserId: payload.ownerUserId,
-        name: payload.name,
+        title: payload.title,
         description: payload.description,
-        isAvailable: payload.isActive,
+        media: payload.media ?? [],
+        tags: payload.tags ?? [],
+        allergyInfo: payload.allergyInfo ?? [],
+        variantGroups: payload.variantGroups,
+        addonGroups: payload.addonGroups,
+        isActive: payload.isActive ?? true,
         createdAt: timestamp,
         updatedAt: timestamp,
-        variantSchemes: payload.variantSchemes,
-        addonGroups: payload.addonGroups,
       };
-
-      await productsContainer.items.create(product);
+      await catalogProductsContainer.items.create(product);
       await writeAuditLog({
         actorUserId: getActorUserId(request),
-        entityType: 'product',
+        entityType: 'catalogProduct',
         entityId: product.id,
         action: 'CREATE',
         after: product,
       });
-
       return json(201, product);
     } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// GET /products/{productId} -> fetch product details
 app.http('productsGetByIdGeneral', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -111,60 +116,50 @@ app.http('productsGetByIdGeneral', {
       if (!productId) {
         return json(400, { message: 'productId is required' });
       }
-      const { resource } = await productsContainer
+      const { resource } = await catalogProductsContainer
         .item(productId, productId)
-        .read<Product>();
+        .read<CatalogProduct>();
       if (!resource) {
         return json(404, { message: 'Product not found' });
       }
       return json(200, resource);
     } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// PATCH /products/{productId} -> update global product fields
 app.http('productsUpdate', {
   methods: ['PATCH'],
   authLevel: 'anonymous',
   route: 'products/{productId}',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const { productId, updates } = await validateProductUpdate(request);
-      const { resource } = await productsContainer
-        .item(productId, productId)
-        .read<Product>();
-      if (!resource) {
-        return json(404, { message: 'Product not found' });
-      }
-
-      const updated: Product = {
-        ...resource,
+      const { product, updates } = await validateProductUpdate(request);
+      const timestamp = nowIso();
+      const updated: CatalogProduct = {
+        ...product,
         ...updates,
-        updatedAt: nowIso(),
+        variantGroups: updates.variantGroups ?? product.variantGroups,
+        addonGroups: updates.addonGroups ?? product.addonGroups,
+        updatedAt: timestamp,
       };
-
-      await productsContainer.items.upsert(updated);
+      await catalogProductsContainer.items.upsert(updated);
       await writeAuditLog({
         actorUserId: getActorUserId(request),
-        entityType: 'product',
-        entityId: productId,
+        entityType: 'catalogProduct',
+        entityId: product.id,
         action: 'UPDATE',
-        before: resource,
+        before: product,
         after: updated,
       });
-
       return json(200, updated);
     } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// DELETE /products/{productId} -> delete a product
 app.http('productsDelete', {
   methods: ['DELETE'],
   authLevel: 'anonymous',
@@ -175,31 +170,31 @@ app.http('productsDelete', {
       if (!productId) {
         return json(400, { message: 'productId is required' });
       }
-      const { resource } = await productsContainer
+      const { resource } = await catalogProductsContainer
         .item(productId, productId)
-        .read<Product>();
+        .read<CatalogProduct>();
       if (!resource) {
         return json(404, { message: 'Product not found' });
       }
-
-      await productsContainer.item(productId, productId).delete();
+      await catalogProductsContainer.item(productId, productId).delete();
       await writeAuditLog({
         actorUserId: getActorUserId(request),
-        entityType: 'product',
+        entityType: 'catalogProduct',
         entityId: productId,
         action: 'DELETE',
         before: resource,
       });
-
       return { status: 204 };
     } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// POST /shops/{shopId}/products -> create a shop-specific product listing
+/* -------------------------------------------------------------------------- */
+/* Shop catalog entries                                                       */
+/* -------------------------------------------------------------------------- */
+
 app.http('productsInShopCreate', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -213,86 +208,77 @@ app.http('productsInShopCreate', {
       if (!shop) {
         return json(404, { message: 'Shop not found' });
       }
-      const { resource: product } = await productsContainer
+      const { resource: product } = await catalogProductsContainer
         .item(productId, productId)
-        .read<Product>();
+        .read<CatalogProduct>();
       if (!product) {
         return json(404, { message: 'Product not found' });
       }
-
       const timestamp = nowIso();
-      const record: ProductInShopResponse = {
+      const entry: ShopCatalogEntry = {
         id: newId(),
-        productId: product.id,
-        shopId: shop.id,
-        priceOverride: data.priceOverride,
+        kind: 'shopCatalogEntry',
+        shopId,
+        productId,
         isAvailable: data.isAvailable,
-        categoryIds: data.categoryIds,
+        categoryIds: data.categoryIds ?? [],
+        priceOverride: data.priceOverride,
         sortOrder: data.sortOrder,
+        salesChannels: data.salesChannels ?? ['online'],
         createdAt: timestamp,
         updatedAt: timestamp,
       };
-
-      await productsInShopContainer.items.create(record);
+      await shopCatalogEntriesContainer.items.create(entry);
       await writeAuditLog({
         actorUserId: getActorUserId(request),
-        entityType: 'productInShop',
-        entityId: record.id,
-        shopId: shop.id,
+        shopId,
+        entityType: 'shopCatalogEntry',
+        entityId: entry.id,
         action: 'CREATE',
-        after: record,
+        after: entry,
       });
-
-      return json(201, record);
+      return json(201, entry);
     } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// PATCH /shops/{shopId}/products/{productInShopId} -> edit listing metadata
 app.http('productsInShopUpdate', {
   methods: ['PATCH'],
   authLevel: 'anonymous',
   route: 'shops/{shopId}/products/{productInShopId}',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const { shopId, productInShopId, updates } =
-        await validateProductInShopUpdate(request);
-      const { resource } = await productsInShopContainer
-        .item(productInShopId, productInShopId)
-        .read<ProductInShopResponse>();
-      if (!resource || resource.shopId !== shopId) {
-        return json(404, { message: 'Product listing not found' });
-      }
-
-      const updated: ProductInShopResponse = {
-        ...resource,
+      const { entry, updates } = await validateProductInShopUpdate(request);
+      const timestamp = nowIso();
+      const updated: ShopCatalogEntry = {
+        ...entry,
         ...updates,
-        updatedAt: nowIso(),
+        categoryIds: updates.categoryIds ?? entry.categoryIds,
+        updatedAt: timestamp,
       };
-
-      await productsInShopContainer.items.upsert(updated);
+      await shopCatalogEntriesContainer.items.upsert(updated);
       await writeAuditLog({
         actorUserId: getActorUserId(request),
-        entityType: 'productInShop',
-        entityId: resource.id,
-        shopId: resource.shopId,
+        shopId: entry.shopId,
+        entityType: 'shopCatalogEntry',
+        entityId: entry.id,
         action: 'UPDATE',
-        before: resource,
+        before: entry,
         after: updated,
       });
-
       return json(200, updated);
     } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// GET /shops/{shopId}/categories -> list categories for a shop
+/* -------------------------------------------------------------------------- */
+/* Categories                                                                 */
+/* -------------------------------------------------------------------------- */
+
 app.http('categoriesList', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -302,21 +288,22 @@ app.http('categoriesList', {
       const { shopId } = await validateCategoriesList(request);
       const querySpec = {
         query:
-          'SELECT * FROM c WHERE c.shopId = @shopId ORDER BY c.sortOrder ASC',
-        parameters: [{ name: '@shopId', value: shopId }],
+          'SELECT * FROM c WHERE c.shopId = @shopId AND c.kind = @kind ORDER BY c.sortOrder ASC',
+        parameters: [
+          { name: '@shopId', value: shopId },
+          { name: '@kind', value: 'category' },
+        ],
       };
       const { resources } = await categoriesContainer.items
         .query<Category>(querySpec)
         .fetchAll();
       return json(200, resources);
     } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// POST /shops/{shopId}/categories -> create a new category
 app.http('categoriesCreate', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -328,75 +315,62 @@ app.http('categoriesCreate', {
       if (!shop) {
         return json(404, { message: 'Shop not found' });
       }
-
       const timestamp = nowIso();
       const category: Category = {
         id: newId(),
+        kind: 'category',
         shopId,
         name: data.name,
         description: data.description,
         sortOrder: data.sortOrder,
-        isActive: data.isActive,
+        isActive: data.isActive ?? true,
+        parentCategoryId: data.parentCategoryId,
         createdAt: timestamp,
         updatedAt: timestamp,
       };
-
       await categoriesContainer.items.create(category);
       await writeAuditLog({
         actorUserId: getActorUserId(request),
+        shopId,
         entityType: 'category',
         entityId: category.id,
-        shopId,
         action: 'CREATE',
         after: category,
       });
-
       return json(201, category);
     } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// PATCH /shops/{shopId}/categories/{categoryId} -> update category fields
 app.http('categoriesUpdate', {
   methods: ['PATCH'],
   authLevel: 'anonymous',
   route: 'shops/{shopId}/categories/{categoryId}',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const { shopId, categoryId, updates } = await validateCategoryUpdate(
-        request,
-      );
-      const { resource } = await categoriesContainer
-        .item(categoryId, categoryId)
-        .read<Category>();
-      if (!resource || resource.shopId !== shopId) {
-        return json(404, { message: 'Category not found' });
-      }
-
+      const { category, updates } = await validateCategoryUpdate(request);
+      const timestamp = nowIso();
       const updated: Category = {
-        ...resource,
+        ...category,
         ...updates,
-        updatedAt: nowIso(),
+        updatedAt: timestamp,
       };
-
       await categoriesContainer.items.upsert(updated);
       await writeAuditLog({
         actorUserId: getActorUserId(request),
+        shopId: category.shopId,
         entityType: 'category',
-        entityId: resource.id,
-        shopId: resource.shopId,
+        entityId: category.id,
         action: 'UPDATE',
-        before: resource,
+        before: category,
         after: updated,
       });
-
       return json(200, updated);
     } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
+

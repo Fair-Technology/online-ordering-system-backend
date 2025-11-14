@@ -3,11 +3,24 @@ import {
   HttpResponseInitLike,
   json,
 } from '../types/otherTypes';
-type HttpRequest = HttpRequestLike;
-type HttpResponseInit = HttpResponseInitLike;
 const { app } = require('@azure/functions');
 import { getContainer } from '../config/cosmosClient';
-
+import {
+  CatalogProduct,
+  Money,
+  Order,
+  OrderItem,
+  OrderItemAddonSnapshot,
+  OrderStatus,
+  Shop,
+  ShopCatalogEntry,
+} from '../types/databaseTypes';
+import { OrderItemPayload } from '../types/payloadTypes';
+import {
+  validateOrdersCreate,
+  validateOrdersList,
+  validateOrdersUpdateStatus,
+} from '../utils/businessLogic';
 import {
   canTransition,
   getActorUserId,
@@ -16,33 +29,44 @@ import {
   nowIso,
   writeAuditLog,
 } from '../utils/general';
-import {
-  CartItem,
-  CartItemRequest,
-  Order,
-  OrderItem,
-  OrderStatus,
-  Product,
-  Shop,
-} from '../types/databaseTypes';
-import { ProductInShopResponse } from '../types/apiTypes-old';
-import {
-  validateOrdersCreate,
-  validateOrdersList,
-  validateOrdersUpdateStatus,
-} from '../utils/businessLogic';
+
+type HttpRequest = HttpRequestLike;
+type HttpResponseInit = HttpResponseInitLike;
 
 const ordersContainer = getContainer('orders');
-const productsInShopContainer = getContainer('productsInShop');
-const productsContainer = getContainer('products');
+const shopCatalogEntriesContainer = getContainer('productsInShop');
+const catalogProductsContainer = getContainer('products');
 const shopsContainer = getContainer('shops');
 
-async function readBody<T>(request: HttpRequest): Promise<T> {
-  try {
-    return (await request.json()) as T;
-  } catch {
-    throw new Error('Invalid JSON body');
+interface ValidatedOrderItem {
+  productId: string;
+  shopCatalogEntryId: string;
+  productVariantId: string;
+  productNameSnapshot: string;
+  variantLabelSnapshot: string;
+  addons: OrderItemAddonSnapshot[];
+  finalUnitPrice: Money;
+  quantity: number;
+}
+
+function ensureCurrencyMatch(
+  money: Money,
+  currency: string,
+  context: string,
+): void {
+  if (money.currency !== currency) {
+    throw new Error(`${context} currency mismatch`);
   }
+}
+
+function sumAddonPrice(
+  addons: OrderItemAddonSnapshot[],
+  currency: string,
+): number {
+  return addons.reduce((sum, addon) => {
+    ensureCurrencyMatch(addon.priceDeltaSnapshot, currency, 'Addon price');
+    return sum + addon.priceDeltaSnapshot.amount;
+  }, 0);
 }
 
 async function readShop(shopId: string): Promise<Shop | undefined> {
@@ -54,32 +78,32 @@ async function readShop(shopId: string): Promise<Shop | undefined> {
   }
 }
 
-async function buildCartItemsFromSelection(
+async function buildOrderItemsFromPayload(
   shopId: string,
-  selections: CartItemRequest[],
-): Promise<CartItem[]> {
+  selections: OrderItemPayload[],
+): Promise<ValidatedOrderItem[]> {
   if (!Array.isArray(selections) || selections.length === 0) {
     return [];
   }
 
   for (const selection of selections) {
     if (!selection.productId || !selection.productVariantId) {
-      throw new Error('Each item must include productId and productVariantId');
+      throw new Error('productId and productVariantId are required');
     }
     if (
       selection.quantity === undefined ||
-      typeof selection.quantity !== 'number'
+      typeof selection.quantity !== 'number' ||
+      selection.quantity <= 0
     ) {
-      throw new Error('Each item must include quantity');
+      throw new Error('quantity must be greater than zero');
     }
   }
 
-  const productIds = Array.from(
-    new Set(selections.map((item) => item.productId)),
-  );
-  const [{ resources: listings }, { resources: products }] = await Promise.all([
-    productsInShopContainer.items
-      .query<ProductInShopResponse>({
+  const productIds = [...new Set(selections.map((item) => item.productId))];
+
+  const [{ resources: entries }, { resources: products }] = await Promise.all([
+    shopCatalogEntriesContainer.items
+      .query<ShopCatalogEntry>({
         query:
           'SELECT * FROM c WHERE c.shopId = @shopId AND ARRAY_CONTAINS(@ids, c.productId)',
         parameters: [
@@ -88,90 +112,79 @@ async function buildCartItemsFromSelection(
         ],
       })
       .fetchAll(),
-    productsContainer.items
-      .query<Product>({
+    catalogProductsContainer.items
+      .query<CatalogProduct>({
         query: 'SELECT * FROM c WHERE ARRAY_CONTAINS(@ids, c.id)',
         parameters: [{ name: '@ids', value: productIds }],
       })
       .fetchAll(),
   ]);
 
-  const listingByProductId = new Map<string, ProductInShopResponse>();
-  listings.forEach((listing) =>
-    listingByProductId.set(listing.productId, listing),
-  );
+  const entryByProduct = new Map(entries.map((entry) => [entry.productId, entry]));
+  const productById = new Map(products.map((product) => [product.id, product]));
 
-  const productById = new Map(products.map((p) => [p.id, p]));
-
-  const result: CartItem[] = [];
+  const result: ValidatedOrderItem[] = [];
 
   for (const selection of selections) {
-    if (selection.quantity <= 0) {
-      throw new Error('quantity must be greater than zero');
-    }
-
-    const listing = listingByProductId.get(selection.productId);
-    if (!listing) {
+    const entry = entryByProduct.get(selection.productId);
+    if (!entry || entry.isAvailable === false) {
       throw new Error(
-        `Product ${selection.productId} is not available in this shop`,
+        `Product ${selection.productId} is not currently available in this shop`,
       );
     }
-    if (listing.isAvailable === false) {
-      throw new Error(
-        `Product ${selection.productId} is currently unavailable`,
-      );
+    if (
+      selection.shopCatalogEntryId &&
+      selection.shopCatalogEntryId !== entry.id
+    ) {
+      throw new Error('Product listing mismatch for provided shopCatalogEntryId');
     }
     const product = productById.get(selection.productId);
     if (!product) {
       throw new Error(`Product ${selection.productId} not found`);
     }
 
-    const variant = product.variantSchemes
-      ?.flatMap((scheme) => scheme.variants)
-      .find((variantItem) => variantItem.id === selection.productVariantId);
+    const variant = product.variantGroups
+      .flatMap((group) => group.variants)
+      .find((item) => item.id === selection.productVariantId);
     if (!variant || !variant.isActive) {
       throw new Error(`Variant ${selection.productVariantId} is not available`);
     }
 
     const addonOptionIds = Array.isArray(selection.addonOptionIds)
-      ? selection.addonOptionIds.filter(
-          (id): id is string => typeof id === 'string',
-        )
+      ? selection.addonOptionIds.filter((id): id is string => typeof id === 'string')
       : [];
-    const addonSnapshots = addonOptionIds.map((optionId) => {
-      for (const group of product.addonGroups ?? []) {
-        const option = group.options.find(
-          (opt) => opt.id === optionId && opt.isActive,
-        );
-        if (option) {
-          return {
-            addonOptionId: option.id,
-            nameSnapshot: option.name,
-            priceDeltaSnapshot: option.priceDelta,
-          };
-        }
-      }
-      throw new Error(
-        `Addon option ${optionId} is invalid for product ${product.id}`,
-      );
-    });
 
-    const basePrice =
-      typeof listing.priceOverride === 'number'
-        ? Number(listing.priceOverride)
-        : Number(variant.basePrice);
-    const addonsTotal = addonSnapshots.reduce(
-      (sum, addon) => sum + addon.priceDeltaSnapshot,
-      0,
+    const addonSnapshots: OrderItemAddonSnapshot[] = addonOptionIds.map(
+      (optionId) => {
+        for (const group of product.addonGroups ?? []) {
+          const option = group.options.find(
+            (opt) => opt.id === optionId && opt.isActive,
+          );
+          if (option) {
+            return {
+              addonOptionId: option.id,
+              nameSnapshot: option.label,
+              priceDeltaSnapshot: option.priceDelta,
+            };
+          }
+        }
+        throw new Error(`Addon option ${optionId} is not valid for product ${product.id}`);
+      },
     );
-    const finalUnitPrice = basePrice + addonsTotal;
+
+    const basePrice = entry.priceOverride ?? variant.basePrice;
+    const addonsAmount = sumAddonPrice(addonSnapshots, basePrice.currency);
+    const finalUnitPrice: Money = {
+      amount: basePrice.amount + addonsAmount,
+      currency: basePrice.currency,
+    };
 
     result.push({
       productId: product.id,
+      shopCatalogEntryId: entry.id,
       productVariantId: variant.id,
-      productNameSnapshot: product.name,
+      productNameSnapshot: product.title,
       variantLabelSnapshot: variant.label,
-      unitBasePriceSnapshot: basePrice,
       addons: addonSnapshots,
       finalUnitPrice,
       quantity: selection.quantity,
@@ -181,9 +194,12 @@ async function buildCartItemsFromSelection(
   return result;
 }
 
-function convertCartItemsToOrderItems(items: CartItem[]): OrderItem[] {
+function convertValidatedItemsToOrderItems(
+  items: ValidatedOrderItem[],
+): OrderItem[] {
   return items.map((item) => ({
     productId: item.productId,
+    shopCatalogEntryId: item.shopCatalogEntryId,
     productVariantId: item.productVariantId,
     productNameSnapshot: item.productNameSnapshot,
     variantLabelSnapshot: item.variantLabelSnapshot,
@@ -193,7 +209,22 @@ function convertCartItemsToOrderItems(items: CartItem[]): OrderItem[] {
   }));
 }
 
-// POST /shops/{shopId}/orders -> place an order after validating shop/business rules
+function sumOrderTotal(items: OrderItem[]): Money {
+  if (items.length === 0) {
+    return { amount: 0, currency: 'USD' };
+  }
+  const currency = items[0].finalUnitPrice.currency;
+  const amount = items.reduce((sum, item) => {
+    ensureCurrencyMatch(item.finalUnitPrice, currency, 'Order item price');
+    return sum + item.finalUnitPrice.amount * item.quantity;
+  }, 0);
+  return { amount, currency };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Create order                                                               */
+/* -------------------------------------------------------------------------- */
+
 app.http('ordersCreate', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -207,88 +238,77 @@ app.http('ordersCreate', {
         customerPhone,
         customerNotes,
         items,
+        fulfillmentType,
+        scheduledFor,
       } = await validateOrdersCreate(request);
       const shop = await readShop(shopId);
       if (!shop) {
         return json(404, { message: 'Shop not found' });
       }
 
-      const shopIsActive = shop.isActive ?? true;
-      const shopAcceptingOrders = shop.acceptingOrders ?? true;
-      const pickupEnabled = shop.fulfillmentOptions?.pickupEnabled ?? true;
-      if (!shopIsActive || !shopAcceptingOrders || !pickupEnabled) {
+      if (shop.status !== 'open' || shop.acceptingOrders === false) {
         return json(400, { message: 'Shop is not accepting orders right now' });
       }
       if (userId === 'guest' && shop.allowGuestCheckout === false) {
-        return json(400, {
-          message: 'Guest checkout is disabled for this shop',
-        });
-      }
-      if (shop.paymentPolicy === 'prepaid_only') {
-        return json(400, {
-          message: 'This shop currently requires prepaid orders',
-        });
+        return json(400, { message: 'Guest checkout is disabled for this shop' });
       }
       if (!(await isShopOpenNow(shopId))) {
         return json(400, { message: 'Shop is currently closed' });
       }
 
-      let cartItems: CartItem[] = [];
-      try {
-        cartItems = await buildCartItemsFromSelection(shopId, items);
-      } catch (error: any) {
-        return json(400, {
-          message: error?.message ?? 'Invalid order items',
-        });
-      }
-
-      if (cartItems.length === 0) {
+      const validatedItems = await buildOrderItemsFromPayload(shopId, items);
+      if (validatedItems.length === 0) {
         return json(400, { message: 'Order must contain at least one item' });
       }
 
-      const orderItems = convertCartItemsToOrderItems(cartItems);
-      const totalAmount = orderItems.reduce(
-        (sum, item) => sum + item.finalUnitPrice * item.quantity,
-        0,
-      );
+      const orderItems = convertValidatedItemsToOrderItems(validatedItems);
+      const totalAmount = sumOrderTotal(orderItems);
       const timestamp = nowIso();
       const status: OrderStatus =
         shop.orderAcceptanceMode === 'auto' ? 'accepted' : 'placed';
 
       const order: Order = {
         id: newId(),
+        kind: 'order',
         shopId,
         userId,
         status,
         paymentStatus: 'unpaid',
         totalAmount,
         submittedAt: timestamp,
-        updatedAt: timestamp,
         customerName,
         customerPhone,
         customerNotes,
         items: orderItems,
+        fulfillmentSlot: {
+          type: fulfillmentType ?? 'pickup',
+          scheduledFor,
+        },
+        createdAt: timestamp,
+        updatedAt: timestamp,
       };
 
       await ordersContainer.items.create(order);
       await writeAuditLog({
         actorUserId: getActorUserId(request),
+        shopId,
         entityType: 'order',
         entityId: order.id,
-        shopId,
         action: 'CREATE',
         after: order,
       });
 
       return json(201, order);
     } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// GET /shops/{shopId}/orders -> list orders for the shop (with optional status filter)
+/* -------------------------------------------------------------------------- */
+/* Shop order listing                                                         */
+/* -------------------------------------------------------------------------- */
+
 app.http('ordersList', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -296,9 +316,11 @@ app.http('ordersList', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const { shopId, statuses } = validateOrdersList(request);
-
-      let query = 'SELECT * FROM c WHERE c.shopId = @shopId';
-      const parameters: any[] = [{ name: '@shopId', value: shopId }];
+      let query = 'SELECT * FROM c WHERE c.kind = @kind AND c.shopId = @shopId';
+      const parameters: any[] = [
+        { name: '@kind', value: 'order' },
+        { name: '@shopId', value: shopId },
+      ];
 
       if (statuses.length === 1) {
         query += ' AND c.status = @status';
@@ -307,7 +329,6 @@ app.http('ordersList', {
         query += ' AND ARRAY_CONTAINS(@statuses, c.status)';
         parameters.push({ name: '@statuses', value: statuses });
       }
-
       query += ' ORDER BY c.submittedAt DESC';
 
       const { resources } = await ordersContainer.items
@@ -315,59 +336,53 @@ app.http('ordersList', {
         .fetchAll();
       return json(200, resources);
     } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// PATCH /shops/{shopId}/orders/{orderId}/status -> advance an order through workflow
+/* -------------------------------------------------------------------------- */
+/* Status transitions                                                         */
+/* -------------------------------------------------------------------------- */
+
 app.http('ordersUpdateStatus', {
   methods: ['PATCH'],
   authLevel: 'anonymous',
   route: 'shops/{shopId}/orders/{orderId}/status',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const { shopId, orderId, nextStatus } = await validateOrdersUpdateStatus(
-        request,
-      );
-      const { resource } = await ordersContainer
-        .item(orderId, orderId)
-        .read<Order>();
-      if (!resource || resource.shopId !== shopId) {
-        return json(404, { message: 'Order not found' });
-      }
-
-      if (!canTransition(resource.status, nextStatus)) {
+      const { order, nextStatus } = await validateOrdersUpdateStatus(request);
+      if (!canTransition(order.status, nextStatus)) {
         return json(400, {
-          message: `Cannot change status from ${resource.status} to ${nextStatus}`,
+          message: `Cannot change status from ${order.status} to ${nextStatus}`,
         });
       }
-
       const updated: Order = {
-        ...resource,
+        ...order,
         status: nextStatus,
         updatedAt: nowIso(),
       };
       await ordersContainer.items.upsert(updated);
       await writeAuditLog({
         actorUserId: getActorUserId(request),
+        shopId: order.shopId,
         entityType: 'order',
-        entityId: resource.id,
-        shopId,
+        entityId: order.id,
         action: 'UPDATE_STATUS',
-        before: { status: resource.status },
+        before: { status: order.status },
         after: { status: updated.status },
       });
       return json(200, updated);
     } catch (error: any) {
-      const status = error.status || 500;
-      return { status, body: error.message || 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// GET /orders -> admin listing for all orders
+/* -------------------------------------------------------------------------- */
+/* Administrative endpoints                                                   */
+/* -------------------------------------------------------------------------- */
+
 app.http('ordersListAll', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -377,7 +392,7 @@ app.http('ordersListAll', {
       const shopId = request.query.get('shopId')?.trim();
       const userId = request.query.get('userId')?.trim();
       const filters: string[] = [];
-      const parameters: any[] = [];
+      const parameters: any[] = [{ name: '@kind', value: 'order' }];
       if (shopId) {
         filters.push('c.shopId = @shopId');
         parameters.push({ name: '@shopId', value: shopId });
@@ -386,9 +401,9 @@ app.http('ordersListAll', {
         filters.push('c.userId = @userId');
         parameters.push({ name: '@userId', value: userId });
       }
-      let query = 'SELECT * FROM c';
+      let query = 'SELECT * FROM c WHERE c.kind = @kind';
       if (filters.length > 0) {
-        query += ` WHERE ${filters.join(' AND ')}`;
+        query += ` AND ${filters.join(' AND ')}`;
       }
       query += ' ORDER BY c.submittedAt DESC';
 
@@ -397,13 +412,11 @@ app.http('ordersListAll', {
         .fetchAll();
       return json(200, resources);
     } catch (error: any) {
-      const status = error?.status ?? 500;
-      return { status, body: error?.message ?? 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// GET /orders/{orderId} -> fetch an order by id
 app.http('ordersGetByIdGeneral', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -414,7 +427,6 @@ app.http('ordersGetByIdGeneral', {
       if (!orderId) {
         return json(400, { message: 'orderId is required' });
       }
-
       const { resource } = await ordersContainer
         .item(orderId, orderId)
         .read<Order>();
@@ -423,13 +435,11 @@ app.http('ordersGetByIdGeneral', {
       }
       return json(200, resource);
     } catch (error: any) {
-      const status = error?.status ?? 500;
-      return { status, body: error?.message ?? 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// PATCH /orders/{orderId} -> general order update
 app.http('ordersUpdateGeneral', {
   methods: ['PATCH'],
   authLevel: 'anonymous',
@@ -440,47 +450,39 @@ app.http('ordersUpdateGeneral', {
       if (!orderId) {
         return json(400, { message: 'orderId is required' });
       }
-
       const { resource } = await ordersContainer
         .item(orderId, orderId)
         .read<Order>();
       if (!resource) {
         return json(404, { message: 'Order not found' });
       }
-
-      const updates = await readBody<Partial<Order>>(request);
-      if (updates.id && updates.id !== resource.id) {
-        return json(400, { message: 'Cannot change order id' });
-      }
-
+      const updates =
+        (await request.json().catch(() => null)) ?? {};
       const updated: Order = {
         ...resource,
         ...updates,
         id: resource.id,
-        shopId: resource.shopId,
+        kind: 'order',
         submittedAt: resource.submittedAt,
         updatedAt: nowIso(),
       };
-
       await ordersContainer.items.upsert(updated);
       await writeAuditLog({
         actorUserId: getActorUserId(request),
+        shopId: resource.shopId,
         entityType: 'order',
         entityId: resource.id,
-        shopId: resource.shopId,
         action: 'UPDATE',
         before: resource,
         after: updated,
       });
       return json(200, updated);
     } catch (error: any) {
-      const status = error?.status ?? 500;
-      return { status, body: error?.message ?? 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });
 
-// DELETE /orders/{orderId} -> delete an order
 app.http('ordersDelete', {
   methods: ['DELETE'],
   authLevel: 'anonymous',
@@ -491,27 +493,24 @@ app.http('ordersDelete', {
       if (!orderId) {
         return json(400, { message: 'orderId is required' });
       }
-
       const { resource } = await ordersContainer
         .item(orderId, orderId)
         .read<Order>();
       if (!resource) {
         return json(404, { message: 'Order not found' });
       }
-
       await ordersContainer.item(orderId, orderId).delete();
       await writeAuditLog({
         actorUserId: getActorUserId(request),
+        shopId: resource.shopId,
         entityType: 'order',
         entityId: resource.id,
-        shopId: resource.shopId,
         action: 'DELETE',
         before: resource,
       });
       return { status: 204 };
     } catch (error: any) {
-      const status = error?.status ?? 500;
-      return { status, body: error?.message ?? 'Internal Server Error' };
+      return { status: error.status || 500, body: error.message };
     }
   },
 });

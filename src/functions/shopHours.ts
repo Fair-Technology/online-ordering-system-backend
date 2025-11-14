@@ -41,10 +41,10 @@ app.http('shopHoursListAll', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const shopId = request.query.get('shopId')?.trim();
-      let query = 'SELECT * FROM c';
-      const parameters: any[] = [];
+      let query = 'SELECT * FROM c WHERE c.kind = @kind';
+      const parameters: any[] = [{ name: '@kind', value: 'association' }];
       if (shopId) {
-        query += ' WHERE c.shopId = @shopId';
+        query += ' AND c.shopId = @shopId';
         parameters.push({ name: '@shopId', value: shopId });
       }
       query += ' ORDER BY c.updatedAt DESC';
@@ -103,12 +103,15 @@ app.http('shopHoursCreate', {
       }
 
       const recordId = body.id?.trim() ?? shopId ?? newId();
+      const timestamp = nowIso();
       const record: ShopHours = {
         id: recordId,
+        kind: 'association',
         shopId,
         timezone: body.timezone,
         weekly: normalizeWeekly(body.weekly),
-        updatedAt: nowIso(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
       };
 
       await shopHoursContainer.items.create(record);

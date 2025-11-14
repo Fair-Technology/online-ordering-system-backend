@@ -1,35 +1,26 @@
-export type ProductResponse = {
-  id: string;
-  label: string;
-  imageURL?: string;
-  description?: string;
-  isAvailable: boolean;
-  price: number;
-  categories: { id: string; name: string }[];
-  variantTypes: {
-    id: string;
-    label: string;
-    description?: string;
-    variants: {
-      id: string;
-      label: string;
-      imageURL?: string;
-      priceDelta: number;
-      isAvailable: boolean;
-    }[];
-  }[];
-  addons: {
-    id: string;
-    label: string;
-    description?: string;
-    options: {
-      id: string;
-      label: string;
-      imageURL?: string;
-      priceDelta: number;
-      isAvailable: boolean;
-    }[];
-  }[];
-};
+import {
+  CatalogProduct,
+  Category,
+  Order,
+  Shop,
+  ShopCatalogEntry,
+  ShopHours,
+  ShopMember,
+  User,
+} from './databaseTypes';
 
+export type UserResponse = User;
+export type ShopResponse = Shop;
+export type ShopMemberResponse = ShopMember;
+export type ShopHoursResponse = ShopHours;
+export type CatalogProductResponse = CatalogProduct;
+export type ShopCatalogEntryResponse = ShopCatalogEntry;
+export type CategoryResponse = Category;
+export type OrderResponse = Order;
 
+export interface ShopMenuResponse {
+  shop: Shop;
+  categories: Category[];
+  catalogEntries: ShopCatalogEntry[];
+  catalogProducts: CatalogProduct[];
+}
