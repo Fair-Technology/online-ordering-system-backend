@@ -25,7 +25,7 @@ import {
   Product,
   Shop,
 } from '../types/databaseTypes';
-import { ProductInShopResponse } from '../types/apiTypes';
+import { ProductInShopResponse } from '../types/apiTypes-old';
 import {
   validateOrdersCreate,
   validateOrdersList,
@@ -36,6 +36,14 @@ const ordersContainer = getContainer('orders');
 const productsInShopContainer = getContainer('productsInShop');
 const productsContainer = getContainer('products');
 const shopsContainer = getContainer('shops');
+
+async function readBody<T>(request: HttpRequest): Promise<T> {
+  try {
+    return (await request.json()) as T;
+  } catch {
+    throw new Error('Invalid JSON body');
+  }
+}
 
 async function readShop(shopId: string): Promise<Shop | undefined> {
   try {
@@ -320,8 +328,9 @@ app.http('ordersUpdateStatus', {
   route: 'shops/{shopId}/orders/{orderId}/status',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const { shopId, orderId, nextStatus } =
-        await validateOrdersUpdateStatus(request);
+      const { shopId, orderId, nextStatus } = await validateOrdersUpdateStatus(
+        request,
+      );
       const { resource } = await ordersContainer
         .item(orderId, orderId)
         .read<Order>();
@@ -354,6 +363,155 @@ app.http('ordersUpdateStatus', {
     } catch (error: any) {
       const status = error.status || 500;
       return { status, body: error.message || 'Internal Server Error' };
+    }
+  },
+});
+
+// GET /orders -> admin listing for all orders
+app.http('ordersListAll', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'orders',
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    try {
+      const shopId = request.query.get('shopId')?.trim();
+      const userId = request.query.get('userId')?.trim();
+      const filters: string[] = [];
+      const parameters: any[] = [];
+      if (shopId) {
+        filters.push('c.shopId = @shopId');
+        parameters.push({ name: '@shopId', value: shopId });
+      }
+      if (userId) {
+        filters.push('c.userId = @userId');
+        parameters.push({ name: '@userId', value: userId });
+      }
+      let query = 'SELECT * FROM c';
+      if (filters.length > 0) {
+        query += ` WHERE ${filters.join(' AND ')}`;
+      }
+      query += ' ORDER BY c.submittedAt DESC';
+
+      const { resources } = await ordersContainer.items
+        .query<Order>({ query, parameters })
+        .fetchAll();
+      return json(200, resources);
+    } catch (error: any) {
+      const status = error?.status ?? 500;
+      return { status, body: error?.message ?? 'Internal Server Error' };
+    }
+  },
+});
+
+// GET /orders/{orderId} -> fetch an order by id
+app.http('ordersGetByIdGeneral', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'orders/{orderId}',
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    try {
+      const orderId = request.params?.orderId?.trim();
+      if (!orderId) {
+        return json(400, { message: 'orderId is required' });
+      }
+
+      const { resource } = await ordersContainer
+        .item(orderId, orderId)
+        .read<Order>();
+      if (!resource) {
+        return json(404, { message: 'Order not found' });
+      }
+      return json(200, resource);
+    } catch (error: any) {
+      const status = error?.status ?? 500;
+      return { status, body: error?.message ?? 'Internal Server Error' };
+    }
+  },
+});
+
+// PATCH /orders/{orderId} -> general order update
+app.http('ordersUpdateGeneral', {
+  methods: ['PATCH'],
+  authLevel: 'anonymous',
+  route: 'orders/{orderId}',
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    try {
+      const orderId = request.params?.orderId?.trim();
+      if (!orderId) {
+        return json(400, { message: 'orderId is required' });
+      }
+
+      const { resource } = await ordersContainer
+        .item(orderId, orderId)
+        .read<Order>();
+      if (!resource) {
+        return json(404, { message: 'Order not found' });
+      }
+
+      const updates = await readBody<Partial<Order>>(request);
+      if (updates.id && updates.id !== resource.id) {
+        return json(400, { message: 'Cannot change order id' });
+      }
+
+      const updated: Order = {
+        ...resource,
+        ...updates,
+        id: resource.id,
+        shopId: resource.shopId,
+        submittedAt: resource.submittedAt,
+        updatedAt: nowIso(),
+      };
+
+      await ordersContainer.items.upsert(updated);
+      await writeAuditLog({
+        actorUserId: getActorUserId(request),
+        entityType: 'order',
+        entityId: resource.id,
+        shopId: resource.shopId,
+        action: 'UPDATE',
+        before: resource,
+        after: updated,
+      });
+      return json(200, updated);
+    } catch (error: any) {
+      const status = error?.status ?? 500;
+      return { status, body: error?.message ?? 'Internal Server Error' };
+    }
+  },
+});
+
+// DELETE /orders/{orderId} -> delete an order
+app.http('ordersDelete', {
+  methods: ['DELETE'],
+  authLevel: 'anonymous',
+  route: 'orders/{orderId}',
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    try {
+      const orderId = request.params?.orderId?.trim();
+      if (!orderId) {
+        return json(400, { message: 'orderId is required' });
+      }
+
+      const { resource } = await ordersContainer
+        .item(orderId, orderId)
+        .read<Order>();
+      if (!resource) {
+        return json(404, { message: 'Order not found' });
+      }
+
+      await ordersContainer.item(orderId, orderId).delete();
+      await writeAuditLog({
+        actorUserId: getActorUserId(request),
+        entityType: 'order',
+        entityId: resource.id,
+        shopId: resource.shopId,
+        action: 'DELETE',
+        before: resource,
+      });
+      return { status: 204 };
+    } catch (error: any) {
+      const status = error?.status ?? 500;
+      return { status, body: error?.message ?? 'Internal Server Error' };
     }
   },
 });

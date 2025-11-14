@@ -7,7 +7,7 @@ type HttpRequest = HttpRequestLike;
 type HttpResponseInit = HttpResponseInitLike;
 const { app } = require('@azure/functions');
 import { getContainer } from '../config/cosmosClient';
-import { ProductInShopResponse } from '../types/apiTypes';
+import { ProductInShopResponse } from '../types/apiTypes-old';
 import { getActorUserId, newId, nowIso, writeAuditLog } from '../utils/general';
 import { Category, Product, Shop } from '../types/databaseTypes';
 import {
@@ -33,6 +33,33 @@ async function readShop(shopId: string): Promise<Shop | undefined> {
     return undefined;
   }
 }
+
+// GET /products -> list products with optional owner filter
+app.http('productsListAll', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'products',
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    try {
+      const ownerUserId = request.query.get('ownerUserId')?.trim();
+      let query = 'SELECT * FROM c';
+      const parameters: any[] = [];
+      if (ownerUserId) {
+        query += ' WHERE c.ownerUserId = @ownerUserId';
+        parameters.push({ name: '@ownerUserId', value: ownerUserId });
+      }
+      query += ' ORDER BY c.updatedAt DESC';
+
+      const { resources } = await productsContainer.items
+        .query<Product>({ query, parameters })
+        .fetchAll();
+      return json(200, resources);
+    } catch (error: any) {
+      const status = error.status || 500;
+      return { status, body: error.message || 'Internal Server Error' };
+    }
+  },
+});
 
 // POST /products -> create a global catalog product definition
 app.http('productsCreate', {
@@ -73,6 +100,31 @@ app.http('productsCreate', {
   },
 });
 
+// GET /products/{productId} -> fetch product details
+app.http('productsGetByIdGeneral', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'products/{productId}',
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    try {
+      const productId = request.params?.productId?.trim();
+      if (!productId) {
+        return json(400, { message: 'productId is required' });
+      }
+      const { resource } = await productsContainer
+        .item(productId, productId)
+        .read<Product>();
+      if (!resource) {
+        return json(404, { message: 'Product not found' });
+      }
+      return json(200, resource);
+    } catch (error: any) {
+      const status = error.status || 500;
+      return { status, body: error.message || 'Internal Server Error' };
+    }
+  },
+});
+
 // PATCH /products/{productId} -> update global product fields
 app.http('productsUpdate', {
   methods: ['PATCH'],
@@ -105,6 +157,41 @@ app.http('productsUpdate', {
       });
 
       return json(200, updated);
+    } catch (error: any) {
+      const status = error.status || 500;
+      return { status, body: error.message || 'Internal Server Error' };
+    }
+  },
+});
+
+// DELETE /products/{productId} -> delete a product
+app.http('productsDelete', {
+  methods: ['DELETE'],
+  authLevel: 'anonymous',
+  route: 'products/{productId}',
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    try {
+      const productId = request.params?.productId?.trim();
+      if (!productId) {
+        return json(400, { message: 'productId is required' });
+      }
+      const { resource } = await productsContainer
+        .item(productId, productId)
+        .read<Product>();
+      if (!resource) {
+        return json(404, { message: 'Product not found' });
+      }
+
+      await productsContainer.item(productId, productId).delete();
+      await writeAuditLog({
+        actorUserId: getActorUserId(request),
+        entityType: 'product',
+        entityId: productId,
+        action: 'DELETE',
+        before: resource,
+      });
+
+      return { status: 204 };
     } catch (error: any) {
       const status = error.status || 500;
       return { status, body: error.message || 'Internal Server Error' };
@@ -279,8 +366,9 @@ app.http('categoriesUpdate', {
   route: 'shops/{shopId}/categories/{categoryId}',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const { shopId, categoryId, updates } =
-        await validateCategoryUpdate(request);
+      const { shopId, categoryId, updates } = await validateCategoryUpdate(
+        request,
+      );
       const { resource } = await categoriesContainer
         .item(categoryId, categoryId)
         .read<Category>();

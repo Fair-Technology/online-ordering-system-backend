@@ -13,7 +13,7 @@ import {
   UpdateOrderStatusRequest,
   UpdateProductInShopRequest,
   UpdateProductRequest,
-} from '../types/apiTypes';
+} from '../types/apiTypes-old';
 import {
   Category,
   Order,
