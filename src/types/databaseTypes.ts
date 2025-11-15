@@ -1,8 +1,8 @@
 /**
  * Canonical database schema for the ordering platform.
  * The model is split into three conceptual layers:
- * 1. Catalog  - reusable product definitions and merchandising data.
- * 2. Associations - how catalog entities attach to shops, menus, and workflows.
+ * 1. Product layer  - reusable product definitions and merchandising data.
+ * 2. Associations - how product entities attach to shops, menus, and workflows.
  * 3. ACL       - fine‑grained access control entries for every resource.
  * Everything extends a common document contract to keep the store future-proof.
  */
@@ -11,20 +11,8 @@
 /* Base document & shared helpers                                             */
 /* -------------------------------------------------------------------------- */
 
-export type DocumentKind =
-  | 'user'
-  | 'shop'
-  | 'catalogProduct'
-  | 'shopCatalogEntry'
-  | 'category'
-  | 'order'
-  | 'auditLog'
-  | 'aclEntry'
-  | 'association';
-
 export interface DocumentBase {
   id: string;
-  kind: DocumentKind;
   tenantId?: string;
   createdAt: string;
   updatedAt: string;
@@ -54,35 +42,20 @@ export type OrderStatus =
 export type PaymentStatus = 'unpaid' | 'authorized' | 'paid' | 'refunded';
 
 /* -------------------------------------------------------------------------- */
-/* Users & shops                                                              */
+/* Users                                                                      */
 /* -------------------------------------------------------------------------- */
 
-export interface UserProfile {
-  displayName?: string;
-  phoneNumber?: string;
-  avatarUrl?: string;
-  locale?: string;
+export interface User {
+  id: string;
 }
 
-export interface User extends DocumentBase {
-  kind: 'user';
-  primaryEmail?: string;
-  roles: UserRole[];
-  profile?: UserProfile;
-  lastActiveAt?: string;
-}
-
-export interface FulfillmentOptions {
-  pickupEnabled: boolean;
-  deliveryEnabled: boolean;
-  deliveryRadiusKm?: number;
-  deliveryFee?: Money;
-  leadTimeMinutes?: number;
-}
-
+/* -------------------------------------------------------------------------- */
+/* Shops                                                                      */
+/* -------------------------------------------------------------------------- */
 export interface Shop extends DocumentBase {
-  kind: 'shop';
   name: string;
+  slug: string;
+  ownerUserId: string;
   legalName?: string;
   address?: string;
   timezone?: string;
@@ -95,24 +68,24 @@ export interface Shop extends DocumentBase {
   defaultCurrency: string;
 }
 
+export interface FulfillmentOptions {
+  pickupEnabled: boolean;
+  deliveryEnabled: boolean;
+  deliveryRadiusKm?: number;
+  deliveryFee?: Money;
+  leadTimeMinutes?: number;
+}
+
 export interface ShopMember extends DocumentBase {
-  kind: 'association';
   shopId: string;
   userId: string;
   role: ShopMemberRole;
-  permissions: string[];
   invitationStatus?: 'pending' | 'accepted' | 'revoked';
+  invitedByUserId?: string;
   isActive: boolean;
 }
 
-export interface ShopHoursWindow {
-  opensAt: string; // "09:00"
-  closesAt: string; // "17:00"
-  isClosed?: boolean;
-}
-
 export interface ShopHours extends DocumentBase {
-  kind: 'association';
   shopId: string;
   timezone: string;
   weekly: {
@@ -126,86 +99,67 @@ export interface ShopHours extends DocumentBase {
   };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Catalog layer                                                              */
-/* -------------------------------------------------------------------------- */
-
-export interface CatalogVariant {
-  id: string;
-  label: string;
-  basePrice: Money;
-  sku?: string;
-  isActive: boolean;
-  attributes?: Record<string, string | number | boolean>;
+export interface ShopHoursWindow {
+  opensAt: string; // "09:00"
+  closesAt: string; // "17:00"
+  isClosed?: boolean;
 }
 
-export interface CatalogVariantGroup {
+/* -------------------------------------------------------------------------- */
+/* Products                                                                   */
+/* -------------------------------------------------------------------------- */
+
+export interface Product extends DocumentBase {
+  shopId: string;
+  title: string;
+  description?: string;
+  ownerUserId?: string;
+  categories: string[];
+  tags?: string[];
+  media?: { url: string; alt?: string; kind?: 'image' | 'video' }[];
+  allergyInfo?: string[];
+  variantGroups: ProductVariantGroup[];
+  addonGroups: ProductAddonGroup[];
+  isActive: boolean;
+}
+
+export interface ProductVariantGroup {
   id: string;
   name: string;
-  selectionMode: 'single' | 'multiple';
-  variants: CatalogVariant[];
+  variants: ProductVariantTemplate[];
 }
-
-export interface CatalogAddonOption {
+export interface ProductVariantTemplate {
   id: string;
-  label: string;
-  priceDelta: Money;
+  name: string;
+  basePrice: Money;
   isActive: boolean;
 }
 
-export interface CatalogAddonGroup {
+export interface ProductAddonGroup {
   id: string;
   name: string;
   required: boolean;
   maxSelectable?: number;
-  options: CatalogAddonOption[];
+  options: ProductAddonOption[];
 }
 
-export interface CatalogProduct extends DocumentBase {
-  kind: 'catalogProduct';
-  ownerUserId?: string;
-  title: string;
-  description?: string;
-  media?: { url: string; alt?: string; kind?: 'image' | 'video' }[];
-  tags?: string[];
-  allergyInfo?: string[];
-  variantGroups: CatalogVariantGroup[];
-  addonGroups: CatalogAddonGroup[];
+export interface ProductAddonOption {
+  id: string;
+  name: string;
+  priceDelta: Money;
   isActive: boolean;
 }
 
 /* -------------------------------------------------------------------------- */
-/* Associations & merchandising                                               */
+/* Associations                                           */
 /* -------------------------------------------------------------------------- */
 
-export interface Category extends DocumentBase {
-  kind: 'category';
-  shopId: string;
-  productIds?: string[]; // optional denormalized helper
+export interface ProductCategory extends DocumentBase {
   name: string;
   description?: string;
-  sortOrder?: number;
+  position?: number;
   isActive: boolean;
   parentCategoryId?: string;
-}
-
-export interface ShopCatalogEntry extends DocumentBase {
-  kind: 'shopCatalogEntry';
-  shopId: string;
-  productId: string;
-  isAvailable: boolean;
-  categoryIds: string[];
-  priceOverride?: Money;
-  sortOrder?: number;
-  salesChannels?: Array<'pos' | 'online' | 'kiosk'>;
-}
-
-export interface ProductCategoryLink extends DocumentBase {
-  kind: 'association';
-  shopId: string;
-  productId: string;
-  categoryId: string;
-  sortOrder?: number;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -220,7 +174,6 @@ export interface OrderItemAddonSnapshot {
 
 export interface OrderItem {
   productId: string;
-  shopCatalogEntryId?: string;
   productVariantId: string;
   productNameSnapshot: string;
   variantLabelSnapshot: string;
@@ -230,7 +183,6 @@ export interface OrderItem {
 }
 
 export interface Order extends DocumentBase {
-  kind: 'order';
   shopId: string;
   userId: string; // can be "guest"
   status: OrderStatus;
@@ -260,8 +212,7 @@ export interface PrincipalRef {
 }
 
 export interface AccessControlEntry extends DocumentBase {
-  kind: 'aclEntry';
-  resourceType: DocumentKind | 'category' | 'shopHours';
+  resourceType: string;
   resourceId: string;
   principal: PrincipalRef;
   permissions: string[];
@@ -274,10 +225,9 @@ export interface AccessControlEntry extends DocumentBase {
 /* -------------------------------------------------------------------------- */
 
 export interface AuditLog extends DocumentBase {
-  kind: 'auditLog';
   actor: PrincipalRef;
   shopId?: string;
-  entityType: DocumentKind | 'shopSettings' | 'shopHours' | 'category';
+  entityType: string;
   entityId: string;
   action: string;
   before?: unknown;

@@ -1,9 +1,8 @@
 import {
-  CatalogProduct,
-  Category,
+  Product,
+  ProductCategory,
   Order,
   Shop,
-  ShopCatalogEntry,
   ShopHours,
   ShopMember,
   User,
@@ -13,14 +12,14 @@ export type UserResponse = User;
 export type ShopResponse = Shop;
 export type ShopMemberResponse = ShopMember;
 export type ShopHoursResponse = ShopHours;
-export type CatalogProductResponse = CatalogProduct;
-export type ShopCatalogEntryResponse = ShopCatalogEntry;
-export type CategoryResponse = Category;
+export interface ProductResponse extends Product {
+  categoryDetails: ProductCategory[];
+}
+export type ProductCategoryResponse = ProductCategory;
 export type OrderResponse = Order;
 
 export interface ShopMenuResponse {
   shop: Shop;
-  categories: Category[];
-  catalogEntries: ShopCatalogEntry[];
-  catalogProducts: CatalogProduct[];
+  categories: ProductCategoryResponse[];
+  products: ProductResponse[];
 }

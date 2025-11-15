@@ -1,15 +1,14 @@
-import { ensureContainerExists } from "./config/cosmosClient";
+import { ensureContainerExists } from './config/cosmosClient';
 
 const requiredContainers = [
-  "users",
-  "shops",
-  "shopMembers",
-  "shopHours",
-  "categories",
-  "products",
-  "productsInShop",
-  "orders",
-  "auditLogs",
+  'users',
+  'shops',
+  'shopMembers',
+  'shopHours',
+  'categories',
+  'products',
+  'orders',
+  'auditLogs',
 ];
 
 (async () => {
@@ -18,7 +17,11 @@ const requiredContainers = [
 })();
 
 // Register Azure Function HTTP triggers by requiring their modules so they execute on load
-require("./functions/users");
-require("./functions/shops");
-require("./functions/products");
-require("./functions/orders");
+require('./functions/auditLogs');
+require('./functions/categories');
+require('./functions/orders');
+require('./functions/products');
+require('./functions/shopHours');
+require('./functions/shopMembers');
+require('./functions/shops');
+require('./functions/users');

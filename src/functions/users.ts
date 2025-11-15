@@ -10,7 +10,7 @@ import {
   validateUserCreate,
   validateUsersGetById,
 } from '../utils/businessLogic';
-import { newId, nowIso } from '../utils/general';
+import { newId } from '../utils/general';
 
 const usersContainer = getContainer('users');
 
@@ -48,14 +48,8 @@ app.http('userCreate', {
     const body = await validateUserCreate(request);
 
     try {
-      const timestamp = nowIso();
       const user: User = {
         id: body.id ?? newId(),
-        kind: 'user',
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        roles: body.roles ?? ['customer'],
-        primaryEmail: body.primaryEmail,
       };
       const { resource } = await usersContainer.items.create(user);
       return json(201, resource);
@@ -104,16 +98,11 @@ app.http('usersUpdate', {
       }
 
       const updates = await readBody<Partial<User>>(request);
-      const updated: User = {
-        ...resource,
-        ...updates,
-        id: resource.id,
-        kind: 'user',
-        updatedAt: nowIso(),
-      };
+      if (updates.id && updates.id !== resource.id) {
+        return json(400, { message: 'Cannot change user id' });
+      }
 
-      await usersContainer.items.upsert(updated);
-      return json(200, updated);
+      return json(200, resource);
     } catch (err: any) {
       const status = err.status || 500;
       return { status, body: err.message || 'Internal Server Error' };

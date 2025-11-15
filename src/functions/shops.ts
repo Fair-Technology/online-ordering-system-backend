@@ -6,10 +6,9 @@ import {
   json,
 } from '../types/otherTypes';
 import {
-  CatalogProduct,
-  Category,
+  Product,
+  ProductCategory,
   Shop,
-  ShopCatalogEntry,
   ShopHours,
   ShopMember,
 } from '../types/databaseTypes';
@@ -27,22 +26,16 @@ import {
   validateShopsMenuRequest,
 } from '../utils/businessLogic';
 import { getActorUserId, newId, nowIso, writeAuditLog } from '../utils/general';
+import { hydrateProducts } from '../utils/products';
 
 type HttpRequest = HttpRequestLike;
 type HttpResponseInit = HttpResponseInitLike;
 
-const catalogProductsContainer = getContainer('products');
-const shopCatalogEntriesContainer = getContainer('productsInShop');
+const productsContainer = getContainer('products');
 const categoriesContainer = getContainer('categories');
 const shopsContainer = getContainer('shops');
 const shopMembersContainer = getContainer('shopMembers');
 const shopHoursContainer = getContainer('shopHours');
-
-const DEFAULT_PERMISSIONS = [
-  'manage_catalog',
-  'manage_orders',
-  'manage_settings',
-];
 
 function parseBoolean(value: string | null | undefined): boolean | undefined {
   if (!value) {
@@ -110,8 +103,9 @@ app.http('shopsCreate', {
       const shopId = newId();
       const shop: Shop = {
         id: shopId,
-        kind: 'shop',
         name: payload.name,
+        slug: payload.slug,
+        ownerUserId: payload.ownerUserId,
         legalName: payload.legalName,
         address: payload.address,
         timezone: payload.timezone,
@@ -131,12 +125,11 @@ app.http('shopsCreate', {
 
       const ownerMembership: ShopMember = {
         id: newId(),
-        kind: 'association',
         shopId,
         userId: payload.ownerUserId.trim(),
         role: 'owner',
-        permissions: DEFAULT_PERMISSIONS,
         invitationStatus: 'accepted',
+        invitedByUserId: payload.ownerUserId,
         isActive: true,
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -245,12 +238,8 @@ app.http('shopMembersList', {
     try {
       const { shopId } = await validateShopMembersList(request);
       const querySpec = {
-        query:
-          'SELECT * FROM c WHERE c.shopId = @shopId AND c.kind = @kind ORDER BY c.createdAt DESC',
-        parameters: [
-          { name: '@shopId', value: shopId },
-          { name: '@kind', value: 'association' },
-        ],
+        query: 'SELECT * FROM c WHERE c.shopId = @shopId ORDER BY c.createdAt DESC',
+        parameters: [{ name: '@shopId', value: shopId }],
       };
       const { resources } = await shopMembersContainer.items
         .query<ShopMember>(querySpec)
@@ -272,11 +261,9 @@ app.http('shopMembersCreate', {
       const timestamp = nowIso();
       const member: ShopMember = {
         id: newId(),
-        kind: 'association',
         shopId,
         userId: payload.userId,
         role: payload.role,
-        permissions: payload.permissions ?? DEFAULT_PERMISSIONS,
         invitationStatus: 'accepted',
         isActive: true,
         createdAt: timestamp,
@@ -309,10 +296,6 @@ app.http('shopMembersUpdate', {
       const updated: ShopMember = {
         ...member,
         ...updates,
-        permissions:
-          updates.permissions && updates.permissions.length > 0
-            ? updates.permissions
-            : member.permissions,
         updatedAt: timestamp,
       };
       await shopMembersContainer.items.upsert(updated);
@@ -367,7 +350,6 @@ app.http('shopHoursUpsert', {
         .catch(() => ({ resource: undefined }));
       const hours: ShopHours = {
         id: shopId,
-        kind: 'association',
         shopId,
         timezone: payload.timezone,
         weekly: payload.weekly,
@@ -432,7 +414,6 @@ app.http('usersGetShops', {
             status: shop.status,
             acceptingOrders: shop.acceptingOrders,
             role: membership.role,
-            permissions: membership.permissions,
           };
         })
         .filter(Boolean);
@@ -454,47 +435,38 @@ app.http('shopsMenu', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const { shopId, shop } = await validateShopsMenuRequest(request);
-      const [{ resources: categories }, { resources: entries }] =
-        await Promise.all([
-          categoriesContainer.items
-            .query<Category>({
-              query:
-                'SELECT * FROM c WHERE c.shopId = @shopId AND c.isActive = true ORDER BY c.sortOrder ASC',
-              parameters: [{ name: '@shopId', value: shopId }],
-            })
-            .fetchAll(),
-          shopCatalogEntriesContainer.items
-            .query<ShopCatalogEntry>({
-              query:
-                'SELECT * FROM c WHERE c.shopId = @shopId AND c.isAvailable = true',
-              parameters: [{ name: '@shopId', value: shopId }],
-            })
-            .fetchAll(),
-        ]);
-      const productIds = [
-        ...new Set(entries.map((entry) => entry.productId)),
+      const { resources: products } = await productsContainer.items
+        .query<Product>({
+          query:
+            'SELECT * FROM c WHERE c.shopId = @shopId AND c.isActive = true',
+          parameters: [{ name: '@shopId', value: shopId }],
+        })
+        .fetchAll();
+
+      const categoryNames = [
+        ...new Set(products.flatMap((product) => product.categories ?? [])),
       ];
-      const products: CatalogProduct[] =
-        productIds.length === 0
-          ? []
-          : (
-              await catalogProductsContainer.items
-                .query<CatalogProduct>({
-                  query: 'SELECT * FROM c WHERE ARRAY_CONTAINS(@ids, c.id)',
-                  parameters: [{ name: '@ids', value: productIds }],
-                })
-                .fetchAll()
-            ).resources;
+      let categories: ProductCategory[] = [];
+      if (categoryNames.length > 0) {
+        const { resources } = await categoriesContainer.items
+          .query<ProductCategory>({
+            query:
+              'SELECT * FROM c WHERE ARRAY_CONTAINS(@names, c.name) AND c.isActive = true ORDER BY c.position ASC',
+            parameters: [{ name: '@names', value: categoryNames }],
+          })
+          .fetchAll();
+        categories = resources;
+      }
+
+      const enrichedProducts = await hydrateProducts(products);
 
       return json(200, {
         shop,
         categories,
-        catalogEntries: entries,
-        catalogProducts: products,
+        products: enrichedProducts,
       });
     } catch (error: any) {
       return { status: error.status || 500, body: error.message };
     }
   },
 });
-

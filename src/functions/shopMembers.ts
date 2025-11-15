@@ -41,10 +41,10 @@ app.http('shopMembersListAll', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const shopId = request.query.get('shopId')?.trim();
-      let query = 'SELECT * FROM c WHERE c.kind = @kind';
-      const parameters: any[] = [{ name: '@kind', value: 'association' }];
+      let query = 'SELECT * FROM c';
+      const parameters: any[] = [];
       if (shopId) {
-        query += ' AND c.shopId = @shopId';
+        query += ' WHERE c.shopId = @shopId';
         parameters.push({ name: '@shopId', value: shopId });
       }
       query += ' ORDER BY c.createdAt DESC';
@@ -105,13 +105,12 @@ app.http('shopMembersCreateGeneral', {
       const timestamp = nowIso();
       const member: ShopMember = {
         id: newId(),
-        kind: 'association',
         shopId: body.shopId.trim(),
         userId: body.userId.trim(),
         role: body.role ?? 'staff',
-        permissions: normalizePermissions(body.permissions),
         isActive: body.isActive ?? true,
         invitationStatus: body.invitationStatus ?? 'accepted',
+        invitedByUserId: body.invitedByUserId,
         createdAt: timestamp,
         updatedAt: timestamp,
       };
@@ -148,10 +147,6 @@ app.http('shopMembersUpdateGeneral', {
       const updated: ShopMember = {
         ...resource,
         ...updates,
-        permissions:
-          updates.permissions !== undefined
-            ? normalizePermissions(updates.permissions)
-            : resource.permissions,
         updatedAt: nowIso(),
       };
 

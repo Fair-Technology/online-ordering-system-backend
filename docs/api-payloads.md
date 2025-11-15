@@ -133,7 +133,7 @@ Use these JSON snippets to exercise the HTTP endpoints exposed by the local Azur
   "productId": "product-uuid",
   "priceOverride": 4.95,
   "isAvailable": true,
-  "categoryIds": ["category-uuid"],
+  "categories": ["Lunch"],
   "sortOrder": 10
 }
 ```
@@ -143,7 +143,7 @@ Use these JSON snippets to exercise the HTTP endpoints exposed by the local Azur
 {
   "priceOverride": 5.25,
   "isAvailable": true,
-  "categoryIds": ["category-uuid", "another-category"],
+  "categories": ["Lunch", "Seasonal"],
   "sortOrder": 5
 }
 ```

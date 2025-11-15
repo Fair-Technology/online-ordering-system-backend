@@ -1,7 +1,6 @@
-type Money = {
-  amount: number;
-  currency: string;
-};
+const DEFAULT_BASE_URL = 'http://localhost:7071/api';
+
+type RequestOptions = Omit<RequestInit, 'method' | 'body'>;
 
 type ShopStatus = 'draft' | 'open' | 'closed' | 'suspended';
 type PaymentPolicy = 'pay_on_pickup' | 'prepaid_only';
@@ -14,21 +13,29 @@ type OrderStatus =
   | 'ready_for_pickup'
   | 'completed'
   | 'cancelled';
+type PaymentStatus = 'unpaid' | 'authorized' | 'paid' | 'refunded';
 
-type UserRole = 'customer' | 'shopAdmin' | 'platformAdmin';
+type MediaAsset = {
+  url: string;
+  alt?: string;
+  kind?: 'image' | 'video';
+};
 
-interface FulfillmentOptions {
-  pickupEnabled: boolean;
-  deliveryEnabled: boolean;
-  deliveryRadiusKm?: number;
-  deliveryFee?: Money;
-  leadTimeMinutes?: number;
-}
+type Money = {
+  amount: number;
+  currency: string;
+};
 
-interface Shop {
+type MoneyInput = {
+  amount: number;
+  currency?: string;
+};
+
+export interface Shop {
   id: string;
-  kind: 'shop';
   name: string;
+  slug: string;
+  ownerUserId: string;
   legalName?: string;
   address?: string;
   timezone?: string;
@@ -43,64 +50,34 @@ interface Shop {
   updatedAt: string;
 }
 
-type ShopResponse = Shop;
-
-interface ShopSettingsPayload {
-  name?: string;
-  legalName?: string;
-  address?: string;
-  timezone?: string;
-  status?: ShopStatus;
-  acceptingOrders?: boolean;
-  paymentPolicy?: PaymentPolicy;
-  orderAcceptanceMode?: OrderAcceptanceMode;
-  allowGuestCheckout?: boolean;
-  fulfillmentOptions?: Partial<FulfillmentOptions>;
-  defaultCurrency?: string;
+export interface FulfillmentOptions {
+  pickupEnabled: boolean;
+  deliveryEnabled: boolean;
+  deliveryRadiusKm?: number;
+  deliveryFee?: Money;
+  leadTimeMinutes?: number;
 }
 
-interface CreateShopRequest extends ShopSettingsPayload {
-  ownerUserId: string;
-}
-
-type UpdateShopRequest = ShopSettingsPayload;
-
-interface ShopMember {
+export interface ShopMember {
   id: string;
-  kind: 'association';
   shopId: string;
   userId: string;
   role: ShopMemberRole;
-  permissions: string[];
   invitationStatus?: 'pending' | 'accepted' | 'revoked';
+  invitedByUserId?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-type ShopMemberResponse = ShopMember;
-
-interface ShopMemberInvitePayload {
-  userId: string;
-  role: ShopMemberRole;
-  permissions?: string[];
-}
-
-interface ShopMemberUpdatePayload {
-  role?: ShopMemberRole;
-  permissions?: string[];
-  isActive?: boolean;
-}
-
-interface ShopHoursWindow {
+export interface ShopHoursWindow {
   opensAt: string;
   closesAt: string;
   isClosed?: boolean;
 }
 
-interface ShopHours {
+export interface ShopHours {
   id: string;
-  kind: 'association';
   shopId: string;
   timezone: string;
   weekly: {
@@ -116,155 +93,78 @@ interface ShopHours {
   updatedAt: string;
 }
 
-type ShopHoursResponse = ShopHours;
-
-interface ShopHoursPayload {
-  timezone: string;
-  weekly: ShopHours['weekly'];
-}
-
-interface Category {
+export interface ProductVariantTemplate {
   id: string;
-  kind: 'category';
-  shopId: string;
   name: string;
-  description?: string;
-  sortOrder?: number;
-  isActive: boolean;
-  parentCategoryId?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-type CategoryResponse = Category;
-
-interface CreateCategoryRequest {
-  name: string;
-  description?: string;
-  parentCategoryId?: string;
-  sortOrder?: number;
-  isActive?: boolean;
-}
-
-type UpdateCategoryRequest = CreateCategoryRequest;
-
-interface CatalogVariant {
-  id: string;
-  label: string;
   basePrice: Money;
-  sku?: string;
   isActive: boolean;
-  attributes?: Record<string, string | number | boolean>;
 }
 
-interface CatalogVariantGroup {
+export interface ProductVariantGroup {
   id: string;
   name: string;
-  selectionMode: 'single' | 'multiple';
-  variants: CatalogVariant[];
+  variants: ProductVariantTemplate[];
 }
 
-interface CatalogAddonOption {
+export interface ProductAddonOption {
   id: string;
-  label: string;
+  name: string;
   priceDelta: Money;
   isActive: boolean;
 }
 
-interface CatalogAddonGroup {
+export interface ProductAddonGroup {
   id: string;
   name: string;
   required: boolean;
   maxSelectable?: number;
-  options: CatalogAddonOption[];
+  options: ProductAddonOption[];
 }
 
-interface CatalogProduct {
+export interface Product {
   id: string;
-  kind: 'catalogProduct';
+  shopId: string;
   ownerUserId?: string;
   title: string;
   description?: string;
-  media?: { url: string; alt?: string; kind?: 'image' | 'video' }[];
+  categories: string[];
   tags?: string[];
+  media?: MediaAsset[];
   allergyInfo?: string[];
-  variantGroups: CatalogVariantGroup[];
-  addonGroups: CatalogAddonGroup[];
+  variantGroups: ProductVariantGroup[];
+  addonGroups: ProductAddonGroup[];
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-type CatalogProductResponse = CatalogProduct;
-
-interface MoneyInput {
-  amount: number;
-  currency?: string;
-}
-
-interface CatalogVariantPayload
-  extends Omit<CatalogVariant, 'basePrice' | 'isActive'> {
-  basePrice: MoneyInput;
-  isActive?: boolean;
-}
-
-interface CatalogVariantGroupPayload
-  extends Omit<CatalogVariantGroup, 'variants'> {
-  variants: CatalogVariantPayload[];
-}
-
-interface CatalogAddonOptionPayload
-  extends Omit<CatalogAddonOption, 'priceDelta'> {
-  priceDelta: MoneyInput;
-}
-
-interface CatalogAddonGroupPayload
-  extends Omit<CatalogAddonGroup, 'options'> {
-  options: CatalogAddonOptionPayload[];
-}
-
-interface CreateCatalogProductRequest
-  extends Omit<
-    CatalogProduct,
-    'id' | 'kind' | 'createdAt' | 'updatedAt' | 'variantGroups' | 'addonGroups'
-  > {
-  variantGroups: CatalogVariantGroupPayload[];
-  addonGroups: CatalogAddonGroupPayload[];
-}
-
-type UpdateCatalogProductRequest = Partial<CreateCatalogProductRequest>;
-
-interface ShopCatalogEntry {
+export interface ProductCategory {
   id: string;
-  kind: 'shopCatalogEntry';
-  shopId: string;
-  productId: string;
-  isAvailable: boolean;
-  categoryIds: string[];
-  priceOverride?: Money;
-  sortOrder?: number;
-  salesChannels?: Array<'pos' | 'online' | 'kiosk'>;
+  name: string;
+  description?: string;
+  position?: number;
+  isActive: boolean;
+  parentCategoryId?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-type ShopCatalogEntryResponse = ShopCatalogEntry;
+export type ProductResponse = Product & { categoryDetails: ProductCategory[] };
 
-interface CreateShopCatalogEntryRequest
-  extends Omit<
-    ShopCatalogEntry,
-    'id' | 'kind' | 'createdAt' | 'updatedAt' | 'shopId'
-  > {}
+export interface ShopMenuResponse {
+  shop: Shop;
+  categories: ProductCategory[];
+  products: ProductResponse[];
+}
 
-interface OrderItemAddonSnapshot {
+export interface OrderItemAddonSnapshot {
   addonOptionId: string;
   nameSnapshot: string;
   priceDeltaSnapshot: Money;
 }
 
-interface OrderItem {
+export interface OrderItem {
   productId: string;
-  shopCatalogEntryId?: string;
   productVariantId: string;
   productNameSnapshot: string;
   variantLabelSnapshot: string;
@@ -273,21 +173,12 @@ interface OrderItem {
   addons: OrderItemAddonSnapshot[];
 }
 
-type OrderItemPayload = Pick<
-  OrderItem,
-  'productId' | 'productVariantId' | 'quantity'
-> & {
-  shopCatalogEntryId: string;
-  addonOptionIds?: string[];
-};
-
-interface Order {
+export interface Order {
   id: string;
-  kind: 'order';
   shopId: string;
   userId: string;
   status: OrderStatus;
-  paymentStatus: 'unpaid' | 'authorized' | 'paid' | 'refunded';
+  paymentStatus: PaymentStatus;
   totalAmount: Money;
   submittedAt: string;
   customerName: string;
@@ -302,9 +193,111 @@ interface Order {
   updatedAt: string;
 }
 
-type OrderResponse = Order;
+export interface User {
+  id: string;
+}
 
-interface CreateOrderRequest {
+export interface ManagedShopView {
+  shopId: string;
+  name: string;
+  status: ShopStatus;
+  acceptingOrders: boolean;
+  role: ShopMemberRole;
+}
+
+export interface ShopSettingsPayload {
+  name?: string;
+  slug?: string;
+  legalName?: string;
+  address?: string;
+  timezone?: string;
+  status?: ShopStatus;
+  acceptingOrders?: boolean;
+  paymentPolicy?: PaymentPolicy;
+  orderAcceptanceMode?: OrderAcceptanceMode;
+  allowGuestCheckout?: boolean;
+  fulfillmentOptions?: Partial<FulfillmentOptions>;
+  defaultCurrency?: string;
+}
+
+export interface CreateShopRequest extends ShopSettingsPayload {
+  ownerUserId: string;
+}
+
+export type UpdateShopRequest = ShopSettingsPayload;
+
+export interface ShopMemberInvitePayload {
+  userId: string;
+  role: ShopMemberRole;
+  invitedByUserId?: string;
+}
+
+export interface ShopMemberUpdatePayload {
+  role?: ShopMemberRole;
+  isActive?: boolean;
+}
+
+export interface ShopHoursPayload {
+  timezone: string;
+  weekly: ShopHours['weekly'];
+}
+
+export interface ProductVariantPayload
+  extends Omit<ProductVariantTemplate, 'id' | 'basePrice' | 'isActive'> {
+  id?: string;
+  basePrice: MoneyInput;
+  isActive?: boolean;
+}
+
+export interface ProductVariantGroupPayload
+  extends Omit<ProductVariantGroup, 'id' | 'variants'> {
+  id?: string;
+  variants: ProductVariantPayload[];
+}
+
+export interface ProductAddonOptionPayload
+  extends Omit<ProductAddonOption, 'id' | 'priceDelta'> {
+  id?: string;
+  priceDelta: MoneyInput;
+}
+
+export interface ProductAddonGroupPayload
+  extends Omit<ProductAddonGroup, 'id' | 'options'> {
+  id?: string;
+  options: ProductAddonOptionPayload[];
+}
+
+export interface CreateProductRequest
+  extends Omit<
+    Product,
+    'id' | 'createdAt' | 'updatedAt' | 'variantGroups' | 'addonGroups' | 'categories' | 'isActive'
+  > {
+  variantGroups: ProductVariantGroupPayload[];
+  addonGroups: ProductAddonGroupPayload[];
+  categories?: string[];
+  isActive?: boolean;
+}
+
+export type UpdateProductRequest = Partial<CreateProductRequest>;
+
+export interface CreateCategoryRequest {
+  name: string;
+  description?: string;
+  parentCategoryId?: string;
+  position?: number;
+  isActive?: boolean;
+}
+
+export type UpdateCategoryRequest = Partial<CreateCategoryRequest>;
+
+export interface OrderItemPayload {
+  productId: string;
+  productVariantId: string;
+  quantity: number;
+  addonOptionIds?: string[];
+}
+
+export interface CreateOrderRequest {
   userId: string;
   customerName: string;
   customerPhone?: string;
@@ -314,52 +307,13 @@ interface CreateOrderRequest {
   scheduledFor?: string;
 }
 
-interface UpdateOrderStatusRequest {
+export interface UpdateOrderStatusRequest {
   nextStatus: OrderStatus;
 }
 
-interface CategoryListResponse extends Array<CategoryResponse> {}
-
-interface ShopMenuResponse {
-  shop: ShopResponse;
-  categories: CategoryResponse[];
-  catalogEntries: ShopCatalogEntryResponse[];
-  catalogProducts: CatalogProductResponse[];
-}
-
-interface User {
+export interface UserCreatePayload {
   id: string;
-  kind: 'user';
-  primaryEmail?: string;
-  roles: UserRole[];
-  profile?: {
-    displayName?: string;
-    phoneNumber?: string;
-    avatarUrl?: string;
-    locale?: string;
-  };
-  createdAt: string;
-  updatedAt: string;
 }
-
-type UserResponse = User;
-
-type UserCreatePayload = {
-  id: string;
-  primaryEmail?: string;
-  roles?: UserRole[];
-};
-
-interface ManagedShopView {
-  shopId: string;
-  name: string;
-  status: ShopStatus;
-  acceptingOrders: boolean;
-  role: string;
-  permissions: string[];
-}
-
-type RequestOptions = Omit<RequestInit, 'method' | 'body'>;
 
 function joinPath(base: string, path: string): string {
   if (base.endsWith('/')) {
@@ -373,13 +327,9 @@ function joinPath(base: string, path: string): string {
 
 export class ApiClient {
   constructor(
-    private readonly baseUrl = 'http://localhost:7071/api',
+    private readonly baseUrl = DEFAULT_BASE_URL,
     private readonly defaultOptions: RequestOptions = {},
   ) {}
-
-  /* ------------------------------------------------------------------------ */
-  /* Core request helpers                                                     */
-  /* ------------------------------------------------------------------------ */
 
   private async request<T>(
     method: string,
@@ -422,16 +372,14 @@ export class ApiClient {
       if (value === undefined || value === null) return;
       search.append(key, String(value));
     });
-    const queryString = search.toString();
-    return queryString ? `?${queryString}` : '';
+    const query = search.toString();
+    return query ? `?${query}` : '';
   }
 
-  /* ------------------------------------------------------------------------ */
-  /* Shops                                                                    */
-  /* ------------------------------------------------------------------------ */
+  /* Shops ---------------------------------------------------------------- */
 
   listShops(params?: { status?: ShopStatus; acceptingOrders?: boolean }) {
-    return this.request<ShopResponse[]>(
+    return this.request<Shop[]>(
       'GET',
       `/shops${this.buildQuery({
         status: params?.status,
@@ -441,15 +389,15 @@ export class ApiClient {
   }
 
   createShop(body: CreateShopRequest) {
-    return this.request<ShopResponse>('POST', '/shops', body);
+    return this.request<Shop>('POST', `/shops`, body);
   }
 
   getShop(shopId: string) {
-    return this.request<ShopResponse>('GET', `/shops/${shopId}`);
+    return this.request<Shop>('GET', `/shops/${shopId}`);
   }
 
   updateShop(shopId: string, body: UpdateShopRequest) {
-    return this.request<ShopResponse>('PATCH', `/shops/${shopId}`, body);
+    return this.request<Shop>('PATCH', `/shops/${shopId}`, body);
   }
 
   deleteShop(shopId: string) {
@@ -460,165 +408,114 @@ export class ApiClient {
     return this.request<ShopMenuResponse>('GET', `/shops/${shopId}/menu`);
   }
 
-  /* ------------------------------------------------------------------------ */
-  /* Shop members                                                             */
-  /* ------------------------------------------------------------------------ */
+  /* Shop members --------------------------------------------------------- */
 
   listShopMembers(shopId: string) {
-    return this.request<ShopMemberResponse[]>(
+    return this.request<ShopMember[]>(
       'GET',
       `/shops/${shopId}/members`,
     );
   }
 
   createShopMember(shopId: string, body: ShopMemberInvitePayload) {
-    return this.request<ShopMemberResponse>(
+    return this.request<ShopMember>(
       'POST',
       `/shops/${shopId}/members`,
       body,
     );
   }
 
-  updateShopMember(
-    shopId: string,
-    memberId: string,
-    body: ShopMemberUpdatePayload,
-  ) {
-    return this.request<ShopMemberResponse>(
+  updateShopMember(shopId: string, memberId: string, body: ShopMemberUpdatePayload) {
+    return this.request<ShopMember>(
       'PATCH',
       `/shops/${shopId}/members/${memberId}`,
       body,
     );
   }
 
-  /* ------------------------------------------------------------------------ */
-  /* Shop hours                                                               */
-  /* ------------------------------------------------------------------------ */
+  /* Shop hours ----------------------------------------------------------- */
 
   getShopHours(shopId: string) {
-    return this.request<ShopHoursResponse>(
-      'GET',
-      `/shops/${shopId}/hours`,
-    );
+    return this.request<ShopHours>('GET', `/shops/${shopId}/hours`);
   }
 
   upsertShopHours(shopId: string, body: ShopHoursPayload) {
-    return this.request<ShopHoursResponse>(
-      'PUT',
-      `/shops/${shopId}/hours`,
-      body,
-    );
+    return this.request<ShopHours>('PUT', `/shops/${shopId}/hours`, body);
   }
 
-  /* ------------------------------------------------------------------------ */
-  /* Categories                                                               */
-  /* ------------------------------------------------------------------------ */
+  /* Categories ----------------------------------------------------------- */
 
-  listCategories(shopId: string) {
-    return this.request<CategoryResponse[]>(
-      'GET',
-      `/shops/${shopId}/categories`,
-    );
+  listCategories() {
+    return this.request<ProductCategory[]>('GET', `/categories`);
   }
 
-  createCategory(shopId: string, body: CreateCategoryRequest) {
-    return this.request<CategoryResponse>(
-      'POST',
-      `/shops/${shopId}/categories`,
-      body,
-    );
+  getCategory(categoryId: string) {
+    return this.request<ProductCategory>('GET', `/categories/${categoryId}`);
   }
 
-  updateCategory(
-    shopId: string,
-    categoryId: string,
-    body: UpdateCategoryRequest,
-  ) {
-    return this.request<CategoryResponse>(
+  createCategory(body: CreateCategoryRequest) {
+    return this.request<ProductCategory>('POST', `/categories`, body);
+  }
+
+  updateCategory(categoryId: string, body: UpdateCategoryRequest) {
+    return this.request<ProductCategory>(
       'PATCH',
-      `/shops/${shopId}/categories/${categoryId}`,
+      `/categories/${categoryId}`,
       body,
     );
   }
 
-  /* ------------------------------------------------------------------------ */
-  /* Catalog products                                                         */
-  /* ------------------------------------------------------------------------ */
+  deleteCategory(categoryId: string) {
+    return this.request<void>('DELETE', `/categories/${categoryId}`);
+  }
 
-  listCatalogProducts(params?: { ownerUserId?: string }) {
-    return this.request<CatalogProductResponse[]>(
+  /* Products ------------------------------------------------------------- */
+
+  listProducts(params?: { shopId?: string; ownerUserId?: string }) {
+    return this.request<ProductResponse[]>(
       'GET',
-      `/products${this.buildQuery({ ownerUserId: params?.ownerUserId })}`,
+      `/products${this.buildQuery({
+        shopId: params?.shopId,
+        ownerUserId: params?.ownerUserId,
+      })}`,
     );
   }
 
-  createCatalogProduct(body: CreateCatalogProductRequest) {
-    return this.request<CatalogProductResponse>('POST', '/products', body);
+  createProduct(body: CreateProductRequest) {
+    return this.request<ProductResponse>('POST', `/products`, body);
   }
 
-  getCatalogProduct(productId: string) {
-    return this.request<CatalogProductResponse>('GET', `/products/${productId}`);
+  getProduct(productId: string) {
+    return this.request<ProductResponse>('GET', `/products/${productId}`);
   }
 
-  updateCatalogProduct(productId: string, body: UpdateCatalogProductRequest) {
-    return this.request<CatalogProductResponse>(
+  updateProduct(productId: string, body: UpdateProductRequest) {
+    return this.request<ProductResponse>(
       'PATCH',
       `/products/${productId}`,
       body,
     );
   }
 
-  deleteCatalogProduct(productId: string) {
+  deleteProduct(productId: string) {
     return this.request<void>('DELETE', `/products/${productId}`);
   }
 
-  /* ------------------------------------------------------------------------ */
-  /* Shop catalog entries                                                      */
-  /* ------------------------------------------------------------------------ */
-
-  createShopCatalogEntry(shopId: string, body: CreateShopCatalogEntryRequest) {
-    return this.request<ShopCatalogEntryResponse>(
-      'POST',
-      `/shops/${shopId}/products`,
-      body,
-    );
-  }
-
-  updateShopCatalogEntry(
-    shopId: string,
-    entryId: string,
-    body: Partial<CreateShopCatalogEntryRequest>,
-  ) {
-    return this.request<ShopCatalogEntryResponse>(
-      'PATCH',
-      `/shops/${shopId}/products/${entryId}`,
-      body,
-    );
-  }
-
-  /* ------------------------------------------------------------------------ */
-  /* Orders                                                                   */
-  /* ------------------------------------------------------------------------ */
+  /* Orders --------------------------------------------------------------- */
 
   listShopOrders(shopId: string, params?: { status?: string }) {
-    return this.request<OrderResponse[]>(
+    return this.request<Order[]>(
       'GET',
-      `/shops/${shopId}/orders${this.buildQuery({
-        status: params?.status,
-      })}`,
+      `/shops/${shopId}/orders${this.buildQuery({ status: params?.status })}`,
     );
   }
 
   createOrder(shopId: string, body: CreateOrderRequest) {
-    return this.request<OrderResponse>('POST', `/shops/${shopId}/orders`, body);
+    return this.request<Order>('POST', `/shops/${shopId}/orders`, body);
   }
 
-  updateOrderStatus(
-    shopId: string,
-    orderId: string,
-    body: UpdateOrderStatusRequest,
-  ) {
-    return this.request<OrderResponse>(
+  updateOrderStatus(shopId: string, orderId: string, body: UpdateOrderStatusRequest) {
+    return this.request<Order>(
       'PATCH',
       `/shops/${shopId}/orders/${orderId}/status`,
       body,
@@ -626,45 +523,40 @@ export class ApiClient {
   }
 
   listOrders(params?: { shopId?: string; userId?: string }) {
-    return this.request<OrderResponse[]>(
+    return this.request<Order[]>(
       'GET',
-      `/orders${this.buildQuery({
-        shopId: params?.shopId,
-        userId: params?.userId,
-      })}`,
+      `/orders${this.buildQuery({ shopId: params?.shopId, userId: params?.userId })}`,
     );
   }
 
   getOrder(orderId: string) {
-    return this.request<OrderResponse>('GET', `/orders/${orderId}`);
+    return this.request<Order>('GET', `/orders/${orderId}`);
   }
 
-  updateOrder(orderId: string, body: Partial<OrderResponse>) {
-    return this.request<OrderResponse>('PATCH', `/orders/${orderId}`, body);
+  updateOrder(orderId: string, body: Partial<Order>) {
+    return this.request<Order>('PATCH', `/orders/${orderId}`, body);
   }
 
   deleteOrder(orderId: string) {
     return this.request<void>('DELETE', `/orders/${orderId}`);
   }
 
-  /* ------------------------------------------------------------------------ */
-  /* Users                                                                    */
-  /* ------------------------------------------------------------------------ */
+  /* Users ---------------------------------------------------------------- */
 
   listUsers() {
-    return this.request<UserResponse[]>('GET', '/users');
+    return this.request<User[]>('GET', `/users`);
   }
 
   createUser(body: UserCreatePayload) {
-    return this.request<UserResponse>('POST', '/users', body);
+    return this.request<User>('POST', `/users`, body);
   }
 
   getUser(userId: string) {
-    return this.request<UserResponse>('GET', `/users/${userId}`);
+    return this.request<User>('GET', `/users/${userId}`);
   }
 
-  updateUser(userId: string, body: Partial<UserResponse>) {
-    return this.request<UserResponse>('PATCH', `/users/${userId}`, body);
+  updateUser(userId: string, body: Partial<User>) {
+    return this.request<User>('PATCH', `/users/${userId}`, body);
   }
 
   deleteUser(userId: string) {
@@ -677,12 +569,4 @@ export class ApiClient {
       `/users/${userId}/shops`,
     );
   }
-}
-interface ManagedShopView {
-  shopId: string;
-  name: string;
-  status: ShopStatus;
-  acceptingOrders: boolean;
-  role: string;
-  permissions: string[];
 }

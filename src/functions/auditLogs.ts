@@ -38,7 +38,7 @@ app.http('auditLogsList', {
       const entityId = request.query.get('entityId')?.trim();
 
       const filters: string[] = [];
-      const parameters: any[] = [{ name: '@kind', value: 'auditLog' }];
+      const parameters: any[] = [];
 
       if (shopId) {
         filters.push('c.shopId = @shopId');
@@ -53,9 +53,9 @@ app.http('auditLogsList', {
         parameters.push({ name: '@entityId', value: entityId });
       }
 
-      let query = 'SELECT * FROM c WHERE c.kind = @kind';
+      let query = 'SELECT * FROM c';
       if (filters.length > 0) {
-        query += ` AND ${filters.join(' AND ')}`;
+        query += ` WHERE ${filters.join(' AND ')}`;
       }
       query += ' ORDER BY c.createdAt DESC';
 
@@ -119,7 +119,6 @@ app.http('auditLogsCreate', {
       const timestamp = nowIso();
       const log: AuditLog = {
         id: newId(),
-        kind: 'auditLog',
         createdAt: timestamp,
         updatedAt: timestamp,
         actor:

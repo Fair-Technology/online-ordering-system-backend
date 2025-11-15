@@ -41,10 +41,10 @@ app.http('shopHoursListAll', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const shopId = request.query.get('shopId')?.trim();
-      let query = 'SELECT * FROM c WHERE c.kind = @kind';
-      const parameters: any[] = [{ name: '@kind', value: 'association' }];
+      let query = 'SELECT * FROM c';
+      const parameters: any[] = [];
       if (shopId) {
-        query += ' AND c.shopId = @shopId';
+        query += ' WHERE c.shopId = @shopId';
         parameters.push({ name: '@shopId', value: shopId });
       }
       query += ' ORDER BY c.updatedAt DESC';
@@ -106,7 +106,6 @@ app.http('shopHoursCreate', {
       const timestamp = nowIso();
       const record: ShopHours = {
         id: recordId,
-        kind: 'association',
         shopId,
         timezone: body.timezone,
         weekly: normalizeWeekly(body.weekly),

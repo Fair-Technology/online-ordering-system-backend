@@ -5,7 +5,7 @@ import {
   HttpResponseInitLike,
   json,
 } from '../types/otherTypes';
-import { Category } from '../types/databaseTypes';
+import { ProductCategory } from '../types/databaseTypes';
 import { getContainer } from '../config/cosmosClient';
 import { newId, nowIso } from '../utils/general';
 
@@ -26,24 +26,17 @@ function missingField(field: string): HttpResponseInit {
   return json(400, { message: `${field} is required` });
 }
 
-// GET /categories -> list categories (optionally filter by shopId)
+// GET /categories -> list categories
 app.http('categoriesCrudList', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'categories',
-  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+  handler: async (): Promise<HttpResponseInit> => {
     try {
-      const shopId = request.query.get('shopId')?.trim();
-      let query = 'SELECT * FROM c WHERE c.kind = @kind';
-      const parameters: any[] = [{ name: '@kind', value: 'category' }];
-      if (shopId) {
-        query += ' AND c.shopId = @shopId';
-        parameters.push({ name: '@shopId', value: shopId });
-      }
-      query += ' ORDER BY c.sortOrder ASC';
-
       const { resources } = await categoriesContainer.items
-        .query<Category>({ query, parameters })
+        .query<ProductCategory>({
+          query: 'SELECT * FROM c ORDER BY c.position ASC',
+        })
         .fetchAll();
       return json(200, resources);
     } catch (error: any) {
@@ -67,7 +60,7 @@ app.http('categoriesCrudGetById', {
 
       const { resource } = await categoriesContainer
         .item(categoryId, categoryId)
-        .read<Category>();
+        .read<ProductCategory>();
       if (!resource) {
         return json(404, { message: 'Category not found' });
       }
@@ -86,22 +79,17 @@ app.http('categoriesCrudCreate', {
   route: 'categories',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const body = await readBody<Partial<Category>>(request);
-      if (!body.shopId) {
-        return missingField('shopId');
-      }
+      const body = await readBody<Partial<ProductCategory>>(request);
       if (!body.name) {
         return missingField('name');
       }
 
       const timestamp = nowIso();
-      const category: Category = {
+      const category: ProductCategory = {
         id: newId(),
-        kind: 'category',
-        shopId: body.shopId.trim(),
         name: body.name,
         description: body.description,
-        sortOrder: body.sortOrder,
+        position: body.position,
         isActive: body.isActive ?? true,
         parentCategoryId: body.parentCategoryId,
         createdAt: timestamp,
@@ -131,13 +119,13 @@ app.http('categoriesCrudUpdate', {
 
       const { resource } = await categoriesContainer
         .item(categoryId, categoryId)
-        .read<Category>();
+        .read<ProductCategory>();
       if (!resource) {
         return json(404, { message: 'Category not found' });
       }
 
-      const updates = await readBody<Partial<Category>>(request);
-      const updated: Category = {
+      const updates = await readBody<Partial<ProductCategory>>(request);
+      const updated: ProductCategory = {
         ...resource,
         ...updates,
         updatedAt: nowIso(),
@@ -166,7 +154,7 @@ app.http('categoriesCrudDelete', {
 
       const { resource } = await categoriesContainer
         .item(categoryId, categoryId)
-        .read<Category>();
+        .read<ProductCategory>();
       if (!resource) {
         return json(404, { message: 'Category not found' });
       }

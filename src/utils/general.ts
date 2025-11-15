@@ -62,7 +62,6 @@ export async function writeAuditLog(entry: AuditLogInput): Promise<void> {
 
   const payload: AuditLog = {
     id: newId(),
-    kind: 'auditLog',
     createdAt: timestamp,
     updatedAt: timestamp,
     actor,

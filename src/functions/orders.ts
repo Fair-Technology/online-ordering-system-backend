@@ -6,14 +6,13 @@ import {
 const { app } = require('@azure/functions');
 import { getContainer } from '../config/cosmosClient';
 import {
-  CatalogProduct,
+  Product,
   Money,
   Order,
   OrderItem,
   OrderItemAddonSnapshot,
   OrderStatus,
   Shop,
-  ShopCatalogEntry,
 } from '../types/databaseTypes';
 import { OrderItemPayload } from '../types/payloadTypes';
 import {
@@ -34,13 +33,11 @@ type HttpRequest = HttpRequestLike;
 type HttpResponseInit = HttpResponseInitLike;
 
 const ordersContainer = getContainer('orders');
-const shopCatalogEntriesContainer = getContainer('productsInShop');
-const catalogProductsContainer = getContainer('products');
+const productsContainer = getContainer('products');
 const shopsContainer = getContainer('shops');
 
 interface ValidatedOrderItem {
   productId: string;
-  shopCatalogEntryId: string;
   productVariantId: string;
   productNameSnapshot: string;
   variantLabelSnapshot: string;
@@ -101,46 +98,31 @@ async function buildOrderItemsFromPayload(
 
   const productIds = [...new Set(selections.map((item) => item.productId))];
 
-  const [{ resources: entries }, { resources: products }] = await Promise.all([
-    shopCatalogEntriesContainer.items
-      .query<ShopCatalogEntry>({
-        query:
-          'SELECT * FROM c WHERE c.shopId = @shopId AND ARRAY_CONTAINS(@ids, c.productId)',
-        parameters: [
-          { name: '@shopId', value: shopId },
-          { name: '@ids', value: productIds },
-        ],
-      })
-      .fetchAll(),
-    catalogProductsContainer.items
-      .query<CatalogProduct>({
-        query: 'SELECT * FROM c WHERE ARRAY_CONTAINS(@ids, c.id)',
-        parameters: [{ name: '@ids', value: productIds }],
-      })
-      .fetchAll(),
-  ]);
+  const { resources: products } = await productsContainer.items
+    .query<Product>({
+      query:
+        'SELECT * FROM c WHERE c.shopId = @shopId AND ARRAY_CONTAINS(@ids, c.id)',
+      parameters: [
+        { name: '@shopId', value: shopId },
+        { name: '@ids', value: productIds },
+      ],
+    })
+    .fetchAll();
 
-  const entryByProduct = new Map(entries.map((entry) => [entry.productId, entry]));
   const productById = new Map(products.map((product) => [product.id, product]));
 
   const result: ValidatedOrderItem[] = [];
 
   for (const selection of selections) {
-    const entry = entryByProduct.get(selection.productId);
-    if (!entry || entry.isAvailable === false) {
-      throw new Error(
-        `Product ${selection.productId} is not currently available in this shop`,
-      );
-    }
-    if (
-      selection.shopCatalogEntryId &&
-      selection.shopCatalogEntryId !== entry.id
-    ) {
-      throw new Error('Product listing mismatch for provided shopCatalogEntryId');
-    }
     const product = productById.get(selection.productId);
     if (!product) {
       throw new Error(`Product ${selection.productId} not found`);
+    }
+    if (product.shopId !== shopId) {
+      throw new Error(`Product ${selection.productId} does not belong to this shop`);
+    }
+    if (!product.isActive) {
+      throw new Error(`Product ${selection.productId} is not available`);
     }
 
     const variant = product.variantGroups
@@ -163,7 +145,7 @@ async function buildOrderItemsFromPayload(
           if (option) {
             return {
               addonOptionId: option.id,
-              nameSnapshot: option.label,
+              nameSnapshot: option.name,
               priceDeltaSnapshot: option.priceDelta,
             };
           }
@@ -172,7 +154,7 @@ async function buildOrderItemsFromPayload(
       },
     );
 
-    const basePrice = entry.priceOverride ?? variant.basePrice;
+    const basePrice = variant.basePrice;
     const addonsAmount = sumAddonPrice(addonSnapshots, basePrice.currency);
     const finalUnitPrice: Money = {
       amount: basePrice.amount + addonsAmount,
@@ -181,10 +163,9 @@ async function buildOrderItemsFromPayload(
 
     result.push({
       productId: product.id,
-      shopCatalogEntryId: entry.id,
       productVariantId: variant.id,
       productNameSnapshot: product.title,
-      variantLabelSnapshot: variant.label,
+      variantLabelSnapshot: variant.name,
       addons: addonSnapshots,
       finalUnitPrice,
       quantity: selection.quantity,
@@ -199,7 +180,6 @@ function convertValidatedItemsToOrderItems(
 ): OrderItem[] {
   return items.map((item) => ({
     productId: item.productId,
-    shopCatalogEntryId: item.shopCatalogEntryId,
     productVariantId: item.productVariantId,
     productNameSnapshot: item.productNameSnapshot,
     variantLabelSnapshot: item.variantLabelSnapshot,
@@ -269,7 +249,6 @@ app.http('ordersCreate', {
 
       const order: Order = {
         id: newId(),
-        kind: 'order',
         shopId,
         userId,
         status,
@@ -316,11 +295,8 @@ app.http('ordersList', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const { shopId, statuses } = validateOrdersList(request);
-      let query = 'SELECT * FROM c WHERE c.kind = @kind AND c.shopId = @shopId';
-      const parameters: any[] = [
-        { name: '@kind', value: 'order' },
-        { name: '@shopId', value: shopId },
-      ];
+      let query = 'SELECT * FROM c WHERE c.shopId = @shopId';
+      const parameters: any[] = [{ name: '@shopId', value: shopId }];
 
       if (statuses.length === 1) {
         query += ' AND c.status = @status';
@@ -392,7 +368,7 @@ app.http('ordersListAll', {
       const shopId = request.query.get('shopId')?.trim();
       const userId = request.query.get('userId')?.trim();
       const filters: string[] = [];
-      const parameters: any[] = [{ name: '@kind', value: 'order' }];
+      const parameters: any[] = [];
       if (shopId) {
         filters.push('c.shopId = @shopId');
         parameters.push({ name: '@shopId', value: shopId });
@@ -401,9 +377,9 @@ app.http('ordersListAll', {
         filters.push('c.userId = @userId');
         parameters.push({ name: '@userId', value: userId });
       }
-      let query = 'SELECT * FROM c WHERE c.kind = @kind';
+      let query = 'SELECT * FROM c';
       if (filters.length > 0) {
-        query += ` AND ${filters.join(' AND ')}`;
+        query += ` WHERE ${filters.join(' AND ')}`;
       }
       query += ' ORDER BY c.submittedAt DESC';
 
@@ -462,7 +438,6 @@ app.http('ordersUpdateGeneral', {
         ...resource,
         ...updates,
         id: resource.id,
-        kind: 'order',
         submittedAt: resource.submittedAt,
         updatedAt: nowIso(),
       };

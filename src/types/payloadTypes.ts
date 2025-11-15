@@ -1,19 +1,17 @@
 import {
-  CatalogAddonGroup,
-  CatalogAddonOption,
-  CatalogProduct,
-  CatalogVariant,
-  CatalogVariantGroup,
+  ProductAddonGroup,
+  ProductAddonOption,
+  Product,
+  ProductVariantTemplate,
+  ProductVariantGroup,
   FulfillmentOptions,
   OrderItem,
   OrderStatus,
   PaymentPolicy,
   Shop,
-  ShopCatalogEntry,
   ShopHours,
   ShopMemberRole,
   ShopStatus,
-  UserRole,
 } from './databaseTypes';
 
 export interface MoneyInput {
@@ -23,12 +21,11 @@ export interface MoneyInput {
 
 export type UserCreatePayload = {
   id: string;
-  primaryEmail?: string;
-  roles?: UserRole[];
 };
 
 export interface ShopSettingsPayload {
   name?: string;
+  slug?: string;
   legalName?: string;
   address?: string;
   timezone?: string;
@@ -50,12 +47,10 @@ export type UpdateShopRequest = ShopSettingsPayload;
 export interface ShopMemberInvitePayload {
   userId: string;
   role: ShopMemberRole;
-  permissions?: string[];
 }
 
 export interface ShopMemberUpdatePayload {
   role?: ShopMemberRole;
-  permissions?: string[];
   isActive?: boolean;
 }
 
@@ -64,76 +59,49 @@ export interface ShopHoursPayload {
   weekly: ShopHours['weekly'];
 }
 
-export interface CatalogVariantPayload
-  extends Omit<CatalogVariant, 'basePrice' | 'isActive'> {
+export interface ProductVariantPayload
+  extends Omit<ProductVariantTemplate, 'basePrice' | 'isActive'> {
   basePrice: MoneyInput;
   isActive?: boolean;
 }
 
-export interface CatalogVariantGroupPayload
-  extends Omit<CatalogVariantGroup, 'variants'> {
-  variants: CatalogVariantPayload[];
+export interface ProductVariantGroupPayload
+  extends Omit<ProductVariantGroup, 'variants'> {
+  variants: ProductVariantPayload[];
 }
 
-export interface CatalogAddonOptionPayload
-  extends Omit<CatalogAddonOption, 'priceDelta'> {
+export interface ProductAddonOptionPayload
+  extends Omit<ProductAddonOption, 'priceDelta'> {
   priceDelta: MoneyInput;
 }
 
-export interface CatalogAddonGroupPayload
-  extends Omit<CatalogAddonGroup, 'options'> {
-  options: CatalogAddonOptionPayload[];
+export interface ProductAddonGroupPayload
+  extends Omit<ProductAddonGroup, 'options'> {
+  options: ProductAddonOptionPayload[];
 }
 
-export interface CreateCatalogProductRequest
+export interface CreateProductRequest
   extends Omit<
-    CatalogProduct,
-    | 'id'
-    | 'kind'
-    | 'createdAt'
-    | 'updatedAt'
-    | 'variantGroups'
-    | 'addonGroups'
-    | 'media'
-    | 'isActive'
-    | 'ownerUserId'
+    Product,
+    'id' | 'createdAt' | 'updatedAt' | 'variantGroups' | 'addonGroups' | 'categories' | 'isActive'
   > {
-  media?: CatalogProduct['media'];
-  variantGroups: CatalogVariantGroupPayload[];
-  addonGroups: CatalogAddonGroupPayload[];
+  variantGroups: ProductVariantGroupPayload[];
+  addonGroups: ProductAddonGroupPayload[];
+  categories?: string[];
   isActive?: boolean;
-  ownerUserId?: string;
 }
 
-export type UpdateCatalogProductRequest = Partial<CreateCatalogProductRequest>;
-
-export interface ShopCatalogEntryPayload
-  extends Omit<
-    ShopCatalogEntry,
-    | 'id'
-    | 'kind'
-    | 'createdAt'
-    | 'updatedAt'
-    | 'priceOverride'
-    | 'shopId'
-    | 'productId'
-  > {
-  priceOverride?: MoneyInput;
-}
-
-export type CreateShopCatalogEntryRequest = ShopCatalogEntryPayload & {
-  productId: string;
-};
+export type UpdateProductRequest = Partial<CreateProductRequest>;
 
 export interface CreateCategoryRequest {
   name: string;
   description?: string;
   parentCategoryId?: string;
-  sortOrder?: number;
+  position?: number;
   isActive?: boolean;
 }
 
-export type UpdateCategoryRequest = CreateCategoryRequest;
+export type UpdateCategoryRequest = Partial<CreateCategoryRequest>;
 
 export interface OrderItemPayload
   extends Omit<
@@ -142,9 +110,7 @@ export interface OrderItemPayload
     | 'finalUnitPrice'
     | 'productNameSnapshot'
     | 'variantLabelSnapshot'
-    | 'shopCatalogEntryId'
   > {
-  shopCatalogEntryId: string;
   addonOptionIds?: string[];
 }
 
