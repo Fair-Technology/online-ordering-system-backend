@@ -11,6 +11,7 @@ import {
   Shop,
   ShopHours,
   ShopMember,
+  ShopProductMap,
 } from '../types/databaseTypes';
 import { getContainer } from '../config/cosmosClient';
 import {
@@ -33,6 +34,7 @@ type HttpResponseInit = HttpResponseInitLike;
 
 const productsContainer = getContainer('products');
 const categoriesContainer = getContainer('categories');
+const shopProductsContainer = getContainer('shopProducts');
 const shopsContainer = getContainer('shops');
 const shopMembersContainer = getContainer('shopMembers');
 const shopHoursContainer = getContainer('shopHours');
@@ -435,11 +437,26 @@ app.http('shopsMenu', {
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
       const { shopId, shop } = await validateShopsMenuRequest(request);
+      const { resources: listings } = await shopProductsContainer.items
+        .query<ShopProductMap>({
+          query:
+            'SELECT * FROM c WHERE c.shopId = @shopId AND c.isAvailable = true',
+          parameters: [{ name: '@shopId', value: shopId }],
+        })
+        .fetchAll();
+
+      const listingsMap = new Map(
+        listings.map((entry) => [entry.productId, entry]),
+      );
+      const productIds = [...new Set(listings.map((entry) => entry.productId))];
+      if (productIds.length === 0) {
+        return json(200, { shop, categories: [], products: [] });
+      }
+
       const { resources: products } = await productsContainer.items
         .query<Product>({
-          query:
-            'SELECT * FROM c WHERE c.shopId = @shopId AND c.isActive = true',
-          parameters: [{ name: '@shopId', value: shopId }],
+          query: 'SELECT * FROM c WHERE ARRAY_CONTAINS(@ids, c.id)',
+          parameters: [{ name: '@ids', value: productIds }],
         })
         .fetchAll();
 
@@ -458,7 +475,7 @@ app.http('shopsMenu', {
         categories = resources;
       }
 
-      const enrichedProducts = await hydrateProducts(products);
+      const enrichedProducts = await hydrateProducts(products, listingsMap);
 
       return json(200, {
         shop,

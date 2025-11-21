@@ -5,20 +5,28 @@ import {
 } from '../types/otherTypes';
 const { app } = require('@azure/functions');
 import { getContainer } from '../config/cosmosClient';
-import { Product, Shop } from '../types/databaseTypes';
+import { Product, Shop, ShopProductMap } from '../types/databaseTypes';
 import {
   validateProductCreate,
   validateProductUpdate,
 } from '../utils/businessLogic';
-import { getActorUserId, newId, nowIso, writeAuditLog } from '../utils/general';
+import {
+  fetchByProperty,
+  getActorUserId,
+  newId,
+  nowIso,
+  writeAuditLog,
+} from '../utils/general';
 import { hydrateProducts } from '../utils/products';
 import { ProductResponse } from '../types/responseTypes';
+import { mapProductToDTO } from '../mappers/mapProductToDTO';
 
 type HttpRequest = HttpRequestLike;
 type HttpResponseInit = HttpResponseInitLike;
 
 const productsContainer = getContainer('products');
 const shopsContainer = getContainer('shops');
+const shopProductsContainer = getContainer('shopProducts');
 
 async function readShop(shopId: string): Promise<Shop | undefined> {
   try {
@@ -33,35 +41,46 @@ async function readShop(shopId: string): Promise<Shop | undefined> {
 /* Products                                                                   */
 /* -------------------------------------------------------------------------- */
 
-app.http('productsListAll', {
+app.http('allProductsOfParticularShop', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'products',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const ownerUserId = request.query.get('ownerUserId')?.trim();
       const shopId = request.query.get('shopId')?.trim();
-      const filters: string[] = [];
-      const parameters: any[] = [];
-      if (ownerUserId) {
-        filters.push('c.ownerUserId = @ownerUserId');
-        parameters.push({ name: '@ownerUserId', value: ownerUserId });
-      }
-      if (shopId) {
-        filters.push('c.shopId = @shopId');
-        parameters.push({ name: '@shopId', value: shopId });
-      }
-      let query = 'SELECT * FROM c';
-      if (filters.length > 0) {
-        query += ` WHERE ${filters.join(' AND ')}`;
-      }
-      query += ' ORDER BY c.updatedAt DESC';
 
-      const { resources } = await productsContainer.items
-        .query<Product>({ query, parameters })
-        .fetchAll();
-      const enriched = await hydrateProducts(resources);
-      return json(200, enriched);
+      if (!shopId) {
+        return json(400, { message: 'shopId query parameter is required' });
+      }
+
+      const shopProductMappings = await fetchByProperty<ShopProductMap>(
+        shopProductsContainer,
+        'shopId',
+        shopId,
+      );
+
+      if (shopProductMappings.length === 0) {
+        return json(200, []);
+      }
+
+      const listingsMap = new Map(
+        shopProductMappings.map((mapping) => [mapping.productId, mapping]),
+      );
+      const productIds = [...listingsMap.keys()];
+
+      const products = await fetchByProperty<Product>(
+        productsContainer,
+        'id',
+        productIds,
+      );
+
+      const hydrated = await hydrateProducts(products, listingsMap);
+
+      const responseToSend = hydrated.map((product) =>
+        mapProductToDTO(product),
+      );
+
+      return json(200, responseToSend);
     } catch (error: any) {
       return { status: error.status || 500, body: error.message };
     }
@@ -74,26 +93,30 @@ app.http('productsCreate', {
   route: 'products',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
     try {
-      const payload = await validateProductCreate(request);
+      const { product: productPayload, shopId } = await validateProductCreate(
+        request,
+      );
       const timestamp = nowIso();
       const product: Product = {
         id: newId(),
-        shopId: payload.shopId,
-        ownerUserId: payload.ownerUserId,
-        title: payload.title,
-        description: payload.description,
-        categories: payload.categories ?? [],
-        media: payload.media ?? [],
-        tags: payload.tags ?? [],
-        allergyInfo: payload.allergyInfo ?? [],
-        variantGroups: payload.variantGroups,
-        addonGroups: payload.addonGroups,
-        isActive: payload.isActive ?? true,
+        ...productPayload,
         createdAt: timestamp,
         updatedAt: timestamp,
       };
       await productsContainer.items.create(product);
-      const [enriched] = await hydrateProducts([product]);
+      const link: ShopProductMap = {
+        id: newId(),
+        shopId,
+        productId: product.id,
+        isAvailable: productPayload.isAvailable ?? true,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      await shopProductsContainer.items.create(link);
+      const [enriched] = await hydrateProducts(
+        [product],
+        new Map([[product.id, link]]),
+      );
       await writeAuditLog({
         actorUserId: getActorUserId(request),
         entityType: 'product',
@@ -182,6 +205,20 @@ app.http('productsDelete', {
         return json(404, { message: 'Product not found' });
       }
       await productsContainer.item(productId, productId).delete();
+      const { resources: mappings } = await shopProductsContainer.items
+        .query<ShopProductMap>({
+          query: 'SELECT * FROM c WHERE c.productId = @productId',
+          parameters: [{ name: '@productId', value: productId }],
+        })
+        .fetchAll();
+      await Promise.all(
+        mappings.map((mapping) =>
+          shopProductsContainer
+            .item(mapping.id, mapping.id)
+            .delete()
+            .catch(() => undefined),
+        ),
+      );
       await writeAuditLog({
         actorUserId: getActorUserId(request),
         entityType: 'product',

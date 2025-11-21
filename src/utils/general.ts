@@ -3,6 +3,7 @@ import { getContainer } from '../config/cosmosClient';
 import { AuditLog, OrderStatus, PrincipalRef } from '../types/databaseTypes';
 import { HttpRequestLike } from '../types/otherTypes';
 type HttpRequest = HttpRequestLike;
+import { Container } from '@azure/cosmos';
 
 const auditLogContainer = getContainer('auditLogs');
 
@@ -79,3 +80,26 @@ export async function writeAuditLog(entry: AuditLogInput): Promise<void> {
 export const getActorUserId = (request: HttpRequest): string => {
   return request.headers.get('x-user-id') ?? 'system';
 };
+
+export async function fetchByProperty<T>(
+  container: Container,
+  propertyName: string,
+  propertyValue: string | number | boolean | (string | number | boolean)[],
+): Promise<T[]> {
+  let query: string;
+  let parameters: { name: string; value: any }[];
+
+  if (Array.isArray(propertyValue)) {
+    query = `SELECT * FROM c WHERE ARRAY_CONTAINS(@values, c.${propertyName})`;
+    parameters = [{ name: '@values', value: propertyValue }];
+  } else {
+    query = `SELECT * FROM c WHERE c.${propertyName} = @value`;
+    parameters = [{ name: '@value', value: propertyValue }];
+  }
+
+  const { resources } = await container.items
+    .query<T>({ query, parameters })
+    .fetchAll();
+
+  return resources;
+}

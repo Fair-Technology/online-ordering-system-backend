@@ -13,6 +13,7 @@ import {
   OrderItemAddonSnapshot,
   OrderStatus,
   Shop,
+  ShopProductMap,
 } from '../types/databaseTypes';
 import { OrderItemPayload } from '../types/payloadTypes';
 import {
@@ -35,6 +36,7 @@ type HttpResponseInit = HttpResponseInitLike;
 const ordersContainer = getContainer('orders');
 const productsContainer = getContainer('products');
 const shopsContainer = getContainer('shops');
+const shopProductsContainer = getContainer('shopProducts');
 
 interface ValidatedOrderItem {
   productId: string;
@@ -98,37 +100,51 @@ async function buildOrderItemsFromPayload(
 
   const productIds = [...new Set(selections.map((item) => item.productId))];
 
-  const { resources: products } = await productsContainer.items
-    .query<Product>({
-      query:
-        'SELECT * FROM c WHERE c.shopId = @shopId AND ARRAY_CONTAINS(@ids, c.id)',
-      parameters: [
-        { name: '@shopId', value: shopId },
-        { name: '@ids', value: productIds },
-      ],
-    })
-    .fetchAll();
+  const [{ resources: mappings }, { resources: products }] = await Promise.all([
+    shopProductsContainer.items
+      .query<ShopProductMap>({
+        query:
+          'SELECT * FROM c WHERE c.shopId = @shopId AND ARRAY_CONTAINS(@ids, c.productId)',
+        parameters: [
+          { name: '@shopId', value: shopId },
+          { name: '@ids', value: productIds },
+        ],
+      })
+      .fetchAll(),
+    productsContainer.items
+      .query<Product>({
+        query: 'SELECT * FROM c WHERE ARRAY_CONTAINS(@ids, c.id)',
+        parameters: [{ name: '@ids', value: productIds }],
+      })
+      .fetchAll(),
+  ]);
 
+  const mappingByProduct = new Map(
+    mappings.map((mapping) => [mapping.productId, mapping]),
+  );
   const productById = new Map(products.map((product) => [product.id, product]));
 
   const result: ValidatedOrderItem[] = [];
 
   for (const selection of selections) {
+    const mapping = mappingByProduct.get(selection.productId);
+    if (!mapping || mapping.isAvailable === false) {
+      throw new Error(
+        `Product ${selection.productId} is not currently available in this shop`,
+      );
+    }
     const product = productById.get(selection.productId);
     if (!product) {
       throw new Error(`Product ${selection.productId} not found`);
     }
-    if (product.shopId !== shopId) {
-      throw new Error(`Product ${selection.productId} does not belong to this shop`);
-    }
-    if (!product.isActive) {
+    if (!product.isAvailable) {
       throw new Error(`Product ${selection.productId} is not available`);
     }
 
     const variant = product.variantGroups
-      .flatMap((group) => group.variants)
+      .flatMap((group) => group.options)
       .find((item) => item.id === selection.productVariantId);
-    if (!variant || !variant.isActive) {
+    if (!variant || !variant.isAvailable) {
       throw new Error(`Variant ${selection.productVariantId} is not available`);
     }
 
@@ -140,12 +156,12 @@ async function buildOrderItemsFromPayload(
       (optionId) => {
         for (const group of product.addonGroups ?? []) {
           const option = group.options.find(
-            (opt) => opt.id === optionId && opt.isActive,
+            (opt) => opt.id === optionId && opt.isAvailable,
           );
           if (option) {
             return {
               addonOptionId: option.id,
-              nameSnapshot: option.name,
+              nameSnapshot: option.label,
               priceDeltaSnapshot: option.priceDelta,
             };
           }
@@ -154,18 +170,24 @@ async function buildOrderItemsFromPayload(
       },
     );
 
-    const basePrice = variant.basePrice;
+    const variantDelta = variant.priceDelta;
+    const basePrice =
+      mapping.priceOverride ??
+      ({
+        amount: product.price,
+        currency: variantDelta.currency,
+      } as Money);
     const addonsAmount = sumAddonPrice(addonSnapshots, basePrice.currency);
     const finalUnitPrice: Money = {
-      amount: basePrice.amount + addonsAmount,
+      amount: basePrice.amount + variantDelta.amount + addonsAmount,
       currency: basePrice.currency,
     };
 
     result.push({
       productId: product.id,
       productVariantId: variant.id,
-      productNameSnapshot: product.title,
-      variantLabelSnapshot: variant.name,
+      productNameSnapshot: product.label,
+      variantLabelSnapshot: variant.label,
       addons: addonSnapshots,
       finalUnitPrice,
       quantity: selection.quantity,

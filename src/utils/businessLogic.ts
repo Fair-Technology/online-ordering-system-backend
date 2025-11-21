@@ -24,7 +24,7 @@ import {
   ProductAddonGroup,
   ProductAddonOption,
   Product,
-  ProductVariantTemplate,
+  ProductVariantOption,
   ProductVariantGroup,
   ProductCategory,
   FulfillmentOptions,
@@ -293,35 +293,35 @@ function sanitizeVariantGroup(
   if (!group || typeof group !== 'object') {
     throw new ValidationError('variant group is invalid');
   }
-  if (!group.name) {
-    throw new ValidationError('variant group name is required');
+  if (!group.label) {
+    throw new ValidationError('variant group label is required');
   }
-  if (!Array.isArray(group.variants) || group.variants.length === 0) {
-    throw new ValidationError('variant group must contain variants');
+  if (!Array.isArray(group.options) || group.options.length === 0) {
+    throw new ValidationError('variant group must contain options');
   }
-  const variants: ProductVariantTemplate[] = group.variants.map((variant) => {
-    if (!variant.name) {
-      throw new ValidationError('variant name is required');
+  const options: ProductVariantOption[] = group.options.map((option) => {
+    if (!option.label) {
+      throw new ValidationError('variant option label is required');
     }
-    const price = toMoney(
-      variant.basePrice,
+    const priceDelta = toMoney(
+      option.priceDelta,
       currency,
-      'variant price must be provided',
+      'variant option priceDelta is required',
     );
-    if (!price) {
-      throw new ValidationError('variant price must be provided');
+    if (!priceDelta) {
+      throw new ValidationError('variant option priceDelta is required');
     }
     return {
-      id: variant.id ?? randomUUID(),
-      name: variant.name,
-      basePrice: price,
-      isActive: variant.isActive ?? true,
+      id: option.id ?? randomUUID(),
+      label: option.label,
+      priceDelta,
+      isAvailable: option.isAvailable ?? true,
     };
   });
   return {
     id: group.id ?? randomUUID(),
-    name: group.name,
-    variants,
+    label: group.label,
+    options,
   };
 }
 
@@ -329,15 +329,15 @@ function sanitizeAddonGroup(
   group: ProductAddonGroupPayload,
   currency: string,
 ): ProductAddonGroup {
-  if (!group.name) {
-    throw new ValidationError('addon group name is required');
+  if (!group.label) {
+    throw new ValidationError('addon group label is required');
   }
-  if (!Array.isArray(group.options)) {
+  if (!Array.isArray(group.options) || group.options.length === 0) {
     throw new ValidationError('addon group options are required');
   }
   const options: ProductAddonOption[] = group.options.map((option) => {
-    if (!option.name) {
-      throw new ValidationError('addon option name is required');
+    if (!option.label) {
+      throw new ValidationError('addon option label is required');
     }
     const money = toMoney(
       option.priceDelta,
@@ -349,14 +349,14 @@ function sanitizeAddonGroup(
     }
     return {
       id: option.id ?? randomUUID(),
-      name: option.name,
+      label: option.label,
       priceDelta: money,
-      isActive: option.isActive ?? true,
+      isAvailable: option.isAvailable ?? true,
     };
   });
   return {
     id: group.id ?? randomUUID(),
-    name: group.name,
+    label: group.label,
     required: group.required ?? false,
     maxSelectable: group.maxSelectable,
     options,
@@ -365,18 +365,22 @@ function sanitizeAddonGroup(
 
 export async function validateProductCreate(
   req: HttpRequestLike,
-): Promise<ProductDraft> {
+): Promise<{ product: ProductDraft; shopId: string }> {
   const payload = await readJson<CreateProductRequest>(req);
   if (!payload) {
     throw new ValidationError('Invalid body');
   }
   const shopId = ensureString(payload.shopId, 'shopId is required');
   await getShopOrThrow(shopId!);
-  const title = ensureString(payload.title, 'title is required');
-  if (!title) {
-    throw new ValidationError('title is required');
+  const label = ensureString(payload.label, 'label is required');
+  if (!label) {
+    throw new ValidationError('label is required');
   }
-  const currency = payload.variantGroups?.[0]?.variants?.[0]?.basePrice?.currency ?? 'USD';
+  if (typeof payload.price !== 'number' || Number.isNaN(payload.price)) {
+    throw new ValidationError('price must be a number');
+  }
+  const currency =
+    payload.variantGroups?.[0]?.options?.[0]?.priceDelta?.currency ?? 'USD';
   const variantGroups = (payload.variantGroups ?? []).map((group) =>
     sanitizeVariantGroup(group, currency),
   );
@@ -394,16 +398,19 @@ export async function validateProductCreate(
 
   return {
     shopId: shopId!,
-    ownerUserId: payload.ownerUserId,
-    title,
-    description: payload.description,
-    media: payload.media ?? [],
-    tags: payload.tags ?? [],
-    allergyInfo: payload.allergyInfo ?? [],
-    variantGroups,
-    addonGroups,
-    isActive: payload.isActive ?? true,
-    categories,
+    product: {
+      price: payload.price,
+      ownerUserId: payload.ownerUserId,
+      label,
+      description: payload.description,
+      media: payload.media ?? [],
+      tags: payload.tags ?? [],
+      allergyInfo: payload.allergyInfo ?? [],
+      variantGroups,
+      addonGroups,
+      isAvailable: payload.isAvailable ?? true,
+      categories,
+    },
   };
 }
 
@@ -416,41 +423,45 @@ export async function validateProductUpdate(req: HttpRequestLike) {
   if (!resource) {
     throw new ValidationError('Product not found', 404);
   }
-  if (payload.shopId && payload.shopId !== resource.shopId) {
-    throw new ValidationError('shopId cannot be changed for a product');
+  const { shopId: _ignoredShopId, ...rest } = payload;
+  if (
+    rest.price !== undefined &&
+    (typeof rest.price !== 'number' || Number.isNaN(rest.price))
+  ) {
+    throw new ValidationError('price must be a number');
   }
   let variantGroups: ProductVariantGroup[] | undefined;
-  if (payload.variantGroups) {
+  if (rest.variantGroups) {
     const currency =
-      payload.variantGroups[0]?.variants[0]?.basePrice?.currency ??
-      resource.variantGroups[0]?.variants[0]?.basePrice.currency ??
+      rest.variantGroups[0]?.options[0]?.priceDelta?.currency ??
+      resource.variantGroups[0]?.options[0]?.priceDelta.currency ??
       'USD';
-    variantGroups = payload.variantGroups.map((group) =>
+    variantGroups = rest.variantGroups.map((group) =>
       sanitizeVariantGroup(group, currency),
     );
   }
   let addonGroups: ProductAddonGroup[] | undefined;
-  if (payload.addonGroups) {
+  if (rest.addonGroups) {
     const currency =
-      variantGroups?.[0]?.variants[0]?.basePrice.currency ??
-      resource.variantGroups[0]?.variants[0]?.basePrice.currency ??
+      variantGroups?.[0]?.options[0]?.priceDelta.currency ??
+      resource.variantGroups[0]?.options[0]?.priceDelta.currency ??
       'USD';
-    addonGroups = payload.addonGroups.map((group) =>
+    addonGroups = rest.addonGroups.map((group) =>
       sanitizeAddonGroup(group, currency),
     );
   }
   return {
     product: resource,
     updates: {
-      ...payload,
-      shopId: resource.shopId,
+      ...rest,
       variantGroups,
       addonGroups,
-      categories: Array.isArray(payload.categories)
-        ? payload.categories
+      categories: Array.isArray(rest.categories)
+        ? rest.categories
             .map((value) => (typeof value === 'string' ? value.trim() : ''))
             .filter((value) => value.length > 0)
         : resource.categories,
+      price: rest.price ?? resource.price,
     },
   };
 }

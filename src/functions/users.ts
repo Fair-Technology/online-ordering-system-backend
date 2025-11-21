@@ -11,6 +11,7 @@ import {
   validateUsersGetById,
 } from '../utils/businessLogic';
 import { newId } from '../utils/general';
+import { validateAccessToken } from '../utils/auth';
 
 const usersContainer = getContainer('users');
 
@@ -27,8 +28,13 @@ app.http('usersListAll', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'users',
-  handler: async (): Promise<HttpResponseInitLike> => {
+  handler: async (request: HttpRequestLike): Promise<HttpResponseInitLike> => {
     try {
+      const isValid = await validateAccessToken(
+        request.headers.get('authorization'),
+      );
+      console.log(isValid ? 'access token valid' : 'access token invalid');
+
       const { resources } = await usersContainer.items
         .query<User>({ query: 'SELECT * FROM c ORDER BY c.createdAt DESC' })
         .fetchAll();
@@ -92,7 +98,9 @@ app.http('usersUpdate', {
 
     try {
       const userId = (request.params?.userId ?? '').trim();
-      const { resource } = await usersContainer.item(userId, userId).read<User>();
+      const { resource } = await usersContainer
+        .item(userId, userId)
+        .read<User>();
       if (!resource) {
         return json(404, { message: 'User not found' });
       }
@@ -120,7 +128,9 @@ app.http('usersDelete', {
 
     try {
       const userId = (request.params?.userId ?? '').trim();
-      const { resource } = await usersContainer.item(userId, userId).read<User>();
+      const { resource } = await usersContainer
+        .item(userId, userId)
+        .read<User>();
       if (!resource) {
         return json(404, { message: 'User not found' });
       }

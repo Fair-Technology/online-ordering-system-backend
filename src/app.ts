@@ -7,6 +7,7 @@ const requiredContainers = [
   'shopHours',
   'categories',
   'products',
+  'shopProducts',
   'orders',
   'auditLogs',
 ];

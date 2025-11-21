@@ -93,29 +93,29 @@ export interface ShopHours {
   updatedAt: string;
 }
 
-export interface ProductVariantTemplate {
+export interface ProductVariantOption {
   id: string;
-  name: string;
-  basePrice: Money;
-  isActive: boolean;
+  label: string;
+  priceDelta: Money;
+  isAvailable: boolean;
 }
 
 export interface ProductVariantGroup {
   id: string;
-  name: string;
-  variants: ProductVariantTemplate[];
+  label: string;
+  options: ProductVariantOption[];
 }
 
 export interface ProductAddonOption {
   id: string;
-  name: string;
+  label: string;
   priceDelta: Money;
-  isActive: boolean;
+  isAvailable: boolean;
 }
 
 export interface ProductAddonGroup {
   id: string;
-  name: string;
+  label: string;
   required: boolean;
   maxSelectable?: number;
   options: ProductAddonOption[];
@@ -123,9 +123,9 @@ export interface ProductAddonGroup {
 
 export interface Product {
   id: string;
-  shopId: string;
   ownerUserId?: string;
-  title: string;
+  label: string;
+  price: number;
   description?: string;
   categories: string[];
   tags?: string[];
@@ -133,7 +133,7 @@ export interface Product {
   allergyInfo?: string[];
   variantGroups: ProductVariantGroup[];
   addonGroups: ProductAddonGroup[];
-  isActive: boolean;
+  isAvailable: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -149,7 +149,10 @@ export interface ProductCategory {
   updatedAt: string;
 }
 
-export type ProductResponse = Product & { categoryDetails: ProductCategory[] };
+export type ProductResponse = Product & {
+  shopId?: string;
+  categoryDetails: ProductCategory[];
+};
 
 export interface ShopMenuResponse {
   shop: Shop;
@@ -243,22 +246,23 @@ export interface ShopHoursPayload {
 }
 
 export interface ProductVariantPayload
-  extends Omit<ProductVariantTemplate, 'id' | 'basePrice' | 'isActive'> {
+  extends Omit<ProductVariantOption, 'id' | 'priceDelta' | 'isAvailable'> {
   id?: string;
-  basePrice: MoneyInput;
-  isActive?: boolean;
+  priceDelta: MoneyInput;
+  isAvailable?: boolean;
 }
 
 export interface ProductVariantGroupPayload
-  extends Omit<ProductVariantGroup, 'id' | 'variants'> {
+  extends Omit<ProductVariantGroup, 'id' | 'options'> {
   id?: string;
-  variants: ProductVariantPayload[];
+  options: ProductVariantPayload[];
 }
 
 export interface ProductAddonOptionPayload
-  extends Omit<ProductAddonOption, 'id' | 'priceDelta'> {
+  extends Omit<ProductAddonOption, 'id' | 'priceDelta' | 'isAvailable'> {
   id?: string;
   priceDelta: MoneyInput;
+  isAvailable?: boolean;
 }
 
 export interface ProductAddonGroupPayload
@@ -270,12 +274,13 @@ export interface ProductAddonGroupPayload
 export interface CreateProductRequest
   extends Omit<
     Product,
-    'id' | 'createdAt' | 'updatedAt' | 'variantGroups' | 'addonGroups' | 'categories' | 'isActive'
+    'id' | 'createdAt' | 'updatedAt' | 'variantGroups' | 'addonGroups' | 'categories' | 'isAvailable'
   > {
   variantGroups: ProductVariantGroupPayload[];
   addonGroups: ProductAddonGroupPayload[];
   categories?: string[];
-  isActive?: boolean;
+  isAvailable?: boolean;
+  shopId: string;
 }
 
 export type UpdateProductRequest = Partial<CreateProductRequest>;

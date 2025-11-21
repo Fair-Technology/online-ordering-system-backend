@@ -110,8 +110,8 @@ export interface ShopHoursWindow {
 /* -------------------------------------------------------------------------- */
 
 export interface Product extends DocumentBase {
-  shopId: string;
-  title: string;
+  price: number;
+  label: string;
   description?: string;
   ownerUserId?: string;
   categories: string[];
@@ -120,24 +120,24 @@ export interface Product extends DocumentBase {
   allergyInfo?: string[];
   variantGroups: ProductVariantGroup[];
   addonGroups: ProductAddonGroup[];
-  isActive: boolean;
+  isAvailable: boolean;
 }
 
 export interface ProductVariantGroup {
   id: string;
-  name: string;
-  variants: ProductVariantTemplate[];
+  label: string;
+  options: ProductVariantOption[];
 }
-export interface ProductVariantTemplate {
+export interface ProductVariantOption {
   id: string;
-  name: string;
-  basePrice: Money;
-  isActive: boolean;
+  label: string;
+  priceDelta: Money;
+  isAvailable: boolean;
 }
 
 export interface ProductAddonGroup {
   id: string;
-  name: string;
+  label: string;
   required: boolean;
   maxSelectable?: number;
   options: ProductAddonOption[];
@@ -145,9 +145,17 @@ export interface ProductAddonGroup {
 
 export interface ProductAddonOption {
   id: string;
-  name: string;
+  label: string;
   priceDelta: Money;
-  isActive: boolean;
+  isAvailable: boolean;
+}
+
+export interface ShopProductMap extends DocumentBase {
+  shopId: string;
+  productId: string;
+  isAvailable: boolean;
+  priceOverride?: Money;
+  sortOrder?: number;
 }
 
 /* -------------------------------------------------------------------------- */

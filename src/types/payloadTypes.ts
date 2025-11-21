@@ -2,7 +2,7 @@ import {
   ProductAddonGroup,
   ProductAddonOption,
   Product,
-  ProductVariantTemplate,
+  ProductVariantOption,
   ProductVariantGroup,
   FulfillmentOptions,
   OrderItem,
@@ -60,19 +60,20 @@ export interface ShopHoursPayload {
 }
 
 export interface ProductVariantPayload
-  extends Omit<ProductVariantTemplate, 'basePrice' | 'isActive'> {
-  basePrice: MoneyInput;
-  isActive?: boolean;
+  extends Omit<ProductVariantOption, 'priceDelta' | 'isAvailable'> {
+  priceDelta: MoneyInput;
+  isAvailable?: boolean;
 }
 
 export interface ProductVariantGroupPayload
-  extends Omit<ProductVariantGroup, 'variants'> {
-  variants: ProductVariantPayload[];
+  extends Omit<ProductVariantGroup, 'options'> {
+  options: ProductVariantPayload[];
 }
 
 export interface ProductAddonOptionPayload
-  extends Omit<ProductAddonOption, 'priceDelta'> {
+  extends Omit<ProductAddonOption, 'priceDelta' | 'isAvailable'> {
   priceDelta: MoneyInput;
+  isAvailable?: boolean;
 }
 
 export interface ProductAddonGroupPayload
@@ -83,12 +84,13 @@ export interface ProductAddonGroupPayload
 export interface CreateProductRequest
   extends Omit<
     Product,
-    'id' | 'createdAt' | 'updatedAt' | 'variantGroups' | 'addonGroups' | 'categories' | 'isActive'
+    'id' | 'createdAt' | 'updatedAt' | 'variantGroups' | 'addonGroups' | 'categories' | 'isAvailable'
   > {
   variantGroups: ProductVariantGroupPayload[];
   addonGroups: ProductAddonGroupPayload[];
   categories?: string[];
-  isActive?: boolean;
+  isAvailable?: boolean;
+  shopId: string;
 }
 
 export type UpdateProductRequest = Partial<CreateProductRequest>;

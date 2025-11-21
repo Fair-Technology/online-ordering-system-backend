@@ -26,7 +26,7 @@ To future-proof the platform, we rewrote `src/types/databaseTypes.ts` around thr
 ### 2. Associations (shop-specific context)
 
 - `ProductCategory` documents are hierarchical and scoped by `shopId`, making it trivial to build menus such as “Lunch” or “Drinks” per shop.
-- With the single-shop product model we no longer need `ShopProduct` or `ProductCategoryLink`; the `categories` array on each product expresses the relation directly.
+- `ShopProductMap` links a shop to the global product library so a single template can be surfaced in multiple storefronts. Each mapping can carry merchandising metadata such as availability or price overrides without mutating the source product.
 - Association documents such as `ShopMember`, `ShopHours`, and ACL entries still inherit from `DocumentBase`, giving us metadata, versioning, soft deletion (`archivedAt`), and tagging.
 
 ### 3. ACL (fine-grained authorization)
