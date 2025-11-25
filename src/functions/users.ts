@@ -30,10 +30,15 @@ app.http('usersListAll', {
   route: 'users',
   handler: async (request: HttpRequestLike): Promise<HttpResponseInitLike> => {
     try {
-      const isValid = await validateAccessToken(
+      const authResult = await validateAccessToken(
         request.headers.get('authorization'),
       );
-      console.log(isValid ? 'access token valid' : 'access token invalid');
+      console.log(
+        authResult.valid ? 'access token valid' : 'access token invalid',
+      );
+      if (!authResult.valid) {
+        return json(401, { message: authResult.error ?? 'Unauthorized' });
+      }
 
       const { resources } = await usersContainer.items
         .query<User>({ query: 'SELECT * FROM c ORDER BY c.createdAt DESC' })

@@ -5,7 +5,7 @@ const CLIENT_ID = '5940f49f-d6ec-4865-b38e-379de583765c';
 
 // Copy-paste the iss but WITHOUT the trailing `/v2.0` for the base:
 const AUTHORITY_BASE =
-  'https://fairaustraliaextusers.ciamlogin.com/d220f4ca-2ba2-436a-a437-5779ae23584d';
+  'https://d220f4ca-2ba2-436a-a437-5779ae23584d.ciamlogin.com/d220f4ca-2ba2-436a-a437-5779ae23584d';
 
 const JWKS_URI = `${AUTHORITY_BASE}/discovery/v2.0/keys`;
 
