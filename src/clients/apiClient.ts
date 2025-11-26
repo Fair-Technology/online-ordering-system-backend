@@ -1,35 +1,45 @@
-const DEFAULT_BASE_URL = 'http://localhost:7071/api';
+import axios from 'axios';
 
-type RequestOptions = Omit<RequestInit, 'method' | 'body'>;
+export const DEFAULT_BASE_URL = 'http://localhost:7071/api';
 
-type ShopStatus = 'draft' | 'open' | 'closed' | 'suspended';
-type PaymentPolicy = 'pay_on_pickup' | 'prepaid_only';
-type OrderAcceptanceMode = 'auto' | 'manual';
-type ShopMemberRole = 'owner' | 'manager' | 'staff' | 'viewer';
-type OrderStatus =
+const api = axios.create({
+  baseURL: process.env.API_BASE_URL ?? DEFAULT_BASE_URL,
+});
+
+const authHeaders = (token: string) => ({
+  Authorization: `Bearer ${token}`,
+});
+
+export type ShopStatus = 'draft' | 'open' | 'closed' | 'suspended';
+export type PaymentPolicy = 'pay_on_pickup' | 'prepaid_only';
+export type OrderAcceptanceMode = 'auto' | 'manual';
+export type ShopMemberRole = 'owner' | 'manager' | 'staff' | 'viewer';
+export type OrderStatus =
   | 'placed'
   | 'accepted'
   | 'rejected'
   | 'ready_for_pickup'
   | 'completed'
   | 'cancelled';
-type PaymentStatus = 'unpaid' | 'authorized' | 'paid' | 'refunded';
+export type PaymentStatus = 'unpaid' | 'authorized' | 'paid' | 'refunded';
 
-type MediaAsset = {
-  url: string;
-  alt?: string;
-  kind?: 'image' | 'video';
-};
-
-type Money = {
+export interface Money {
   amount: number;
   currency: string;
-};
+}
 
-type MoneyInput = {
+export interface MoneyInput {
   amount: number;
   currency?: string;
-};
+}
+
+export interface FulfillmentOptions {
+  pickupEnabled: boolean;
+  deliveryEnabled: boolean;
+  deliveryRadiusKm?: number;
+  deliveryFee?: Money;
+  leadTimeMinutes?: number;
+}
 
 export interface Shop {
   id: string;
@@ -48,14 +58,6 @@ export interface Shop {
   defaultCurrency: string;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface FulfillmentOptions {
-  pickupEnabled: boolean;
-  deliveryEnabled: boolean;
-  deliveryRadiusKm?: number;
-  deliveryFee?: Money;
-  leadTimeMinutes?: number;
 }
 
 export interface ShopMember {
@@ -91,6 +93,12 @@ export interface ShopHours {
   };
   createdAt: string;
   updatedAt: string;
+}
+
+export interface MediaAsset {
+  url: string;
+  alt?: string;
+  kind?: 'image' | 'video';
 }
 
 export interface ProductVariantOption {
@@ -149,15 +157,47 @@ export interface ProductCategory {
   updatedAt: string;
 }
 
-export type ProductResponse = Product & {
+export interface ProductResponse extends Product {
   shopId?: string;
   categoryDetails: ProductCategory[];
-};
+}
+
+export interface ProductDTO {
+  id: string;
+  label: string;
+  description?: string;
+  price: number;
+  categoryDetails: ProductCategory[];
+  tags?: string[];
+  media?: MediaAsset[];
+  allergyInfo?: string[];
+  variantGroups: ProductVariantGroup[];
+  addonGroups: ProductAddonGroup[];
+  productAvailable: boolean;
+  shopContext?: {
+    shopId: string;
+    isAvailable: boolean;
+    priceOverride?: Money;
+    sortOrder?: number;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface ShopMenuResponse {
   shop: Shop;
   categories: ProductCategory[];
   products: ProductResponse[];
+}
+
+export interface ShopMenuDTO {
+  categories: ProductCategory[];
+  products: ProductDTO[];
+}
+
+export interface ShopWithMenuResponse {
+  shop: Shop;
+  menu: ShopMenuDTO;
 }
 
 export interface OrderItemAddonSnapshot {
@@ -274,7 +314,13 @@ export interface ProductAddonGroupPayload
 export interface CreateProductRequest
   extends Omit<
     Product,
-    'id' | 'createdAt' | 'updatedAt' | 'variantGroups' | 'addonGroups' | 'categories' | 'isAvailable'
+    | 'id'
+    | 'createdAt'
+    | 'updatedAt'
+    | 'variantGroups'
+    | 'addonGroups'
+    | 'categories'
+    | 'isAvailable'
   > {
   variantGroups: ProductVariantGroupPayload[];
   addonGroups: ProductAddonGroupPayload[];
@@ -320,258 +366,375 @@ export interface UserCreatePayload {
   id: string;
 }
 
-function joinPath(base: string, path: string): string {
-  if (base.endsWith('/')) {
-    base = base.slice(0, -1);
-  }
-  if (!path.startsWith('/')) {
-    path = `/${path}`;
-  }
-  return `${base}${path}`;
+export interface ListShopsParams {
+  status?: ShopStatus;
+  acceptingOrders?: boolean;
 }
 
-export class ApiClient {
-  constructor(
-    private readonly baseUrl = DEFAULT_BASE_URL,
-    private readonly defaultOptions: RequestOptions = {},
-  ) {}
+export interface ListProductsParams {
+  shopId?: string;
+  ownerUserId?: string;
+}
 
-  private async request<T>(
-    method: string,
-    path: string,
-    body?: unknown,
-    init?: RequestOptions,
-  ): Promise<T> {
-    const url = joinPath(this.baseUrl, path);
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(this.defaultOptions.headers as Record<string, string>),
-      ...(init?.headers as Record<string, string>),
-    };
+export interface ListShopOrdersParams {
+  status?: string;
+}
 
-    const response = await fetch(url, {
-      ...this.defaultOptions,
-      ...init,
-      method,
-      headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+export interface ListOrdersParams {
+  shopId?: string;
+  userId?: string;
+}
 
-    if (response.status === 204) {
-      return undefined as T;
-    }
+const withAuth = (token: string) => ({ headers: authHeaders(token) });
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(text || response.statusText);
-    }
+/* Shops */
+export async function listShops(
+  token: string,
+  params?: ListShopsParams,
+): Promise<Shop[]> {
+  const res = await api.get<Shop[]>('/shops', {
+    ...withAuth(token),
+    params,
+  });
+  return res.data;
+}
 
-    const text = await response.text();
-    return text ? (JSON.parse(text) as T) : (undefined as T);
-  }
+export async function createShop(
+  token: string,
+  body: CreateShopRequest,
+): Promise<Shop> {
+  const res = await api.post<Shop>('/shops', body, withAuth(token));
+  return res.data;
+}
 
-  private buildQuery(params?: Record<string, string | number | boolean | undefined>): string {
-    if (!params) return '';
-    const search = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-      if (value === undefined || value === null) return;
-      search.append(key, String(value));
-    });
-    const query = search.toString();
-    return query ? `?${query}` : '';
-  }
+export async function getShop(
+  token: string,
+  shopId: string,
+): Promise<Shop> {
+  const res = await api.get<Shop>(`/shops/${shopId}`, withAuth(token));
+  return res.data;
+}
 
-  /* Shops ---------------------------------------------------------------- */
+export async function getShopBySlug(
+  token: string,
+  slug: string,
+): Promise<ShopWithMenuResponse> {
+  const res = await api.get<ShopWithMenuResponse>(
+    `/shops/slug/${slug}`,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  listShops(params?: { status?: ShopStatus; acceptingOrders?: boolean }) {
-    return this.request<Shop[]>(
-      'GET',
-      `/shops${this.buildQuery({
-        status: params?.status,
-        acceptingOrders: params?.acceptingOrders,
-      })}`,
-    );
-  }
+export async function updateShop(
+  token: string,
+  shopId: string,
+  body: UpdateShopRequest,
+): Promise<Shop> {
+  const res = await api.patch<Shop>(`/shops/${shopId}`, body, withAuth(token));
+  return res.data;
+}
 
-  createShop(body: CreateShopRequest) {
-    return this.request<Shop>('POST', `/shops`, body);
-  }
+export async function deleteShop(token: string, shopId: string): Promise<void> {
+  await api.delete(`/shops/${shopId}`, withAuth(token));
+}
 
-  getShop(shopId: string) {
-    return this.request<Shop>('GET', `/shops/${shopId}`);
-  }
+export async function getShopMenu(
+  token: string,
+  shopId: string,
+): Promise<ShopMenuResponse> {
+  const res = await api.get<ShopMenuResponse>(
+    `/shops/${shopId}/menu`,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  updateShop(shopId: string, body: UpdateShopRequest) {
-    return this.request<Shop>('PATCH', `/shops/${shopId}`, body);
-  }
+/* Shop members */
+export async function listShopMembers(
+  token: string,
+  shopId: string,
+): Promise<ShopMember[]> {
+  const res = await api.get<ShopMember[]>(
+    `/shops/${shopId}/members`,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  deleteShop(shopId: string) {
-    return this.request<void>('DELETE', `/shops/${shopId}`);
-  }
+export async function createShopMember(
+  token: string,
+  shopId: string,
+  body: ShopMemberInvitePayload,
+): Promise<ShopMember> {
+  const res = await api.post<ShopMember>(
+    `/shops/${shopId}/members`,
+    body,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  getShopMenu(shopId: string) {
-    return this.request<ShopMenuResponse>('GET', `/shops/${shopId}/menu`);
-  }
+export async function updateShopMember(
+  token: string,
+  shopId: string,
+  memberId: string,
+  body: ShopMemberUpdatePayload,
+): Promise<ShopMember> {
+  const res = await api.patch<ShopMember>(
+    `/shops/${shopId}/members/${memberId}`,
+    body,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  /* Shop members --------------------------------------------------------- */
+/* Shop hours */
+export async function getShopHours(
+  token: string,
+  shopId: string,
+): Promise<ShopHours> {
+  const res = await api.get<ShopHours>(
+    `/shops/${shopId}/hours`,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  listShopMembers(shopId: string) {
-    return this.request<ShopMember[]>(
-      'GET',
-      `/shops/${shopId}/members`,
-    );
-  }
+export async function upsertShopHours(
+  token: string,
+  shopId: string,
+  body: ShopHoursPayload,
+): Promise<ShopHours> {
+  const res = await api.put<ShopHours>(
+    `/shops/${shopId}/hours`,
+    body,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  createShopMember(shopId: string, body: ShopMemberInvitePayload) {
-    return this.request<ShopMember>(
-      'POST',
-      `/shops/${shopId}/members`,
-      body,
-    );
-  }
+/* Categories */
+export async function listCategories(
+  token: string,
+): Promise<ProductCategory[]> {
+  const res = await api.get<ProductCategory[]>(`/categories`, withAuth(token));
+  return res.data;
+}
 
-  updateShopMember(shopId: string, memberId: string, body: ShopMemberUpdatePayload) {
-    return this.request<ShopMember>(
-      'PATCH',
-      `/shops/${shopId}/members/${memberId}`,
-      body,
-    );
-  }
+export async function getCategory(
+  token: string,
+  categoryId: string,
+): Promise<ProductCategory> {
+  const res = await api.get<ProductCategory>(
+    `/categories/${categoryId}`,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  /* Shop hours ----------------------------------------------------------- */
+export async function createCategory(
+  token: string,
+  body: CreateCategoryRequest,
+): Promise<ProductCategory> {
+  const res = await api.post<ProductCategory>(
+    `/categories`,
+    body,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  getShopHours(shopId: string) {
-    return this.request<ShopHours>('GET', `/shops/${shopId}/hours`);
-  }
+export async function updateCategory(
+  token: string,
+  categoryId: string,
+  body: UpdateCategoryRequest,
+): Promise<ProductCategory> {
+  const res = await api.patch<ProductCategory>(
+    `/categories/${categoryId}`,
+    body,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  upsertShopHours(shopId: string, body: ShopHoursPayload) {
-    return this.request<ShopHours>('PUT', `/shops/${shopId}/hours`, body);
-  }
+export async function deleteCategory(
+  token: string,
+  categoryId: string,
+): Promise<void> {
+  await api.delete(`/categories/${categoryId}`, withAuth(token));
+}
 
-  /* Categories ----------------------------------------------------------- */
+/* Products */
+export async function listProducts(
+  token: string,
+  params: ListProductsParams,
+): Promise<ProductResponse[]> {
+  const res = await api.get<ProductResponse[]>(`/products`, {
+    ...withAuth(token),
+    params,
+  });
+  return res.data;
+}
 
-  listCategories() {
-    return this.request<ProductCategory[]>('GET', `/categories`);
-  }
+export async function createProduct(
+  token: string,
+  body: CreateProductRequest,
+): Promise<ProductResponse> {
+  const res = await api.post<ProductResponse>(
+    `/products`,
+    body,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  getCategory(categoryId: string) {
-    return this.request<ProductCategory>('GET', `/categories/${categoryId}`);
-  }
+export async function getProduct(
+  token: string,
+  productId: string,
+): Promise<ProductResponse> {
+  const res = await api.get<ProductResponse>(
+    `/products/${productId}`,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  createCategory(body: CreateCategoryRequest) {
-    return this.request<ProductCategory>('POST', `/categories`, body);
-  }
+export async function updateProduct(
+  token: string,
+  productId: string,
+  body: UpdateProductRequest,
+): Promise<ProductResponse> {
+  const res = await api.patch<ProductResponse>(
+    `/products/${productId}`,
+    body,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  updateCategory(categoryId: string, body: UpdateCategoryRequest) {
-    return this.request<ProductCategory>(
-      'PATCH',
-      `/categories/${categoryId}`,
-      body,
-    );
-  }
+export async function deleteProduct(
+  token: string,
+  productId: string,
+): Promise<void> {
+  await api.delete(`/products/${productId}`, withAuth(token));
+}
 
-  deleteCategory(categoryId: string) {
-    return this.request<void>('DELETE', `/categories/${categoryId}`);
-  }
+/* Orders */
+export async function listShopOrders(
+  token: string,
+  shopId: string,
+  params?: ListShopOrdersParams,
+): Promise<Order[]> {
+  const res = await api.get<Order[]>(`/shops/${shopId}/orders`, {
+    ...withAuth(token),
+    params,
+  });
+  return res.data;
+}
 
-  /* Products ------------------------------------------------------------- */
+export async function createOrder(
+  token: string,
+  shopId: string,
+  body: CreateOrderRequest,
+): Promise<Order> {
+  const res = await api.post<Order>(
+    `/shops/${shopId}/orders`,
+    body,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  listProducts(params?: { shopId?: string; ownerUserId?: string }) {
-    return this.request<ProductResponse[]>(
-      'GET',
-      `/products${this.buildQuery({
-        shopId: params?.shopId,
-        ownerUserId: params?.ownerUserId,
-      })}`,
-    );
-  }
+export async function updateOrderStatus(
+  token: string,
+  shopId: string,
+  orderId: string,
+  body: UpdateOrderStatusRequest,
+): Promise<Order> {
+  const res = await api.patch<Order>(
+    `/shops/${shopId}/orders/${orderId}/status`,
+    body,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  createProduct(body: CreateProductRequest) {
-    return this.request<ProductResponse>('POST', `/products`, body);
-  }
+export async function listOrders(
+  token: string,
+  params?: ListOrdersParams,
+): Promise<Order[]> {
+  const res = await api.get<Order[]>(`/orders`, {
+    ...withAuth(token),
+    params,
+  });
+  return res.data;
+}
 
-  getProduct(productId: string) {
-    return this.request<ProductResponse>('GET', `/products/${productId}`);
-  }
+export async function getOrder(token: string, orderId: string): Promise<Order> {
+  const res = await api.get<Order>(`/orders/${orderId}`, withAuth(token));
+  return res.data;
+}
 
-  updateProduct(productId: string, body: UpdateProductRequest) {
-    return this.request<ProductResponse>(
-      'PATCH',
-      `/products/${productId}`,
-      body,
-    );
-  }
+export async function updateOrder(
+  token: string,
+  orderId: string,
+  body: Partial<Order>,
+): Promise<Order> {
+  const res = await api.patch<Order>(
+    `/orders/${orderId}`,
+    body,
+    withAuth(token),
+  );
+  return res.data;
+}
 
-  deleteProduct(productId: string) {
-    return this.request<void>('DELETE', `/products/${productId}`);
-  }
+export async function deleteOrder(
+  token: string,
+  orderId: string,
+): Promise<void> {
+  await api.delete(`/orders/${orderId}`, withAuth(token));
+}
 
-  /* Orders --------------------------------------------------------------- */
+/* Users */
+export async function listUsers(token: string): Promise<User[]> {
+  const res = await api.get<User[]>(`/users`, withAuth(token));
+  return res.data;
+}
 
-  listShopOrders(shopId: string, params?: { status?: string }) {
-    return this.request<Order[]>(
-      'GET',
-      `/shops/${shopId}/orders${this.buildQuery({ status: params?.status })}`,
-    );
-  }
+export async function createUser(
+  token: string,
+  body: UserCreatePayload,
+): Promise<User> {
+  const res = await api.post<User>(`/users`, body, withAuth(token));
+  return res.data;
+}
 
-  createOrder(shopId: string, body: CreateOrderRequest) {
-    return this.request<Order>('POST', `/shops/${shopId}/orders`, body);
-  }
+export async function getUser(token: string, userId: string): Promise<User> {
+  const res = await api.get<User>(`/users/${userId}`, withAuth(token));
+  return res.data;
+}
 
-  updateOrderStatus(shopId: string, orderId: string, body: UpdateOrderStatusRequest) {
-    return this.request<Order>(
-      'PATCH',
-      `/shops/${shopId}/orders/${orderId}/status`,
-      body,
-    );
-  }
+export async function updateUser(
+  token: string,
+  userId: string,
+  body: Partial<User>,
+): Promise<User> {
+  const res = await api.patch<User>(`/users/${userId}`, body, withAuth(token));
+  return res.data;
+}
 
-  listOrders(params?: { shopId?: string; userId?: string }) {
-    return this.request<Order[]>(
-      'GET',
-      `/orders${this.buildQuery({ shopId: params?.shopId, userId: params?.userId })}`,
-    );
-  }
+export async function deleteUser(token: string, userId: string): Promise<void> {
+  await api.delete(`/users/${userId}`, withAuth(token));
+}
 
-  getOrder(orderId: string) {
-    return this.request<Order>('GET', `/orders/${orderId}`);
-  }
-
-  updateOrder(orderId: string, body: Partial<Order>) {
-    return this.request<Order>('PATCH', `/orders/${orderId}`, body);
-  }
-
-  deleteOrder(orderId: string) {
-    return this.request<void>('DELETE', `/orders/${orderId}`);
-  }
-
-  /* Users ---------------------------------------------------------------- */
-
-  listUsers() {
-    return this.request<User[]>('GET', `/users`);
-  }
-
-  createUser(body: UserCreatePayload) {
-    return this.request<User>('POST', `/users`, body);
-  }
-
-  getUser(userId: string) {
-    return this.request<User>('GET', `/users/${userId}`);
-  }
-
-  updateUser(userId: string, body: Partial<User>) {
-    return this.request<User>('PATCH', `/users/${userId}`, body);
-  }
-
-  deleteUser(userId: string) {
-    return this.request<void>('DELETE', `/users/${userId}`);
-  }
-
-  listManagedShops(userId: string) {
-    return this.request<ManagedShopView[]>(
-      'GET',
-      `/users/${userId}/shops`,
-    );
-  }
+export async function listManagedShops(
+  token: string,
+  userId: string,
+): Promise<ManagedShopView[]> {
+  const res = await api.get<ManagedShopView[]>(
+    `/users/${userId}/shops`,
+    withAuth(token),
+  );
+  return res.data;
 }

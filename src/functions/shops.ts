@@ -28,6 +28,7 @@ import {
 } from '../utils/businessLogic';
 import { getActorUserId, newId, nowIso, writeAuditLog } from '../utils/general';
 import { hydrateProducts } from '../utils/products';
+import { mapShopToDTO } from '../mappers/mapShopToDTO';
 
 type HttpRequest = HttpRequestLike;
 type HttpResponseInit = HttpResponseInitLike;
@@ -171,6 +172,38 @@ app.http('shopsGetById', {
   },
 });
 
+app.http('shopsGetBySlug', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'shops/slug/{slug}',
+  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+    try {
+      const slug = request.params?.slug?.trim();
+      if (!slug) {
+        return json(400, { message: 'slug is required' });
+      }
+
+      const { resources } = await shopsContainer.items
+        .query<Shop>({
+          query: 'SELECT * FROM c WHERE c.slug = @slug',
+          parameters: [{ name: '@slug', value: slug }],
+        })
+        .fetchAll();
+
+      const shop = resources[0];
+      if (!shop) {
+        return json(404, { message: 'Shoppp not found' });
+      }
+
+      const menu = mapShopToDTO(shop);
+
+      return json(200, { shop, menu });
+    } catch (error: any) {
+      return { status: error.status || 500, body: error.message };
+    }
+  },
+});
+
 app.http('shopsUpdate', {
   methods: ['PATCH'],
   authLevel: 'anonymous',
@@ -240,7 +273,8 @@ app.http('shopMembersList', {
     try {
       const { shopId } = await validateShopMembersList(request);
       const querySpec = {
-        query: 'SELECT * FROM c WHERE c.shopId = @shopId ORDER BY c.createdAt DESC',
+        query:
+          'SELECT * FROM c WHERE c.shopId = @shopId ORDER BY c.createdAt DESC',
         parameters: [{ name: '@shopId', value: shopId }],
       };
       const { resources } = await shopMembersContainer.items
@@ -387,8 +421,7 @@ app.http('usersGetShops', {
     try {
       const { userId } = await validateUsersManagedShops(request);
       const membershipQuery = {
-        query:
-          'SELECT * FROM c WHERE c.userId = @userId AND c.isActive = true',
+        query: 'SELECT * FROM c WHERE c.userId = @userId AND c.isActive = true',
         parameters: [{ name: '@userId', value: userId }],
       };
       const { resources: memberships } = await shopMembersContainer.items
