@@ -1,4 +1,4 @@
-import { ensureContainerExists } from './config/cosmosClient';
+import { ensureContainerExists } from './infrastructure/cosmosClient';
 
 const requiredContainers = [
   'users',

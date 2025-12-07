@@ -4,166 +4,144 @@ import {
   HttpRequestLike,
   HttpResponseInitLike,
   json,
-} from '../types/otherTypes';
-import { ProductCategory } from '../types/databaseTypes';
-import { getContainer } from '../config/cosmosClient';
-import { newId, nowIso } from '../utils/general';
+} from '../domain/otherTypes';
+import { mapCategoryToDTO } from '../domain/category.dto';
+import {
+  CategoryInput,
+  createCategoryService,
+  deleteCategoryService,
+  getCategoryByIdService,
+  listCategoriesService,
+  updateCategoryService,
+} from '../services/categoryService';
 
 type HttpRequest = HttpRequestLike;
-type HttpResponseInit = HttpResponseInitLike;
+type HttpResponse = HttpResponseInitLike;
 
-const categoriesContainer = getContainer('categories');
-
-async function readBody<T>(request: HttpRequest): Promise<T> {
-  try {
-    return (await request.json()) as T;
-  } catch {
-    throw new Error('Invalid JSON body');
-  }
+function parseCategoryBody(body: any): CategoryInput {
+  return {
+    name: typeof body?.name === 'string' ? body.name.trim() : '',
+    description:
+      typeof body?.description === 'string' ? body.description : undefined,
+    parentCategoryId:
+      typeof body?.parentCategoryId === 'string'
+        ? body.parentCategoryId
+        : undefined,
+    position:
+      typeof body?.position === 'number' ? body.position : undefined,
+    isActive:
+      typeof body?.isActive === 'boolean' ? body.isActive : undefined,
+  };
 }
 
-function missingField(field: string): HttpResponseInit {
-  return json(400, { message: `${field} is required` });
+async function readBody<T>(request: HttpRequest): Promise<T | null> {
+  return request
+    .json()
+    .then((body) => body as T)
+    .catch(() => null);
 }
 
-// GET /categories -> list categories
 app.http('categoriesCrudList', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'categories',
-  handler: async (): Promise<HttpResponseInit> => {
+  handler: async (): Promise<HttpResponse> => {
     try {
-      const { resources } = await categoriesContainer.items
-        .query<ProductCategory>({
-          query: 'SELECT * FROM c ORDER BY c.position ASC',
-        })
-        .fetchAll();
-      return json(200, resources);
+      const categories = await listCategoriesService();
+      return json(
+        200,
+        categories.map((category) => mapCategoryToDTO(category)),
+      );
     } catch (error: any) {
-      const status = error?.status ?? 500;
-      return { status, body: error?.message ?? 'Internal Server Error' };
+      return {
+        status: error.status || 500,
+        body: error.message || 'Internal Server Error',
+      };
     }
   },
 });
 
-// GET /categories/{categoryId} -> fetch details for a category
 app.http('categoriesCrudGetById', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'categories/{categoryId}',
-  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+  handler: async (request: HttpRequest): Promise<HttpResponse> => {
     try {
       const categoryId = request.params?.categoryId?.trim();
       if (!categoryId) {
-        return missingField('categoryId');
+        return json(400, { message: 'categoryId is required' });
       }
-
-      const { resource } = await categoriesContainer
-        .item(categoryId, categoryId)
-        .read<ProductCategory>();
-      if (!resource) {
-        return json(404, { message: 'Category not found' });
-      }
-      return json(200, resource);
+      const category = await getCategoryByIdService(categoryId);
+      return json(200, mapCategoryToDTO(category));
     } catch (error: any) {
-      const status = error?.status ?? 500;
-      return { status, body: error?.message ?? 'Internal Server Error' };
+      return {
+        status: error.status || 500,
+        body: error.message || 'Internal Server Error',
+      };
     }
   },
 });
 
-// POST /categories -> create a category record
 app.http('categoriesCrudCreate', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'categories',
-  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+  handler: async (request: HttpRequest): Promise<HttpResponse> => {
     try {
-      const body = await readBody<Partial<ProductCategory>>(request);
-      if (!body.name) {
-        return missingField('name');
-      }
-
-      const timestamp = nowIso();
-      const category: ProductCategory = {
-        id: newId(),
-        name: body.name,
-        description: body.description,
-        position: body.position,
-        isActive: body.isActive ?? true,
-        parentCategoryId: body.parentCategoryId,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
-
-      await categoriesContainer.items.create(category);
-      return json(201, category);
+      const body = await readBody(request);
+      const category = await createCategoryService(parseCategoryBody(body));
+      return json(201, mapCategoryToDTO(category));
     } catch (error: any) {
-      const status = error?.status ?? 500;
-      return { status, body: error?.message ?? 'Internal Server Error' };
+      return {
+        status: error.status || 500,
+        body: error.message || 'Internal Server Error',
+      };
     }
   },
 });
 
-// PATCH /categories/{categoryId} -> update a category
 app.http('categoriesCrudUpdate', {
   methods: ['PATCH'],
   authLevel: 'anonymous',
   route: 'categories/{categoryId}',
-  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+  handler: async (request: HttpRequest): Promise<HttpResponse> => {
     try {
       const categoryId = request.params?.categoryId?.trim();
       if (!categoryId) {
-        return missingField('categoryId');
+        return json(400, { message: 'categoryId is required' });
       }
-
-      const { resource } = await categoriesContainer
-        .item(categoryId, categoryId)
-        .read<ProductCategory>();
-      if (!resource) {
-        return json(404, { message: 'Category not found' });
-      }
-
-      const updates = await readBody<Partial<ProductCategory>>(request);
-      const updated: ProductCategory = {
-        ...resource,
-        ...updates,
-        updatedAt: nowIso(),
-      };
-
-      await categoriesContainer.items.upsert(updated);
-      return json(200, updated);
+      const body = await readBody(request);
+      const category = await updateCategoryService(
+        categoryId,
+        parseCategoryBody(body),
+      );
+      return json(200, mapCategoryToDTO(category));
     } catch (error: any) {
-      const status = error?.status ?? 500;
-      return { status, body: error?.message ?? 'Internal Server Error' };
+      return {
+        status: error.status || 500,
+        body: error.message || 'Internal Server Error',
+      };
     }
   },
 });
 
-// DELETE /categories/{categoryId} -> delete a category
 app.http('categoriesCrudDelete', {
   methods: ['DELETE'],
   authLevel: 'anonymous',
   route: 'categories/{categoryId}',
-  handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
+  handler: async (request: HttpRequest): Promise<HttpResponse> => {
     try {
       const categoryId = request.params?.categoryId?.trim();
       if (!categoryId) {
-        return missingField('categoryId');
+        return json(400, { message: 'categoryId is required' });
       }
-
-      const { resource } = await categoriesContainer
-        .item(categoryId, categoryId)
-        .read<ProductCategory>();
-      if (!resource) {
-        return json(404, { message: 'Category not found' });
-      }
-
-      await categoriesContainer.item(categoryId, categoryId).delete();
+      await deleteCategoryService(categoryId);
       return { status: 204 };
     } catch (error: any) {
-      const status = error?.status ?? 500;
-      return { status, body: error?.message ?? 'Internal Server Error' };
+      return {
+        status: error.status || 500,
+        body: error.message || 'Internal Server Error',
+      };
     }
   },
 });

@@ -4,9 +4,9 @@ import {
   HttpRequestLike,
   HttpResponseInitLike,
   json,
-} from '../types/otherTypes';
-import { AuditLog, PrincipalRef } from '../types/databaseTypes';
-import { getContainer } from '../config/cosmosClient';
+} from '../domain/otherTypes';
+import { AuditLog, PrincipalRef } from '../domain/databaseTypes';
+import { getContainer } from '../infrastructure/cosmosClient';
 import { getActorUserId, newId, nowIso } from '../utils/general';
 
 type HttpRequest = HttpRequestLike;
