@@ -2,9 +2,9 @@ import {
   HttpRequestLike,
   HttpResponseInitLike,
   json,
-} from '../types/otherTypes';
+} from '../domain/otherTypes';
 const { app } = require('@azure/functions');
-import { getContainer } from '../config/cosmosClient';
+import { getContainer } from '../infrastructure/cosmosClient';
 import {
   Product,
   Money,
@@ -14,8 +14,8 @@ import {
   OrderStatus,
   Shop,
   ShopProductMap,
-} from '../types/databaseTypes';
-import { OrderItemPayload } from '../types/payloadTypes';
+} from '../domain/databaseTypes';
+import { OrderItemPayload } from '../domain/payloadTypes';
 import {
   validateOrdersCreate,
   validateOrdersList,

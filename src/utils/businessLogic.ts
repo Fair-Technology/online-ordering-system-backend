@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
-import { getContainer } from '../config/cosmosClient';
-import { HttpRequestLike } from '../types/otherTypes';
+import { getContainer } from '../infrastructure/cosmosClient';
+import { HttpRequestLike } from '../domain/otherTypes';
 import {
   ProductAddonGroupPayload,
   ProductVariantGroupPayload,
@@ -19,7 +19,7 @@ import {
   UpdateOrderStatusRequest,
   UpdateShopRequest,
   UserCreatePayload,
-} from '../types/payloadTypes';
+} from '../domain/payloadTypes';
 import {
   ProductAddonGroup,
   ProductAddonOption,
@@ -33,7 +33,7 @@ import {
   Shop,
   ShopHours,
   ShopMember,
-} from '../types/databaseTypes';
+} from '../domain/databaseTypes';
 
 const usersContainer = getContainer('users');
 const shopsContainer = getContainer('shops');

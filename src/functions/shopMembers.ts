@@ -4,9 +4,9 @@ import {
   HttpRequestLike,
   HttpResponseInitLike,
   json,
-} from '../types/otherTypes';
-import { ShopMember } from '../types/databaseTypes';
-import { getContainer } from '../config/cosmosClient';
+} from '../domain/otherTypes';
+import { ShopMember } from '../domain/databaseTypes';
+import { getContainer } from '../infrastructure/cosmosClient';
 import { newId, nowIso } from '../utils/general';
 
 type HttpRequest = HttpRequestLike;

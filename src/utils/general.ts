@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
-import { getContainer } from '../config/cosmosClient';
-import { AuditLog, OrderStatus, PrincipalRef } from '../types/databaseTypes';
-import { HttpRequestLike } from '../types/otherTypes';
+import { getContainer } from '../infrastructure/cosmosClient';
+import { AuditLog, OrderStatus, PrincipalRef } from '../domain/databaseTypes';
+import { HttpRequestLike } from '../domain/otherTypes';
 type HttpRequest = HttpRequestLike;
 import { Container } from '@azure/cosmos';
 

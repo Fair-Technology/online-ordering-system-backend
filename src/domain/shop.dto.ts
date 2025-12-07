@@ -1,5 +1,6 @@
-import { Shop } from '../types/databaseTypes';
-import { ShopResponse } from '../types/responseTypes';
+import { Shop } from './databaseTypes';
+import { ShopResponse } from './responseTypes';
+import { ShopEntity } from './shop.entity';
 
 export interface ShopDTO {
   id: string;
@@ -17,7 +18,7 @@ export interface ShopDTO {
   updatedAt: string;
 }
 
-export function mapShopToDTO(shop: Shop): ShopDTO {
+export function mapShopToDTO(shop: ShopEntity): ShopDTO {
   return {
     id: shop.id,
     name: shop.name,
@@ -35,7 +36,10 @@ export function mapShopToDTO(shop: Shop): ShopDTO {
   };
 }
 
-export function mapDTOToShop(dto: ShopDTO, current: ShopResponse): Shop {
+export function applyShopDTOToEntity(
+  dto: ShopDTO,
+  current: ShopResponse,
+): Shop {
   return {
     ...current,
     name: dto.name,
@@ -49,7 +53,10 @@ export function mapDTOToShop(dto: ShopDTO, current: ShopResponse): Shop {
       deliveryEnabled: dto.fulfillment.deliveryEnabled,
       deliveryRadiusKm: dto.fulfillment.deliveryRadiusKm,
       deliveryFee: dto.fulfillment.deliveryFee
-        ? { amount: dto.fulfillment.deliveryFee, currency: current.defaultCurrency }
+        ? {
+            amount: dto.fulfillment.deliveryFee,
+            currency: current.defaultCurrency,
+          }
         : current.fulfillmentOptions.deliveryFee,
     },
     updatedAt: new Date().toISOString(),
