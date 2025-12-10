@@ -2,10 +2,11 @@
 import { createRemoteJWKSet, jwtVerify, JWTPayload } from 'jose';
 
 const CLIENT_ID = '5940f49f-d6ec-4865-b38e-379de583765c';
+const TENANT_ID = 'd220f4ca-2ba2-436a-a437-5779ae23584d';
 
 // Copy-paste the iss but WITHOUT the trailing `/v2.0` for the base:
 const AUTHORITY_BASE =
-  'https://d220f4ca-2ba2-436a-a437-5779ae23584d.ciamlogin.com/d220f4ca-2ba2-436a-a437-5779ae23584d';
+  `https://${TENANT_ID}.ciamlogin.com/${TENANT_ID}`;
 
 const JWKS_URI = `${AUTHORITY_BASE}/discovery/v2.0/keys`;
 
