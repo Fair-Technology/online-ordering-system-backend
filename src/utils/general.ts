@@ -102,4 +102,12 @@ export async function fetchByProperty<T>(
     .fetchAll();
 
   return resources;
+  
+}
+
+export async function readBody<T>(request: HttpRequest): Promise<T | null> {
+  return request
+    .json()
+    .then((value) => value as T)
+    .catch(() => null);
 }

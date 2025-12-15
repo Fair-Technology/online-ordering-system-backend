@@ -23,6 +23,7 @@ import {
   listShopMembersService,
   updateShopMemberService,
 } from '../services/shopMemberService';
+import { readBody } from '../utils/general';
 
 type HttpRequest = HttpRequestLike;
 type HttpResponse = HttpResponseInitLike;
@@ -52,13 +53,6 @@ function parseShopBody(body: any): ShopInput {
         ? body.defaultCurrency
         : undefined,
   };
-}
-
-async function readBody<T>(request: HttpRequest): Promise<T | null> {
-  return request
-    .json()
-    .then((value) => value as T)
-    .catch(() => null);
 }
 
 app.http('shopsListAll', {
