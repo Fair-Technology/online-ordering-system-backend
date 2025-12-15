@@ -26,3 +26,4 @@ require('./functions/shopHours');
 require('./functions/shopMembers');
 require('./functions/shops');
 require('./functions/users');
+require('./functions/swagger');
