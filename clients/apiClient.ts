@@ -1,14 +1,30 @@
-import axios from 'axios';
+const BASE_URL = process.env.API_BASE_URL || 'http://localhost:7071/api';
 
-export const DEFAULT_BASE_URL = 'http://localhost:7071/api';
+async function request<T>(
+  token: string,
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(options.headers || {}),
+    },
+  });
 
-const api = axios.create({
-  baseURL: process.env.API_BASE_URL ?? DEFAULT_BASE_URL,
-});
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(error || response.statusText);
+  }
 
-const authHeaders = (token: string) => ({
-  Authorization: `Bearer ${token}`,
-});
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
 
 export type ShopStatus = 'draft' | 'open' | 'closed' | 'suspended';
 export type PaymentPolicy = 'pay_on_pickup' | 'prepaid_only';
@@ -28,11 +44,6 @@ export interface Money {
   currency: string;
 }
 
-export interface MoneyInput {
-  amount: number;
-  currency?: string;
-}
-
 export interface FulfillmentOptions {
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
@@ -45,17 +56,50 @@ export interface Shop {
   id: string;
   name: string;
   slug: string;
+  status: ShopStatus;
+  acceptingOrders: boolean;
+  timezone?: string;
+  address?: string;
+  fulfillment: {
+    pickupEnabled: boolean;
+    deliveryEnabled: boolean;
+    deliveryRadiusKm?: number;
+    deliveryFee?: number;
+  };
+  updatedAt: string;
+}
+
+export interface ShopInput {
+  name: string;
+  slug: string;
   ownerUserId: string;
   legalName?: string;
   address?: string;
   timezone?: string;
-  status: ShopStatus;
-  acceptingOrders: boolean;
-  paymentPolicy: PaymentPolicy;
-  orderAcceptanceMode: OrderAcceptanceMode;
-  allowGuestCheckout: boolean;
-  fulfillmentOptions: FulfillmentOptions;
-  defaultCurrency: string;
+  status?: ShopStatus;
+  acceptingOrders?: boolean;
+  paymentPolicy?: PaymentPolicy;
+  orderAcceptanceMode?: OrderAcceptanceMode;
+  allowGuestCheckout?: boolean;
+  fulfillmentOptions?: Partial<FulfillmentOptions>;
+  defaultCurrency?: string;
+}
+
+export interface PrincipalRef {
+  type: 'user' | 'role' | 'service' | 'apiKey';
+  id: string;
+  scope?: string;
+}
+
+export interface AuditLog {
+  id: string;
+  actor: PrincipalRef;
+  shopId?: string;
+  entityType: string;
+  entityId: string;
+  action: string;
+  before?: unknown;
+  after?: unknown;
   createdAt: string;
   updatedAt: string;
 }
@@ -70,6 +114,17 @@ export interface ShopMember {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ShopMemberInvitePayload {
+  userId: string;
+  role: ShopMemberRole;
+  invitedByUserId?: string;
+}
+
+export interface ShopMemberUpdatePayload {
+  role?: ShopMemberRole;
+  isActive?: boolean;
 }
 
 export interface ShopHoursWindow {
@@ -95,109 +150,77 @@ export interface ShopHours {
   updatedAt: string;
 }
 
-export interface MediaAsset {
-  url: string;
-  alt?: string;
-  kind?: 'image' | 'video';
-}
-
-export interface ProductVariantOption {
-  id: string;
-  label: string;
-  priceDelta: Money;
-  isAvailable: boolean;
-}
-
-export interface ProductVariantGroup {
-  id: string;
-  label: string;
-  options: ProductVariantOption[];
-}
-
-export interface ProductAddonOption {
-  id: string;
-  label: string;
-  priceDelta: Money;
-  isAvailable: boolean;
-}
-
-export interface ProductAddonGroup {
-  id: string;
-  label: string;
-  required: boolean;
-  maxSelectable?: number;
-  options: ProductAddonOption[];
-}
-
-export interface Product {
-  id: string;
-  ownerUserId?: string;
-  label: string;
-  price: number;
-  description?: string;
-  categories: string[];
-  tags?: string[];
-  media?: MediaAsset[];
-  allergyInfo?: string[];
-  variantGroups: ProductVariantGroup[];
-  addonGroups: ProductAddonGroup[];
-  isAvailable: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ProductCategory {
+export interface CategoryDTO {
   id: string;
   name: string;
   description?: string;
   position?: number;
   isActive: boolean;
   parentCategoryId?: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
-export interface ProductResponse extends Product {
-  shopId?: string;
-  categoryDetails: ProductCategory[];
+export interface CategoryInput {
+  name: string;
+  description?: string;
+  parentCategoryId?: string;
+  position?: number;
+  isActive?: boolean;
+}
+
+export interface ProductDTOCategory {
+  id: string;
+  name: string;
+}
+
+export interface ProductDTOVariantOption {
+  id: string;
+  label: string;
+  priceDelta: number;
+  isAvailable: boolean;
+}
+
+export interface ProductDTOVariant {
+  id: string;
+  label: string;
+  options: ProductDTOVariantOption[];
+}
+
+export interface ProductDTOAddonOption {
+  id: string;
+  label: string;
+  priceDelta: number;
+  isAvailable: boolean;
+}
+
+export interface ProductDTOAddon {
+  id: string;
+  label: string;
+  options: ProductDTOAddonOption[];
 }
 
 export interface ProductDTO {
   id: string;
   label: string;
   description?: string;
+  isAvailable: boolean;
   price: number;
-  categoryDetails: ProductCategory[];
-  tags?: string[];
-  media?: MediaAsset[];
-  allergyInfo?: string[];
-  variantGroups: ProductVariantGroup[];
-  addonGroups: ProductAddonGroup[];
-  productAvailable: boolean;
-  shopContext?: {
-    shopId: string;
-    isAvailable: boolean;
-    priceOverride?: Money;
-    sortOrder?: number;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ShopMenuResponse {
-  shop: Shop;
-  categories: ProductCategory[];
-  products: ProductResponse[];
+  categories: ProductDTOCategory[];
+  variantTypes: ProductDTOVariant[];
+  addons: ProductDTOAddon[];
 }
 
 export interface ShopMenuDTO {
-  categories: ProductCategory[];
+  categories: ProductDTOCategory[];
   products: ProductDTO[];
 }
 
 export interface ShopWithMenuResponse {
   shop: Shop;
   menu: ShopMenuDTO;
+}
+
+export interface UserDTO {
+  id: string;
 }
 
 export interface OrderItemAddonSnapshot {
@@ -236,8 +259,25 @@ export interface Order {
   updatedAt: string;
 }
 
-export interface User {
-  id: string;
+export interface OrderItemInput {
+  productId: string;
+  productVariantId: string;
+  quantity: number;
+  addonOptionIds?: string[];
+}
+
+export interface CreateOrderInput {
+  userId: string;
+  customerName: string;
+  customerPhone?: string;
+  customerNotes?: string;
+  items: OrderItemInput[];
+  fulfillmentType?: 'pickup' | 'delivery';
+  scheduledFor?: string;
+}
+
+export interface UpdateOrderStatusInput {
+  nextStatus: OrderStatus;
 }
 
 export interface ManagedShopView {
@@ -248,493 +288,112 @@ export interface ManagedShopView {
   role: ShopMemberRole;
 }
 
-export interface ShopSettingsPayload {
-  name?: string;
-  slug?: string;
-  legalName?: string;
-  address?: string;
-  timezone?: string;
-  status?: ShopStatus;
-  acceptingOrders?: boolean;
-  paymentPolicy?: PaymentPolicy;
-  orderAcceptanceMode?: OrderAcceptanceMode;
-  allowGuestCheckout?: boolean;
-  fulfillmentOptions?: Partial<FulfillmentOptions>;
-  defaultCurrency?: string;
-}
-
-export interface CreateShopRequest extends ShopSettingsPayload {
-  ownerUserId: string;
-}
-
-export type UpdateShopRequest = ShopSettingsPayload;
-
-export interface ShopMemberInvitePayload {
-  userId: string;
-  role: ShopMemberRole;
-  invitedByUserId?: string;
-}
-
-export interface ShopMemberUpdatePayload {
-  role?: ShopMemberRole;
-  isActive?: boolean;
-}
-
 export interface ShopHoursPayload {
   timezone: string;
   weekly: ShopHours['weekly'];
 }
 
-export interface ProductVariantPayload
-  extends Omit<ProductVariantOption, 'id' | 'priceDelta' | 'isAvailable'> {
-  id?: string;
-  priceDelta: MoneyInput;
-  isAvailable?: boolean;
-}
+// Shops ---------------------------------------------------------------------
+export const listShops = (token: string): Promise<Shop[]> =>
+  request(token, '/shops');
 
-export interface ProductVariantGroupPayload
-  extends Omit<ProductVariantGroup, 'id' | 'options'> {
-  id?: string;
-  options: ProductVariantPayload[];
-}
-
-export interface ProductAddonOptionPayload
-  extends Omit<ProductAddonOption, 'id' | 'priceDelta' | 'isAvailable'> {
-  id?: string;
-  priceDelta: MoneyInput;
-  isAvailable?: boolean;
-}
-
-export interface ProductAddonGroupPayload
-  extends Omit<ProductAddonGroup, 'id' | 'options'> {
-  id?: string;
-  options: ProductAddonOptionPayload[];
-}
-
-export interface CreateProductRequest
-  extends Omit<
-    Product,
-    | 'id'
-    | 'createdAt'
-    | 'updatedAt'
-    | 'variantGroups'
-    | 'addonGroups'
-    | 'categories'
-    | 'isAvailable'
-  > {
-  variantGroups: ProductVariantGroupPayload[];
-  addonGroups: ProductAddonGroupPayload[];
-  categories?: string[];
-  isAvailable?: boolean;
-  shopId: string;
-}
-
-export type UpdateProductRequest = Partial<CreateProductRequest>;
-
-export interface CreateCategoryRequest {
-  name: string;
-  description?: string;
-  parentCategoryId?: string;
-  position?: number;
-  isActive?: boolean;
-}
-
-export type UpdateCategoryRequest = Partial<CreateCategoryRequest>;
-
-export interface OrderItemPayload {
-  productId: string;
-  productVariantId: string;
-  quantity: number;
-  addonOptionIds?: string[];
-}
-
-export interface CreateOrderRequest {
-  userId: string;
-  customerName: string;
-  customerPhone?: string;
-  customerNotes?: string;
-  items: OrderItemPayload[];
-  fulfillmentType?: 'pickup' | 'delivery';
-  scheduledFor?: string;
-}
-
-export interface UpdateOrderStatusRequest {
-  nextStatus: OrderStatus;
-}
-
-export interface UserCreatePayload {
-  id: string;
-}
-
-export interface ListShopsParams {
-  status?: ShopStatus;
-  acceptingOrders?: boolean;
-}
-
-export interface ListProductsParams {
-  shopId?: string;
-  ownerUserId?: string;
-}
-
-export interface ListShopOrdersParams {
-  status?: string;
-}
-
-export interface ListOrdersParams {
-  shopId?: string;
-  userId?: string;
-}
-
-const withAuth = (token: string) => ({ headers: authHeaders(token) });
-
-/* Shops */
-export async function listShops(
+export const createShop = (
   token: string,
-  params?: ListShopsParams,
-): Promise<Shop[]> {
-  const res = await api.get<Shop[]>('/shops', {
-    ...withAuth(token),
-    params,
+  payload: ShopInput,
+): Promise<Shop> => request(token, '/shops', { method: 'POST', body: JSON.stringify(payload) });
+
+export const getShop = (token: string, shopId: string): Promise<Shop> =>
+  request(token, `/shops/${shopId}`);
+
+export const updateShop = (
+  token: string,
+  shopId: string,
+  payload: Partial<ShopInput>,
+): Promise<Shop> =>
+  request(token, `/shops/${shopId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
   });
-  return res.data;
-}
 
-export async function createShop(
-  token: string,
-  body: CreateShopRequest,
-): Promise<Shop> {
-  const res = await api.post<Shop>('/shops', body, withAuth(token));
-  return res.data;
-}
+export const deleteShop = (token: string, shopId: string): Promise<void> =>
+  request(token, `/shops/${shopId}`, { method: 'DELETE' });
 
-export async function getShop(
+export const listShopMembers = (
   token: string,
   shopId: string,
-): Promise<Shop> {
-  const res = await api.get<Shop>(`/shops/${shopId}`, withAuth(token));
-  return res.data;
-}
+): Promise<ShopMember[]> => request(token, `/shops/${shopId}/members`);
 
-export async function getShopBySlug(
-  token: string,
-  slug: string,
-): Promise<ShopWithMenuResponse> {
-  const res = await api.get<ShopWithMenuResponse>(
-    `/shops/slug/${slug}`,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-export async function updateShop(
+export const createShopMember = (
   token: string,
   shopId: string,
-  body: UpdateShopRequest,
-): Promise<Shop> {
-  const res = await api.patch<Shop>(`/shops/${shopId}`, body, withAuth(token));
-  return res.data;
-}
+  payload: ShopMemberInvitePayload,
+): Promise<ShopMember> =>
+  request(token, `/shops/${shopId}/members`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 
-export async function deleteShop(token: string, shopId: string): Promise<void> {
-  await api.delete(`/shops/${shopId}`, withAuth(token));
-}
-
-export async function getShopMenu(
-  token: string,
-  shopId: string,
-): Promise<ShopMenuResponse> {
-  const res = await api.get<ShopMenuResponse>(
-    `/shops/${shopId}/menu`,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-/* Shop members */
-export async function listShopMembers(
-  token: string,
-  shopId: string,
-): Promise<ShopMember[]> {
-  const res = await api.get<ShopMember[]>(
-    `/shops/${shopId}/members`,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-export async function createShopMember(
-  token: string,
-  shopId: string,
-  body: ShopMemberInvitePayload,
-): Promise<ShopMember> {
-  const res = await api.post<ShopMember>(
-    `/shops/${shopId}/members`,
-    body,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-export async function updateShopMember(
+export const updateShopMember = (
   token: string,
   shopId: string,
   memberId: string,
-  body: ShopMemberUpdatePayload,
-): Promise<ShopMember> {
-  const res = await api.patch<ShopMember>(
-    `/shops/${shopId}/members/${memberId}`,
-    body,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-/* Shop hours */
-export async function getShopHours(
-  token: string,
-  shopId: string,
-): Promise<ShopHours> {
-  const res = await api.get<ShopHours>(
-    `/shops/${shopId}/hours`,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-export async function upsertShopHours(
-  token: string,
-  shopId: string,
-  body: ShopHoursPayload,
-): Promise<ShopHours> {
-  const res = await api.put<ShopHours>(
-    `/shops/${shopId}/hours`,
-    body,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-/* Categories */
-export async function listCategories(
-  token: string,
-): Promise<ProductCategory[]> {
-  const res = await api.get<ProductCategory[]>(`/categories`, withAuth(token));
-  return res.data;
-}
-
-export async function getCategory(
-  token: string,
-  categoryId: string,
-): Promise<ProductCategory> {
-  const res = await api.get<ProductCategory>(
-    `/categories/${categoryId}`,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-export async function createCategory(
-  token: string,
-  body: CreateCategoryRequest,
-): Promise<ProductCategory> {
-  const res = await api.post<ProductCategory>(
-    `/categories`,
-    body,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-export async function updateCategory(
-  token: string,
-  categoryId: string,
-  body: UpdateCategoryRequest,
-): Promise<ProductCategory> {
-  const res = await api.patch<ProductCategory>(
-    `/categories/${categoryId}`,
-    body,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-export async function deleteCategory(
-  token: string,
-  categoryId: string,
-): Promise<void> {
-  await api.delete(`/categories/${categoryId}`, withAuth(token));
-}
-
-/* Products */
-export async function listProducts(
-  token: string,
-  params: ListProductsParams,
-): Promise<ProductResponse[]> {
-  const res = await api.get<ProductResponse[]>(`/products`, {
-    ...withAuth(token),
-    params,
+  payload: ShopMemberUpdatePayload,
+): Promise<ShopMember> =>
+  request(token, `/shops/${shopId}/members/${memberId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
   });
-  return res.data;
-}
 
-export async function createProduct(
-  token: string,
-  body: CreateProductRequest,
-): Promise<ProductResponse> {
-  const res = await api.post<ProductResponse>(
-    `/products`,
-    body,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-export async function getProduct(
-  token: string,
-  productId: string,
-): Promise<ProductResponse> {
-  const res = await api.get<ProductResponse>(
-    `/products/${productId}`,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-export async function updateProduct(
-  token: string,
-  productId: string,
-  body: UpdateProductRequest,
-): Promise<ProductResponse> {
-  const res = await api.patch<ProductResponse>(
-    `/products/${productId}`,
-    body,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-export async function deleteProduct(
-  token: string,
-  productId: string,
-): Promise<void> {
-  await api.delete(`/products/${productId}`, withAuth(token));
-}
-
-/* Orders */
-export async function listShopOrders(
-  token: string,
-  shopId: string,
-  params?: ListShopOrdersParams,
-): Promise<Order[]> {
-  const res = await api.get<Order[]>(`/shops/${shopId}/orders`, {
-    ...withAuth(token),
-    params,
-  });
-  return res.data;
-}
-
-export async function createOrder(
-  token: string,
-  shopId: string,
-  body: CreateOrderRequest,
-): Promise<Order> {
-  const res = await api.post<Order>(
-    `/shops/${shopId}/orders`,
-    body,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-export async function updateOrderStatus(
-  token: string,
-  shopId: string,
-  orderId: string,
-  body: UpdateOrderStatusRequest,
-): Promise<Order> {
-  const res = await api.patch<Order>(
-    `/shops/${shopId}/orders/${orderId}/status`,
-    body,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-export async function listOrders(
-  token: string,
-  params?: ListOrdersParams,
-): Promise<Order[]> {
-  const res = await api.get<Order[]>(`/orders`, {
-    ...withAuth(token),
-    params,
-  });
-  return res.data;
-}
-
-export async function getOrder(token: string, orderId: string): Promise<Order> {
-  const res = await api.get<Order>(`/orders/${orderId}`, withAuth(token));
-  return res.data;
-}
-
-export async function updateOrder(
-  token: string,
-  orderId: string,
-  body: Partial<Order>,
-): Promise<Order> {
-  const res = await api.patch<Order>(
-    `/orders/${orderId}`,
-    body,
-    withAuth(token),
-  );
-  return res.data;
-}
-
-export async function deleteOrder(
-  token: string,
-  orderId: string,
-): Promise<void> {
-  await api.delete(`/orders/${orderId}`, withAuth(token));
-}
-
-/* Users */
-export async function listUsers(token: string): Promise<User[]> {
-  const res = await api.get<User[]>(`/users`, withAuth(token));
-  return res.data;
-}
-
-export async function createUser(
-  token: string,
-  body: UserCreatePayload,
-): Promise<User> {
-  const res = await api.post<User>(`/users`, body, withAuth(token));
-  return res.data;
-}
-
-export async function getUser(token: string, userId: string): Promise<User> {
-  const res = await api.get<User>(`/users/${userId}`, withAuth(token));
-  return res.data;
-}
-
-export async function updateUser(
+export const listManagedShops = (
   token: string,
   userId: string,
-  body: Partial<User>,
-): Promise<User> {
-  const res = await api.patch<User>(`/users/${userId}`, body, withAuth(token));
-  return res.data;
-}
+): Promise<ManagedShopView[]> => request(token, `/users/${userId}/shops`);
 
-export async function deleteUser(token: string, userId: string): Promise<void> {
-  await api.delete(`/users/${userId}`, withAuth(token));
-}
-
-export async function listManagedShops(
+export const getShopMenu = (
   token: string,
-  userId: string,
-): Promise<ManagedShopView[]> {
-  const res = await api.get<ManagedShopView[]>(
-    `/users/${userId}/shops`,
-    withAuth(token),
-  );
-  return res.data;
-}
+  shopId: string,
+): Promise<ShopWithMenuResponse> =>
+  request(token, `/shops/${shopId}/menu`);
+
+export const getShopBySlug = (
+  token: string,
+  slug: string,
+): Promise<ShopWithMenuResponse> => request(token, `/shops/slug/${slug}`);
+
+// ShopMembers (general) -----------------------------------------------------
+export const listAllShopMembers = (
+  token: string,
+  params?: { shopId?: string },
+): Promise<ShopMember[]> =>
+  request(token, `/shopMembers${params?.shopId ? `?shopId=${params.shopId}` : ''}`);
+
+export const getShopMember = (
+  token: string,
+  memberId: string,
+): Promise<ShopMember> => request(token, `/shopMembers/${memberId}`);
+
+export const createShopMemberGeneral = (
+  token: string,
+  payload: ShopMember,
+): Promise<ShopMember> =>
+  request(token, `/shopMembers`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+export const updateShopMemberGeneral = (
+  token: string,
+  memberId: string,
+  payload: Partial<ShopMember>,
+): Promise<ShopMember> =>
+  request(token, `/shopMembers/${memberId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+
+export const deleteShopMember = (
+  token: string,
+  memberId: string,
+): Promise<void> => request(token, `/shopMembers/${memberId}`, { method: 'DELETE' });
+
+// Additional sections continue...
