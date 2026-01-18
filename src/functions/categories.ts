@@ -14,6 +14,7 @@ import {
   listCategoriesService,
   updateCategoryService,
 } from '../services/categoryService';
+import { requireAuth } from '../utils/authMiddleware';
 
 type HttpRequest = HttpRequestLike;
 type HttpResponse = HttpResponseInitLike;
@@ -45,19 +46,21 @@ app.http('categoriesCrudList', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'categories',
-  handler: async (): Promise<HttpResponse> => {
-    try {
-      const categories = await listCategoriesService();
-      return json(
-        200,
-        categories.map((category) => mapCategoryToDTO(category)),
-      );
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+  handler: async (request: HttpRequest): Promise<HttpResponse> => {
+    return requireAuth(request, async () => {
+      try {
+        const categories = await listCategoriesService();
+        return json(
+          200,
+          categories.map((category) => mapCategoryToDTO(category)),
+        );
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
+      }
+    });
   },
 });
 
@@ -66,19 +69,21 @@ app.http('categoriesCrudGetById', {
   authLevel: 'anonymous',
   route: 'categories/{categoryId}',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const categoryId = request.params?.categoryId?.trim();
-      if (!categoryId) {
-        return json(400, { message: 'categoryId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const categoryId = request.params?.categoryId?.trim();
+        if (!categoryId) {
+          return json(400, { message: 'categoryId is required' });
+        }
+        const category = await getCategoryByIdService(categoryId);
+        return json(200, mapCategoryToDTO(category));
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      const category = await getCategoryByIdService(categoryId);
-      return json(200, mapCategoryToDTO(category));
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });
 
@@ -87,16 +92,18 @@ app.http('categoriesCrudCreate', {
   authLevel: 'anonymous',
   route: 'categories',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const body = await readBody(request);
-      const category = await createCategoryService(parseCategoryBody(body));
-      return json(201, mapCategoryToDTO(category));
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    return requireAuth(request, async () => {
+      try {
+        const body = await readBody(request);
+        const category = await createCategoryService(parseCategoryBody(body));
+        return json(201, mapCategoryToDTO(category));
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
+      }
+    });
   },
 });
 
@@ -105,23 +112,25 @@ app.http('categoriesCrudUpdate', {
   authLevel: 'anonymous',
   route: 'categories/{categoryId}',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const categoryId = request.params?.categoryId?.trim();
-      if (!categoryId) {
-        return json(400, { message: 'categoryId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const categoryId = request.params?.categoryId?.trim();
+        if (!categoryId) {
+          return json(400, { message: 'categoryId is required' });
+        }
+        const body = await readBody(request);
+        const category = await updateCategoryService(
+          categoryId,
+          parseCategoryBody(body),
+        );
+        return json(200, mapCategoryToDTO(category));
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      const body = await readBody(request);
-      const category = await updateCategoryService(
-        categoryId,
-        parseCategoryBody(body),
-      );
-      return json(200, mapCategoryToDTO(category));
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });
 
@@ -130,18 +139,20 @@ app.http('categoriesCrudDelete', {
   authLevel: 'anonymous',
   route: 'categories/{categoryId}',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const categoryId = request.params?.categoryId?.trim();
-      if (!categoryId) {
-        return json(400, { message: 'categoryId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const categoryId = request.params?.categoryId?.trim();
+        if (!categoryId) {
+          return json(400, { message: 'categoryId is required' });
+        }
+        await deleteCategoryService(categoryId);
+        return { status: 204 };
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      await deleteCategoryService(categoryId);
-      return { status: 204 };
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });

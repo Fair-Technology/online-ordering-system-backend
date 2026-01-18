@@ -14,6 +14,7 @@ import {
   updateProductService,
 } from '../services/productService';
 import { mapProductToDTO } from '../domain/menu.dto';
+import { requireAuth } from '../utils/authMiddleware';
 
 type HttpRequest = HttpRequestLike;
 type HttpResponse = HttpResponseInitLike;
@@ -30,19 +31,21 @@ app.http('productsListByShop', {
   authLevel: 'anonymous',
   route: 'products',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const shopId = request.query.get('shopId')?.trim();
-      if (!shopId) {
-        return json(400, { message: 'shopId query parameter is required' });
+    return requireAuth(request, async () => {
+      try {
+        const shopId = request.query.get('shopId')?.trim();
+        if (!shopId) {
+          return json(400, { message: 'shopId query parameter is required' });
+        }
+        const products = await listProductsForShopService(shopId);
+        return json(200, products);
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      const products = await listProductsForShopService(shopId);
-      return json(200, products);
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });
 
@@ -51,19 +54,21 @@ app.http('productsCreate', {
   authLevel: 'anonymous',
   route: 'products',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const body = await parseBody<CreateProductRequest>(request);
-      if (!body?.shopId?.trim()) {
-        return json(400, { message: 'shopId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const body = await parseBody<CreateProductRequest>(request);
+        if (!body?.shopId?.trim()) {
+          return json(400, { message: 'shopId is required' });
+        }
+        const product = await createProductService(body.shopId.trim(), body);
+        return json(201, mapProductToDTO(product));
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      const product = await createProductService(body.shopId.trim(), body);
-      return json(201, mapProductToDTO(product));
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });
 
@@ -72,19 +77,21 @@ app.http('productsGetByIdGeneral', {
   authLevel: 'anonymous',
   route: 'products/{productId}',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const productId = request.params?.productId?.trim();
-      if (!productId) {
-        return json(400, { message: 'productId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const productId = request.params?.productId?.trim();
+        if (!productId) {
+          return json(400, { message: 'productId is required' });
+        }
+        const product = await getProductByIdService(productId);
+        return json(200, mapProductToDTO(product));
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      const product = await getProductByIdService(productId);
-      return json(200, mapProductToDTO(product));
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });
 
@@ -93,20 +100,22 @@ app.http('productsUpdate', {
   authLevel: 'anonymous',
   route: 'products/{productId}',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const productId = request.params?.productId?.trim();
-      if (!productId) {
-        return json(400, { message: 'productId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const productId = request.params?.productId?.trim();
+        if (!productId) {
+          return json(400, { message: 'productId is required' });
+        }
+        const body = await parseBody<UpdateProductRequest>(request);
+        const product = await updateProductService(productId, body ?? {});
+        return json(200, mapProductToDTO(product));
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      const body = await parseBody<UpdateProductRequest>(request);
-      const product = await updateProductService(productId, body ?? {});
-      return json(200, mapProductToDTO(product));
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });
 
@@ -115,18 +124,20 @@ app.http('productsDelete', {
   authLevel: 'anonymous',
   route: 'products/{productId}',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const productId = request.params?.productId?.trim();
-      if (!productId) {
-        return json(400, { message: 'productId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const productId = request.params?.productId?.trim();
+        if (!productId) {
+          return json(400, { message: 'productId is required' });
+        }
+        await deleteProductService(productId);
+        return { status: 204 };
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      await deleteProductService(productId);
-      return { status: 204 };
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });

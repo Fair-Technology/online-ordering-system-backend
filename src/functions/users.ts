@@ -13,8 +13,6 @@ import {
   listUsersService,
   updateUserService,
 } from '../services/userService';
-import { validateAccessToken } from '../utils/auth';
-import { newId, readBody } from '../utils/general';
 import { requireAuth } from '../utils/authMiddleware'; // NEW: Import middleware
 import { getContainer } from '../infrastructure/cosmosClient';
 import { User } from '../domain/databaseTypes';
@@ -36,24 +34,20 @@ app.http('usersListAll', {
   authLevel: 'anonymous',
   route: 'users',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const authResult = await validateAccessToken(
-        request.headers.get('authorization'),
-      );
-      if (!authResult.valid) {
-        return json(401, { message: authResult.error ?? 'Unauthorized' });
+    return requireAuth(request, async () => {
+      try {
+        const users = await listUsersService();
+        return json(
+          200,
+          users.map((user) => mapUserToDTO(user)),
+        );
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      const users = await listUsersService();
-      return json(
-        200,
-        users.map((user) => mapUserToDTO(user)),
-      );
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });
 
@@ -63,20 +57,16 @@ app.http('userCreate', {
   authLevel: 'anonymous', // Still anonymous at Azure level, our middleware handles it
   route: 'users',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const authResult = await validateAccessToken(
-        request.headers.get('authorization'),
-      );
-      if (!authResult.valid) {
-        return json(401, { message: authResult.error ?? 'Unauthorized' });
-      }
-      const body = await request.json();
-      const response = await createUserService(body.id);
+    return requireAuth(request, async () => {
+      try {
+        const body = await request.json();
+        const response = await createUserService(body.id);
         return json(201, response);
       } catch (err: any) {
         const status = err.status || 500;
         return { status, body: err.message || 'Internal Server Error' };
       }
+    });
   },
 });
 

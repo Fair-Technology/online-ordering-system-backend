@@ -29,6 +29,7 @@ import {
   nowIso,
   writeAuditLog,
 } from '../utils/general';
+import { requireAuth } from '../utils/authMiddleware';
 
 type HttpRequest = HttpRequestLike;
 type HttpResponseInit = HttpResponseInitLike;
@@ -232,77 +233,79 @@ app.http('ordersCreate', {
   authLevel: 'anonymous',
   route: 'shops/{shopId}/orders',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
-    try {
-      const {
-        shopId,
-        userId,
-        customerName,
-        customerPhone,
-        customerNotes,
-        items,
-        fulfillmentType,
-        scheduledFor,
-      } = await validateOrdersCreate(request);
-      const shop = await readShop(shopId);
-      if (!shop) {
-        return json(404, { message: 'Shop not found' });
-      }
-
-      if (shop.status !== 'open' || shop.acceptingOrders === false) {
-        return json(400, { message: 'Shop is not accepting orders right now' });
-      }
-      if (userId === 'guest' && shop.allowGuestCheckout === false) {
-        return json(400, { message: 'Guest checkout is disabled for this shop' });
-      }
-      if (!(await isShopOpenNow(shopId))) {
-        return json(400, { message: 'Shop is currently closed' });
-      }
-
-      const validatedItems = await buildOrderItemsFromPayload(shopId, items);
-      if (validatedItems.length === 0) {
-        return json(400, { message: 'Order must contain at least one item' });
-      }
-
-      const orderItems = convertValidatedItemsToOrderItems(validatedItems);
-      const totalAmount = sumOrderTotal(orderItems);
-      const timestamp = nowIso();
-      const status: OrderStatus =
-        shop.orderAcceptanceMode === 'auto' ? 'accepted' : 'placed';
-
-      const order: Order = {
-        id: newId(),
-        shopId,
-        userId,
-        status,
-        paymentStatus: 'unpaid',
-        totalAmount,
-        submittedAt: timestamp,
-        customerName,
-        customerPhone,
-        customerNotes,
-        items: orderItems,
-        fulfillmentSlot: {
-          type: fulfillmentType ?? 'pickup',
+    return requireAuth(request, async () => {
+      try {
+        const {
+          shopId,
+          userId,
+          customerName,
+          customerPhone,
+          customerNotes,
+          items,
+          fulfillmentType,
           scheduledFor,
-        },
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
+        } = await validateOrdersCreate(request);
+        const shop = await readShop(shopId);
+        if (!shop) {
+          return json(404, { message: 'Shop not found' });
+        }
 
-      await ordersContainer.items.create(order);
-      await writeAuditLog({
-        actorUserId: getActorUserId(request),
-        shopId,
-        entityType: 'order',
-        entityId: order.id,
-        action: 'CREATE',
-        after: order,
-      });
+        if (shop.status !== 'open' || shop.acceptingOrders === false) {
+          return json(400, { message: 'Shop is not accepting orders right now' });
+        }
+        if (userId === 'guest' && shop.allowGuestCheckout === false) {
+          return json(400, { message: 'Guest checkout is disabled for this shop' });
+        }
+        if (!(await isShopOpenNow(shopId))) {
+          return json(400, { message: 'Shop is currently closed' });
+        }
 
-      return json(201, order);
-    } catch (error: any) {
-      return { status: error.status || 500, body: error.message };
-    }
+        const validatedItems = await buildOrderItemsFromPayload(shopId, items);
+        if (validatedItems.length === 0) {
+          return json(400, { message: 'Order must contain at least one item' });
+        }
+
+        const orderItems = convertValidatedItemsToOrderItems(validatedItems);
+        const totalAmount = sumOrderTotal(orderItems);
+        const timestamp = nowIso();
+        const status: OrderStatus =
+          shop.orderAcceptanceMode === 'auto' ? 'accepted' : 'placed';
+
+        const order: Order = {
+          id: newId(),
+          shopId,
+          userId,
+          status,
+          paymentStatus: 'unpaid',
+          totalAmount,
+          submittedAt: timestamp,
+          customerName,
+          customerPhone,
+          customerNotes,
+          items: orderItems,
+          fulfillmentSlot: {
+            type: fulfillmentType ?? 'pickup',
+            scheduledFor,
+          },
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+
+        await ordersContainer.items.create(order);
+        await writeAuditLog({
+          actorUserId: getActorUserId(request),
+          shopId,
+          entityType: 'order',
+          entityId: order.id,
+          action: 'CREATE',
+          after: order,
+        });
+
+        return json(201, order);
+      } catch (error: any) {
+        return { status: error.status || 500, body: error.message };
+      }
+    });
   },
 });
 
@@ -315,27 +318,29 @@ app.http('ordersList', {
   authLevel: 'anonymous',
   route: 'shops/{shopId}/orders',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
-    try {
-      const { shopId, statuses } = validateOrdersList(request);
-      let query = 'SELECT * FROM c WHERE c.shopId = @shopId';
-      const parameters: any[] = [{ name: '@shopId', value: shopId }];
+    return requireAuth(request, async () => {
+      try {
+        const { shopId, statuses } = validateOrdersList(request);
+        let query = 'SELECT * FROM c WHERE c.shopId = @shopId';
+        const parameters: any[] = [{ name: '@shopId', value: shopId }];
 
-      if (statuses.length === 1) {
-        query += ' AND c.status = @status';
-        parameters.push({ name: '@status', value: statuses[0] });
-      } else if (statuses.length > 1) {
-        query += ' AND ARRAY_CONTAINS(@statuses, c.status)';
-        parameters.push({ name: '@statuses', value: statuses });
+        if (statuses.length === 1) {
+          query += ' AND c.status = @status';
+          parameters.push({ name: '@status', value: statuses[0] });
+        } else if (statuses.length > 1) {
+          query += ' AND ARRAY_CONTAINS(@statuses, c.status)';
+          parameters.push({ name: '@statuses', value: statuses });
+        }
+        query += ' ORDER BY c.submittedAt DESC';
+
+        const { resources } = await ordersContainer.items
+          .query<Order>({ query, parameters })
+          .fetchAll();
+        return json(200, resources);
+      } catch (error: any) {
+        return { status: error.status || 500, body: error.message };
       }
-      query += ' ORDER BY c.submittedAt DESC';
-
-      const { resources } = await ordersContainer.items
-        .query<Order>({ query, parameters })
-        .fetchAll();
-      return json(200, resources);
-    } catch (error: any) {
-      return { status: error.status || 500, body: error.message };
-    }
+    });
   },
 });
 
@@ -348,32 +353,34 @@ app.http('ordersUpdateStatus', {
   authLevel: 'anonymous',
   route: 'shops/{shopId}/orders/{orderId}/status',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
-    try {
-      const { order, nextStatus } = await validateOrdersUpdateStatus(request);
-      if (!canTransition(order.status, nextStatus)) {
-        return json(400, {
-          message: `Cannot change status from ${order.status} to ${nextStatus}`,
+    return requireAuth(request, async () => {
+      try {
+        const { order, nextStatus } = await validateOrdersUpdateStatus(request);
+        if (!canTransition(order.status, nextStatus)) {
+          return json(400, {
+            message: `Cannot change status from ${order.status} to ${nextStatus}`,
+          });
+        }
+        const updated: Order = {
+          ...order,
+          status: nextStatus,
+          updatedAt: nowIso(),
+        };
+        await ordersContainer.items.upsert(updated);
+        await writeAuditLog({
+          actorUserId: getActorUserId(request),
+          shopId: order.shopId,
+          entityType: 'order',
+          entityId: order.id,
+          action: 'UPDATE_STATUS',
+          before: { status: order.status },
+          after: { status: updated.status },
         });
+        return json(200, updated);
+      } catch (error: any) {
+        return { status: error.status || 500, body: error.message };
       }
-      const updated: Order = {
-        ...order,
-        status: nextStatus,
-        updatedAt: nowIso(),
-      };
-      await ordersContainer.items.upsert(updated);
-      await writeAuditLog({
-        actorUserId: getActorUserId(request),
-        shopId: order.shopId,
-        entityType: 'order',
-        entityId: order.id,
-        action: 'UPDATE_STATUS',
-        before: { status: order.status },
-        after: { status: updated.status },
-      });
-      return json(200, updated);
-    } catch (error: any) {
-      return { status: error.status || 500, body: error.message };
-    }
+    });
   },
 });
 
@@ -386,32 +393,34 @@ app.http('ordersListAll', {
   authLevel: 'anonymous',
   route: 'orders',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
-    try {
-      const shopId = request.query.get('shopId')?.trim();
-      const userId = request.query.get('userId')?.trim();
-      const filters: string[] = [];
-      const parameters: any[] = [];
-      if (shopId) {
-        filters.push('c.shopId = @shopId');
-        parameters.push({ name: '@shopId', value: shopId });
-      }
-      if (userId) {
-        filters.push('c.userId = @userId');
-        parameters.push({ name: '@userId', value: userId });
-      }
-      let query = 'SELECT * FROM c';
-      if (filters.length > 0) {
-        query += ` WHERE ${filters.join(' AND ')}`;
-      }
-      query += ' ORDER BY c.submittedAt DESC';
+    return requireAuth(request, async () => {
+      try {
+        const shopId = request.query.get('shopId')?.trim();
+        const userId = request.query.get('userId')?.trim();
+        const filters: string[] = [];
+        const parameters: any[] = [];
+        if (shopId) {
+          filters.push('c.shopId = @shopId');
+          parameters.push({ name: '@shopId', value: shopId });
+        }
+        if (userId) {
+          filters.push('c.userId = @userId');
+          parameters.push({ name: '@userId', value: userId });
+        }
+        let query = 'SELECT * FROM c';
+        if (filters.length > 0) {
+          query += ` WHERE ${filters.join(' AND ')}`;
+        }
+        query += ' ORDER BY c.submittedAt DESC';
 
-      const { resources } = await ordersContainer.items
-        .query<Order>({ query, parameters })
-        .fetchAll();
-      return json(200, resources);
-    } catch (error: any) {
-      return { status: error.status || 500, body: error.message };
-    }
+        const { resources } = await ordersContainer.items
+          .query<Order>({ query, parameters })
+          .fetchAll();
+        return json(200, resources);
+      } catch (error: any) {
+        return { status: error.status || 500, body: error.message };
+      }
+    });
   },
 });
 
@@ -420,21 +429,23 @@ app.http('ordersGetByIdGeneral', {
   authLevel: 'anonymous',
   route: 'orders/{orderId}',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
-    try {
-      const orderId = request.params?.orderId?.trim();
-      if (!orderId) {
-        return json(400, { message: 'orderId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const orderId = request.params?.orderId?.trim();
+        if (!orderId) {
+          return json(400, { message: 'orderId is required' });
+        }
+        const { resource } = await ordersContainer
+          .item(orderId, orderId)
+          .read<Order>();
+        if (!resource) {
+          return json(404, { message: 'Order not found' });
+        }
+        return json(200, resource);
+      } catch (error: any) {
+        return { status: error.status || 500, body: error.message };
       }
-      const { resource } = await ordersContainer
-        .item(orderId, orderId)
-        .read<Order>();
-      if (!resource) {
-        return json(404, { message: 'Order not found' });
-      }
-      return json(200, resource);
-    } catch (error: any) {
-      return { status: error.status || 500, body: error.message };
-    }
+    });
   },
 });
 
@@ -443,40 +454,42 @@ app.http('ordersUpdateGeneral', {
   authLevel: 'anonymous',
   route: 'orders/{orderId}',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
-    try {
-      const orderId = request.params?.orderId?.trim();
-      if (!orderId) {
-        return json(400, { message: 'orderId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const orderId = request.params?.orderId?.trim();
+        if (!orderId) {
+          return json(400, { message: 'orderId is required' });
+        }
+        const { resource } = await ordersContainer
+          .item(orderId, orderId)
+          .read<Order>();
+        if (!resource) {
+          return json(404, { message: 'Order not found' });
+        }
+        const updates =
+          (await request.json().catch(() => null)) ?? {};
+        const updated: Order = {
+          ...resource,
+          ...updates,
+          id: resource.id,
+          submittedAt: resource.submittedAt,
+          updatedAt: nowIso(),
+        };
+        await ordersContainer.items.upsert(updated);
+        await writeAuditLog({
+          actorUserId: getActorUserId(request),
+          shopId: resource.shopId,
+          entityType: 'order',
+          entityId: resource.id,
+          action: 'UPDATE',
+          before: resource,
+          after: updated,
+        });
+        return json(200, updated);
+      } catch (error: any) {
+        return { status: error.status || 500, body: error.message };
       }
-      const { resource } = await ordersContainer
-        .item(orderId, orderId)
-        .read<Order>();
-      if (!resource) {
-        return json(404, { message: 'Order not found' });
-      }
-      const updates =
-        (await request.json().catch(() => null)) ?? {};
-      const updated: Order = {
-        ...resource,
-        ...updates,
-        id: resource.id,
-        submittedAt: resource.submittedAt,
-        updatedAt: nowIso(),
-      };
-      await ordersContainer.items.upsert(updated);
-      await writeAuditLog({
-        actorUserId: getActorUserId(request),
-        shopId: resource.shopId,
-        entityType: 'order',
-        entityId: resource.id,
-        action: 'UPDATE',
-        before: resource,
-        after: updated,
-      });
-      return json(200, updated);
-    } catch (error: any) {
-      return { status: error.status || 500, body: error.message };
-    }
+    });
   },
 });
 
@@ -485,29 +498,31 @@ app.http('ordersDelete', {
   authLevel: 'anonymous',
   route: 'orders/{orderId}',
   handler: async (request: HttpRequest): Promise<HttpResponseInit> => {
-    try {
-      const orderId = request.params?.orderId?.trim();
-      if (!orderId) {
-        return json(400, { message: 'orderId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const orderId = request.params?.orderId?.trim();
+        if (!orderId) {
+          return json(400, { message: 'orderId is required' });
+        }
+        const { resource } = await ordersContainer
+          .item(orderId, orderId)
+          .read<Order>();
+        if (!resource) {
+          return json(404, { message: 'Order not found' });
+        }
+        await ordersContainer.item(orderId, orderId).delete();
+        await writeAuditLog({
+          actorUserId: getActorUserId(request),
+          shopId: resource.shopId,
+          entityType: 'order',
+          entityId: resource.id,
+          action: 'DELETE',
+          before: resource,
+        });
+        return { status: 204 };
+      } catch (error: any) {
+        return { status: error.status || 500, body: error.message };
       }
-      const { resource } = await ordersContainer
-        .item(orderId, orderId)
-        .read<Order>();
-      if (!resource) {
-        return json(404, { message: 'Order not found' });
-      }
-      await ordersContainer.item(orderId, orderId).delete();
-      await writeAuditLog({
-        actorUserId: getActorUserId(request),
-        shopId: resource.shopId,
-        entityType: 'order',
-        entityId: resource.id,
-        action: 'DELETE',
-        before: resource,
-      });
-      return { status: 204 };
-    } catch (error: any) {
-      return { status: error.status || 500, body: error.message };
-    }
+    });
   },
 });

@@ -28,16 +28,26 @@ const openApiDocument = {
           currency: { type: 'string' },
         },
       },
+      FulfillmentOptions: {
+        type: 'object',
+        properties: {
+          pickupEnabled: { type: 'boolean' },
+          deliveryEnabled: { type: 'boolean' },
+          deliveryRadiusKm: { type: 'number' },
+          deliveryFee: { type: 'number' },
+        },
+      },
       Shop: {
         type: 'object',
         properties: {
           id: { type: 'string' },
           name: { type: 'string' },
-          slug: { type: 'string' },
           status: { type: 'string' },
           acceptingOrders: { type: 'boolean' },
           timezone: { type: 'string' },
           address: { type: 'string' },
+          fulfillment: { $ref: '#/components/schemas/FulfillmentOptions' },
+          updatedAt: { type: 'string' },
         },
       },
       ProductDTO: {
@@ -72,6 +82,117 @@ const openApiDocument = {
         type: 'object',
         properties: {
           id: { type: 'string' },
+        },
+      },
+      ShopMember: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          shopId: { type: 'string' },
+          userId: { type: 'string' },
+          role: { type: 'string' },
+          invitationStatus: { type: 'string' },
+          invitedByUserId: { type: 'string' },
+          isActive: { type: 'boolean' },
+          createdAt: { type: 'string' },
+          updatedAt: { type: 'string' },
+        },
+      },
+      ShopHoursWindow: {
+        type: 'object',
+        properties: {
+          opensAt: { type: 'string' },
+          closesAt: { type: 'string' },
+          isClosed: { type: 'boolean' },
+        },
+      },
+      ShopHours: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          shopId: { type: 'string' },
+          timezone: { type: 'string' },
+          weekly: {
+            type: 'object',
+            properties: {
+              monday: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/ShopHoursWindow' },
+              },
+              tuesday: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/ShopHoursWindow' },
+              },
+              wednesday: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/ShopHoursWindow' },
+              },
+              thursday: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/ShopHoursWindow' },
+              },
+              friday: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/ShopHoursWindow' },
+              },
+              saturday: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/ShopHoursWindow' },
+              },
+              sunday: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/ShopHoursWindow' },
+              },
+            },
+          },
+          createdAt: { type: 'string' },
+          updatedAt: { type: 'string' },
+        },
+      },
+      PrincipalRef: {
+        type: 'object',
+        properties: {
+          type: { type: 'string' },
+          id: { type: 'string' },
+          scope: { type: 'string' },
+        },
+      },
+      AuditLog: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          actor: { $ref: '#/components/schemas/PrincipalRef' },
+          shopId: { type: 'string' },
+          entityType: { type: 'string' },
+          entityId: { type: 'string' },
+          action: { type: 'string' },
+          before: { type: 'object' },
+          after: { type: 'object' },
+          createdAt: { type: 'string' },
+          updatedAt: { type: 'string' },
+        },
+      },
+      ManagedShopView: {
+        type: 'object',
+        properties: {
+          shopId: { type: 'string' },
+          name: { type: 'string' },
+          status: { type: 'string' },
+          acceptingOrders: { type: 'boolean' },
+          role: { type: 'string' },
+        },
+      },
+      ShopMenu: {
+        type: 'object',
+        properties: {
+          categories: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/Category' },
+          },
+          products: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/ProductDTO' },
+          },
         },
       },
     },
@@ -138,31 +259,14 @@ const openApiDocument = {
     '/shops/{shopId}/menu': {
       get: {
         summary: 'Get shop menu',
+        security: [],
         parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
         responses: {
           200: {
             description: 'Menu',
             content: {
               'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    shop: { $ref: '#/components/schemas/Shop' },
-                    menu: {
-                      type: 'object',
-                      properties: {
-                        categories: {
-                          type: 'array',
-                          items: { $ref: '#/components/schemas/Category' },
-                        },
-                        products: {
-                          type: 'array',
-                          items: { $ref: '#/components/schemas/ProductDTO' },
-                        },
-                      },
-                    },
-                  },
-                },
+                schema: { $ref: '#/components/schemas/ShopMenu' },
               },
             },
           },
@@ -172,9 +276,13 @@ const openApiDocument = {
     '/shops/slug/{slug}': {
       get: {
         summary: 'Get shop by slug',
+        security: [],
         parameters: [{ name: 'slug', in: 'path', required: true, schema: { type: 'string' } }],
         responses: {
-          200: { description: 'Shop with menu' },
+          200: {
+            description: 'Shop',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Shop' } } },
+          },
           404: { description: 'Not found' },
         },
       },
@@ -309,7 +417,221 @@ const openApiDocument = {
           404: { description: 'Not found' },
         },
       },
+      patch: {
+        summary: 'Update user',
+        parameters: [{ name: 'userId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          500: { description: 'Not implemented' },
+        },
+      },
       delete: { summary: 'Delete user', responses: { 204: { description: 'Deleted' } } },
+    },
+    '/users/{userId}/shops': {
+      get: {
+        summary: 'List shops managed by user',
+        parameters: [{ name: 'userId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: {
+            description: 'Managed shops',
+            content: {
+              'application/json': {
+                schema: { type: 'array', items: { $ref: '#/components/schemas/ManagedShopView' } },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/shops/{shopId}/members': {
+      get: {
+        summary: 'List shop members',
+        parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: {
+            description: 'Members',
+            content: {
+              'application/json': {
+                schema: { type: 'array', items: { $ref: '#/components/schemas/ShopMember' } },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        summary: 'Create shop member',
+        parameters: [{ name: 'shopId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          201: {
+            description: 'Created member',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ShopMember' } } },
+          },
+        },
+      },
+    },
+    '/shops/{shopId}/members/{memberId}': {
+      patch: {
+        summary: 'Update shop member',
+        parameters: [
+          { name: 'shopId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'memberId', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          200: {
+            description: 'Updated member',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ShopMember' } } },
+          },
+        },
+      },
+    },
+    '/shopMembers': {
+      get: {
+        summary: 'List shop members',
+        responses: {
+          200: {
+            description: 'Members',
+            content: {
+              'application/json': {
+                schema: { type: 'array', items: { $ref: '#/components/schemas/ShopMember' } },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        summary: 'Create shop member',
+        responses: {
+          201: {
+            description: 'Created member',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ShopMember' } } },
+          },
+        },
+      },
+    },
+    '/shopMembers/{memberId}': {
+      get: {
+        summary: 'Get shop member by id',
+        parameters: [{ name: 'memberId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: {
+            description: 'Member',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ShopMember' } } },
+          },
+          404: { description: 'Not found' },
+        },
+      },
+      patch: {
+        summary: 'Update shop member',
+        parameters: [{ name: 'memberId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: {
+            description: 'Updated member',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ShopMember' } } },
+          },
+        },
+      },
+      delete: { summary: 'Delete shop member', responses: { 204: { description: 'Deleted' } } },
+    },
+    '/shopHours': {
+      get: {
+        summary: 'List shop hours',
+        parameters: [{ name: 'shopId', in: 'query', required: false, schema: { type: 'string' } }],
+        responses: {
+          200: {
+            description: 'Shop hours records',
+            content: {
+              'application/json': {
+                schema: { type: 'array', items: { $ref: '#/components/schemas/ShopHours' } },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        summary: 'Create shop hours',
+        responses: {
+          201: {
+            description: 'Created shop hours',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ShopHours' } } },
+          },
+        },
+      },
+    },
+    '/shopHours/{recordId}': {
+      get: {
+        summary: 'Get shop hours by id',
+        parameters: [{ name: 'recordId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: {
+            description: 'Shop hours',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ShopHours' } } },
+          },
+          404: { description: 'Not found' },
+        },
+      },
+      patch: {
+        summary: 'Update shop hours',
+        parameters: [{ name: 'recordId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: {
+            description: 'Updated shop hours',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ShopHours' } } },
+          },
+        },
+      },
+      delete: { summary: 'Delete shop hours', responses: { 204: { description: 'Deleted' } } },
+    },
+    '/auditLogs': {
+      get: {
+        summary: 'List audit logs',
+        parameters: [
+          { name: 'shopId', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'entityType', in: 'query', required: false, schema: { type: 'string' } },
+          { name: 'entityId', in: 'query', required: false, schema: { type: 'string' } },
+        ],
+        responses: {
+          200: {
+            description: 'Audit logs',
+            content: {
+              'application/json': {
+                schema: { type: 'array', items: { $ref: '#/components/schemas/AuditLog' } },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        summary: 'Create audit log',
+        responses: {
+          201: {
+            description: 'Created audit log',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/AuditLog' } } },
+          },
+        },
+      },
+    },
+    '/auditLogs/{logId}': {
+      get: {
+        summary: 'Get audit log by id',
+        parameters: [{ name: 'logId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: {
+            description: 'Audit log',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/AuditLog' } } },
+          },
+          404: { description: 'Not found' },
+        },
+      },
+      patch: {
+        summary: 'Update audit log',
+        parameters: [{ name: 'logId', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: {
+            description: 'Updated audit log',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/AuditLog' } } },
+          },
+        },
+      },
+      delete: { summary: 'Delete audit log', responses: { 204: { description: 'Deleted' } } },
     },
   },
 };

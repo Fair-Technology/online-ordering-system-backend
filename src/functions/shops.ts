@@ -24,6 +24,7 @@ import {
   updateShopMemberService,
 } from '../services/shopMemberService';
 import { readBody } from '../utils/general';
+import { requireAuth } from '../utils/authMiddleware';
 
 type HttpRequest = HttpRequestLike;
 type HttpResponse = HttpResponseInitLike;
@@ -59,19 +60,21 @@ app.http('shopsListAll', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'shops',
-  handler: async (): Promise<HttpResponse> => {
-    try {
-      const shops = await listShopsService();
-      return json(
-        200,
-        shops.map((shop) => mapShopToDTO(shop)),
-      );
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+  handler: async (request: HttpRequest): Promise<HttpResponse> => {
+    return requireAuth(request, async () => {
+      try {
+        const shops = await listShopsService();
+        return json(
+          200,
+          shops.map((shop) => mapShopToDTO(shop)),
+        );
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
+      }
+    });
   },
 });
 
@@ -80,16 +83,18 @@ app.http('shopsCreate', {
   authLevel: 'anonymous',
   route: 'shops',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const body = await readBody(request);
-      const shop = await createShopService(parseShopBody(body));
-      return json(201, mapShopToDTO(shop));
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    return requireAuth(request, async () => {
+      try {
+        const body = await readBody(request);
+        const shop = await createShopService(parseShopBody(body));
+        return json(201, mapShopToDTO(shop));
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
+      }
+    });
   },
 });
 
@@ -98,19 +103,21 @@ app.http('shopsGetById', {
   authLevel: 'anonymous',
   route: 'shops/{shopId}',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const shopId = request.params?.shopId?.trim();
-      if (!shopId) {
-        return json(400, { message: 'shopId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const shopId = request.params?.shopId?.trim();
+        if (!shopId) {
+          return json(400, { message: 'shopId is required' });
+        }
+        const shop = await getShopByIdService(shopId);
+        return json(200, mapShopToDTO(shop));
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      const shop = await getShopByIdService(shopId);
-      return json(200, mapShopToDTO(shop));
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });
 
@@ -119,20 +126,22 @@ app.http('shopsUpdate', {
   authLevel: 'anonymous',
   route: 'shops/{shopId}',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const shopId = request.params?.shopId?.trim();
-      if (!shopId) {
-        return json(400, { message: 'shopId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const shopId = request.params?.shopId?.trim();
+        if (!shopId) {
+          return json(400, { message: 'shopId is required' });
+        }
+        const body = await readBody(request);
+        const shop = await updateShopService(shopId, parseShopBody(body));
+        return json(200, mapShopToDTO(shop));
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      const body = await readBody(request);
-      const shop = await updateShopService(shopId, parseShopBody(body));
-      return json(200, mapShopToDTO(shop));
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });
 
@@ -141,19 +150,21 @@ app.http('shopsDelete', {
   authLevel: 'anonymous',
   route: 'shops/{shopId}',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const shopId = request.params?.shopId?.trim();
-      if (!shopId) {
-        return json(400, { message: 'shopId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const shopId = request.params?.shopId?.trim();
+        if (!shopId) {
+          return json(400, { message: 'shopId is required' });
+        }
+        await deleteShopService(shopId);
+        return { status: 204 };
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      await deleteShopService(shopId);
-      return { status: 204 };
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });
 
@@ -162,19 +173,21 @@ app.http('shopMembersList', {
   authLevel: 'anonymous',
   route: 'shops/{shopId}/members',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const shopId = request.params?.shopId?.trim();
-      if (!shopId) {
-        return json(400, { message: 'shopId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const shopId = request.params?.shopId?.trim();
+        if (!shopId) {
+          return json(400, { message: 'shopId is required' });
+        }
+        const members = await listShopMembersService(shopId);
+        return json(200, members);
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      const members = await listShopMembersService(shopId);
-      return json(200, members);
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });
 
@@ -183,31 +196,33 @@ app.http('shopMembersCreate', {
   authLevel: 'anonymous',
   route: 'shops/{shopId}/members',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const shopId = request.params?.shopId?.trim();
-      if (!shopId) {
-        return json(400, { message: 'shopId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const shopId = request.params?.shopId?.trim();
+        if (!shopId) {
+          return json(400, { message: 'shopId is required' });
+        }
+        const body = await readBody<{ userId?: string; role?: ShopMemberRole }>(
+          request,
+        );
+        if (!body?.userId?.trim()) {
+          return json(400, { message: 'userId is required' });
+        }
+        if (!body.role) {
+          return json(400, { message: 'role is required' });
+        }
+        const member = await createShopMemberService(shopId, {
+          userId: body.userId.trim(),
+          role: body.role,
+        });
+        return json(201, member);
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      const body = await readBody<{ userId?: string; role?: ShopMemberRole }>(
-        request,
-      );
-      if (!body?.userId?.trim()) {
-        return json(400, { message: 'userId is required' });
-      }
-      if (!body.role) {
-        return json(400, { message: 'role is required' });
-      }
-      const member = await createShopMemberService(shopId, {
-        userId: body.userId.trim(),
-        role: body.role,
-      });
-      return json(201, member);
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });
 
@@ -216,23 +231,25 @@ app.http('shopMembersUpdate', {
   authLevel: 'anonymous',
   route: 'shops/{shopId}/members/{memberId}',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const memberId = request.params?.memberId?.trim();
-      if (!memberId) {
-        return json(400, { message: 'memberId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const memberId = request.params?.memberId?.trim();
+        if (!memberId) {
+          return json(400, { message: 'memberId is required' });
+        }
+        const body = await readBody<Partial<ShopMember>>(request);
+        const member = await updateShopMemberService(memberId, {
+          role: body?.role,
+          isActive: body?.isActive,
+        });
+        return json(200, member);
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      const body = await readBody<Partial<ShopMember>>(request);
-      const member = await updateShopMemberService(memberId, {
-        role: body?.role,
-        isActive: body?.isActive,
-      });
-      return json(200, member);
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });
 
@@ -241,19 +258,21 @@ app.http('usersGetShops', {
   authLevel: 'anonymous',
   route: 'users/{userId}/shops',
   handler: async (request: HttpRequest): Promise<HttpResponse> => {
-    try {
-      const userId = request.params?.userId?.trim();
-      if (!userId) {
-        return json(400, { message: 'userId is required' });
+    return requireAuth(request, async () => {
+      try {
+        const userId = request.params?.userId?.trim();
+        if (!userId) {
+          return json(400, { message: 'userId is required' });
+        }
+        const shops = await listManagedShopsService(userId);
+        return json(200, shops);
+      } catch (error: any) {
+        return {
+          status: error.status || 500,
+          body: error.message || 'Internal Server Error',
+        };
       }
-      const shops = await listManagedShopsService(userId);
-      return json(200, shops);
-    } catch (error: any) {
-      return {
-        status: error.status || 500,
-        body: error.message || 'Internal Server Error',
-      };
-    }
+    });
   },
 });
 
@@ -267,8 +286,8 @@ app.http('shopsMenu', {
       if (!shopId) {
         return json(400, { message: 'shopId is required' });
       }
-      const { shop, menu } = await getShopMenuByIdService(shopId);
-      return json(200, { shop: mapShopToDTO(shop), menu });
+      const { menu } = await getShopMenuByIdService(shopId);
+      return json(200, menu);
     } catch (error: any) {
       return {
         status: error.status || 500,
@@ -288,8 +307,8 @@ app.http('getShopBySlug', {
       if (!slug) {
         return json(400, { message: 'slug is required' });
       }
-      const { shop, menu } = await getShopWithMenuBySlug(slug);
-      return json(200, { shop: mapShopToDTO(shop), menu });
+      const { shop } = await getShopWithMenuBySlug(slug);
+      return json(200, mapShopToDTO(shop));
     } catch (error: any) {
       return {
         status: error.status || 500,
