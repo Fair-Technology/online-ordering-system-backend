@@ -1,4 +1,4 @@
-import { ShopMember, ShopMemberRole } from '../domain/databaseTypes';
+import { ShopMember, ShopMemberRole } from '../domain/shop.entity';
 import {
   createShopMemberRepository,
   getShopMemberByIdRepository,

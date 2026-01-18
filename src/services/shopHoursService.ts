@@ -1,4 +1,4 @@
-import { ShopHours } from '../domain/databaseTypes';
+import { ShopHours } from '../domain/shop.entity';
 import {
   getShopHoursRepository,
   upsertShopHoursRepository,
@@ -25,4 +25,10 @@ export async function upsertShopHoursService(
     updatedAt: nowIso(),
   };
   return upsertShopHoursRepository(record);
+}
+
+export async function isShopOpenNow(shopId: string): Promise<boolean> {
+  // TODO: Implement real availability checks once store hours data is wired in.
+  void shopId;
+  return true;
 }

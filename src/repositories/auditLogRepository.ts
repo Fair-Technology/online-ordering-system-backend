@@ -1,5 +1,5 @@
 import { getContainer } from '../infrastructure/cosmosClient';
-import { AuditLog } from '../domain/databaseTypes';
+import { AuditLog } from '../domain/auditLog.entity';
 
 const auditLogContainer = getContainer('auditLogs');
 

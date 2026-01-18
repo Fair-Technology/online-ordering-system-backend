@@ -1,5 +1,5 @@
 import { getContainer } from '../infrastructure/cosmosClient';
-import { ProductCategory } from '../domain/databaseTypes';
+import { ProductCategory } from '../domain/category.entity';
 
 const categoriesContainer = getContainer('categories');
 

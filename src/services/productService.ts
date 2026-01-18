@@ -1,13 +1,13 @@
+import { Money } from '../domain/baseTypes';
+import { ProductCategory } from '../domain/category.entity';
 import {
   Product,
-  ProductCategory,
   ProductAddonGroup,
   ProductAddonOption,
   ProductVariantGroup,
   ProductVariantOption,
   ShopProductMap,
-  Money,
-} from '../domain/databaseTypes';
+} from '../domain/product.entity';
 import { hydrateProduct } from '../domain/product.hydrator';
 import {
   createProductRepository,
@@ -27,16 +27,16 @@ import {
 } from '../repositories/shopProductRepository';
 import { buildShopMenuDTO, ProductDTO } from '../domain/menu.dto';
 import { getCategoriesByNames } from '../repositories/categoryRepository';
-import { ProductResponse } from '../domain/responseTypes';
 import {
   CreateProductRequest,
   UpdateProductRequest,
-  ProductVariantGroupPayload,
-  ProductVariantPayload,
   ProductAddonGroupPayload,
   ProductAddonOptionPayload,
+  ProductResponse,
+  ProductVariantGroupPayload,
+  ProductVariantPayload,
   MoneyInput,
-} from '../domain/payloadTypes';
+} from '../domain/product.dto';
 
 export async function listProductsService(
   filters?: ProductListFilters,

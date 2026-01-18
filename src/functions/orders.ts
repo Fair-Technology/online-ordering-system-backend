@@ -5,30 +5,25 @@ import {
 } from '../domain/otherTypes';
 const { app } = require('@azure/functions');
 import { getContainer } from '../infrastructure/cosmosClient';
+import { Money } from '../domain/baseTypes';
 import {
-  Product,
-  Money,
   Order,
   OrderItem,
   OrderItemAddonSnapshot,
   OrderStatus,
-  Shop,
-  ShopProductMap,
-} from '../domain/databaseTypes';
-import { OrderItemPayload } from '../domain/payloadTypes';
+} from '../domain/order.entity';
+import { Shop } from '../domain/shop.entity';
+import { Product, ShopProductMap } from '../domain/product.entity';
+import { OrderItemPayload } from '../domain/order.dto';
 import {
+  canTransition,
   validateOrdersCreate,
   validateOrdersList,
   validateOrdersUpdateStatus,
-} from '../utils/businessLogic';
-import {
-  canTransition,
-  getActorUserId,
-  isShopOpenNow,
-  newId,
-  nowIso,
-  writeAuditLog,
-} from '../utils/general';
+} from '../services/orderValidation';
+import { isShopOpenNow } from '../services/shopHoursService';
+import { writeAuditLog } from '../services/auditLogService';
+import { getActorUserId, newId, nowIso } from '../utils/general';
 import { requireAuth } from '../utils/authMiddleware';
 
 type HttpRequest = HttpRequestLike;

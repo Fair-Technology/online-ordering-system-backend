@@ -1,5 +1,5 @@
 import { getContainer } from '../infrastructure/cosmosClient';
-import { User } from '../domain/databaseTypes';
+import { User } from '../domain/user.entity';
 
 const usersContainer = getContainer('users');
 

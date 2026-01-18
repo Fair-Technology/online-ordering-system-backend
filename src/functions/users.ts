@@ -13,9 +13,10 @@ import {
   listUsersService,
   updateUserService,
 } from '../services/userService';
+import { newId, readBody } from '../utils/general';
 import { requireAuth } from '../utils/authMiddleware'; // NEW: Import middleware
 import { getContainer } from '../infrastructure/cosmosClient';
-import { User } from '../domain/databaseTypes';
+import { User } from '../domain/user.entity';
 
 const usersContainer = getContainer('users');
 
@@ -101,7 +102,9 @@ app.http('usersUpdate', {
   authLevel: 'anonymous',
   route: 'users/{userId}',
   handler: async (req: HttpRequestLike): Promise<HttpResponseInitLike> => {
-    return {status: 500, body: 'Not Update available'};
+    return requireAuth(req, async () => {
+      return { status: 500, body: 'Not Update available' };
+    });
   },
 });
 

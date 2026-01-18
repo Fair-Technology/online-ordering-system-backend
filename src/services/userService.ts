@@ -1,4 +1,4 @@
-import { User } from '../domain/databaseTypes';
+import { User } from '../domain/user.entity';
 import { hydrateUser } from '../domain/user.hydrator';
 import {
   createUserRepository,

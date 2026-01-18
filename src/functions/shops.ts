@@ -6,7 +6,7 @@ import {
   json,
 } from '../domain/otherTypes';
 import { mapShopToDTO } from '../domain/shop.dto';
-import { ShopMemberRole, ShopMember } from '../domain/databaseTypes';
+import { ShopMemberRole, ShopMember } from '../domain/shop.entity';
 import {
   createShopService,
   deleteShopService,

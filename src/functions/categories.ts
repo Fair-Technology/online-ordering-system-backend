@@ -5,9 +5,8 @@ import {
   HttpResponseInitLike,
   json,
 } from '../domain/otherTypes';
-import { mapCategoryToDTO } from '../domain/category.dto';
+import { CategoryInput, mapCategoryToDTO } from '../domain/category.dto';
 import {
-  CategoryInput,
   createCategoryService,
   deleteCategoryService,
   getCategoryByIdService,

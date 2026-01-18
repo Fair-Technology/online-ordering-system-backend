@@ -1,5 +1,5 @@
 import { getContainer } from '../infrastructure/cosmosClient';
-import { Product } from '../domain/databaseTypes';
+import { Product } from '../domain/product.entity';
 
 const productsContainer = getContainer('products');
 

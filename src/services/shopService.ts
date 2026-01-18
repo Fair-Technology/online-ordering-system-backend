@@ -1,9 +1,4 @@
-import {
-  Shop,
-  ShopMember,
-  ShopMemberRole,
-  ShopStatus,
-} from '../domain/databaseTypes';
+import { Shop, ShopMember, ShopStatus } from '../domain/shop.entity';
 import {
   createShopRepository,
   deleteShopRepository,
@@ -18,34 +13,22 @@ import {
   listMembersByShopRepository,
 } from '../repositories/shopMemberRepository';
 import { newId, nowIso } from '../utils/general';
-import {
-  createAuditLogRepository,
-} from '../repositories/auditLogRepository';
+import { createAuditLogRepository } from '../repositories/auditLogRepository';
 import { getListingsForShop } from '../repositories/shopProductRepository';
 import { getProductsByIds } from '../repositories/productRepository';
 import { getCategoriesByNames } from '../repositories/categoryRepository';
 import { buildShopMenuDTO, ShopMenuDTO } from '../domain/menu.dto';
-import { mapShopToDTO, ShopDTO } from '../domain/shop.dto';
+import {
+  CreateShopRequest,
+  ManagedShopView,
+  UpdateShopRequest,
+} from '../domain/shop.dto';
+
+export type ShopInput = CreateShopRequest;
 
 export interface ShopFilters {
   status?: ShopStatus;
   acceptingOrders?: boolean;
-}
-
-export interface ShopInput {
-  name: string;
-  slug: string;
-  ownerUserId: string;
-  legalName?: string;
-  address?: string;
-  timezone?: string;
-  status?: ShopStatus;
-  acceptingOrders?: boolean;
-  paymentPolicy?: Shop['paymentPolicy'];
-  orderAcceptanceMode?: Shop['orderAcceptanceMode'];
-  allowGuestCheckout?: boolean;
-  fulfillmentOptions?: Partial<Shop['fulfillmentOptions']>;
-  defaultCurrency?: string;
 }
 
 export async function listShopsService(): Promise<Shop[]> {
@@ -134,7 +117,7 @@ export async function getShopByIdService(shopId: string): Promise<Shop> {
 
 export async function updateShopService(
   shopId: string,
-  input: Partial<ShopInput>,
+  input: UpdateShopRequest,
 ): Promise<Shop> {
   const existing = await getShopByIdService(shopId);
   const updated: Shop = {
@@ -216,14 +199,6 @@ export async function listShopMembersService(
   shopId: string,
 ): Promise<ShopMember[]> {
   return listMembersByShopRepository(shopId);
-}
-
-export interface ManagedShopView {
-  shopId: string;
-  name: string;
-  status: ShopStatus;
-  acceptingOrders: boolean;
-  role: ShopMemberRole;
 }
 
 export async function listManagedShopsService(

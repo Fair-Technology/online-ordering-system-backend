@@ -5,7 +5,7 @@ import {
   HttpResponseInitLike,
   json,
 } from '../domain/otherTypes';
-import { AuditLog, PrincipalRef } from '../domain/databaseTypes';
+import { AuditLog, PrincipalRef } from '../domain/auditLog.entity';
 import { getContainer } from '../infrastructure/cosmosClient';
 import { getActorUserId, newId, nowIso } from '../utils/general';
 import { requireAuth } from '../utils/authMiddleware';

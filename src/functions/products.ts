@@ -5,7 +5,10 @@ import {
   HttpResponseInitLike,
   json,
 } from '../domain/otherTypes';
-import { CreateProductRequest, UpdateProductRequest } from '../domain/payloadTypes';
+import {
+  CreateProductRequest,
+  UpdateProductRequest,
+} from '../domain/product.dto';
 import {
   createProductService,
   deleteProductService,

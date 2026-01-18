@@ -1,9 +1,5 @@
-import {
-  Product,
-  ProductCategory,
-  ShopProductMap,
-  Money,
-} from './databaseTypes';
+import { ProductCategory } from './category.entity';
+import { Product, ShopProductMap } from './product.entity';
 
 export interface ProductDTOCategory {
   id: string;

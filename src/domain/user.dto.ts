@@ -4,6 +4,10 @@ export interface UserDTO {
   id: string;
 }
 
+export interface UserCreatePayload {
+  id: string;
+}
+
 export function mapUserToDTO(user: UserEntity): UserDTO {
   return {
     id: user.id,

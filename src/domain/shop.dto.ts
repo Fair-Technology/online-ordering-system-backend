@@ -1,11 +1,15 @@
-import { Shop } from './databaseTypes';
-import { ShopResponse } from './responseTypes';
+import {
+  FulfillmentOptions,
+  Shop,
+  ShopMemberRole,
+  ShopStatus,
+} from './shop.entity';
 import { ShopEntity } from './shop.entity';
 
 export interface ShopDTO {
   id: string;
   name: string;
-  status: string;
+  status: ShopStatus;
   acceptingOrders: boolean;
   timezone?: string;
   address?: string;
@@ -36,29 +40,42 @@ export function mapShopToDTO(shop: ShopEntity): ShopDTO {
   };
 }
 
-export function applyShopDTOToEntity(
-  dto: ShopDTO,
-  current: ShopResponse,
-): Shop {
-  return {
-    ...current,
-    name: dto.name,
-    status: dto.status as Shop['status'],
-    acceptingOrders: dto.acceptingOrders,
-    timezone: dto.timezone,
-    address: dto.address,
-    fulfillmentOptions: {
-      ...current.fulfillmentOptions,
-      pickupEnabled: dto.fulfillment.pickupEnabled,
-      deliveryEnabled: dto.fulfillment.deliveryEnabled,
-      deliveryRadiusKm: dto.fulfillment.deliveryRadiusKm,
-      deliveryFee: dto.fulfillment.deliveryFee
-        ? {
-            amount: dto.fulfillment.deliveryFee,
-            currency: current.defaultCurrency,
-          }
-        : current.fulfillmentOptions.deliveryFee,
-    },
-    updatedAt: new Date().toISOString(),
-  };
+export interface ShopSettingsPayload {
+  name?: string;
+  slug?: string;
+  legalName?: string;
+  address?: string;
+  timezone?: string;
+  status?: ShopStatus;
+  acceptingOrders?: boolean;
+  paymentPolicy?: Shop['paymentPolicy'];
+  orderAcceptanceMode?: Shop['orderAcceptanceMode'];
+  allowGuestCheckout?: boolean;
+  fulfillmentOptions?: Partial<FulfillmentOptions>;
+  defaultCurrency?: string;
+}
+
+export interface CreateShopRequest extends ShopSettingsPayload {
+  ownerUserId: string;
+}
+
+export type UpdateShopRequest = ShopSettingsPayload;
+
+export interface ShopMemberInvitePayload {
+  userId: string;
+  role: ShopMemberRole;
+  invitedByUserId?: string;
+}
+
+export interface ShopMemberUpdatePayload {
+  role?: ShopMemberRole;
+  isActive?: boolean;
+}
+
+export interface ManagedShopView {
+  shopId: string;
+  name: string;
+  status: ShopStatus;
+  acceptingOrders: boolean;
+  role: ShopMemberRole;
 }

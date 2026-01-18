@@ -5,7 +5,7 @@ import {
   HttpResponseInitLike,
   json,
 } from '../domain/otherTypes';
-import { ShopHours } from '../domain/databaseTypes';
+import { ShopHours } from '../domain/shop.entity';
 import { getContainer } from '../infrastructure/cosmosClient';
 import { newId, nowIso } from '../utils/general';
 import { requireAuth } from '../utils/authMiddleware';

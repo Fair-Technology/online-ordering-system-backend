@@ -1,5 +1,5 @@
 import { getContainer } from '../infrastructure/cosmosClient';
-import { ShopHours } from '../domain/databaseTypes';
+import { ShopHours } from '../domain/shop.entity';
 
 const shopHoursContainer = getContainer('shopHours');
 

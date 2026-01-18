@@ -1,5 +1,6 @@
-import { ProductCategory } from '../domain/databaseTypes';
+import { ProductCategory } from '../domain/category.entity';
 import { hydrateCategory } from '../domain/category.hydrator';
+import { CategoryInput } from '../domain/category.dto';
 import {
   createCategoryRepository,
   deleteCategoryRepository,
@@ -22,14 +23,6 @@ export async function getCategoryByIdService(
     throw Object.assign(new Error('Category not found'), { status: 404 });
   }
   return hydrateCategory(category);
-}
-
-export interface CategoryInput {
-  name: string;
-  description?: string;
-  parentCategoryId?: string;
-  position?: number;
-  isActive?: boolean;
 }
 
 export async function createCategoryService(
