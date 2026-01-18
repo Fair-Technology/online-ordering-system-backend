@@ -43,8 +43,18 @@ export interface ProductDTO {
   addons: ProductDTOAddon[];
 }
 
+export interface MenuCategoryDTO {
+  id: string;
+  shopId?: string;
+  name: string;
+  description?: string;
+  position?: number;
+  isActive: boolean;
+  parentCategoryId?: string;
+}
+
 export interface ShopMenuDTO {
-  categories: ProductCategory[];
+  categories: MenuCategoryDTO[];
   products: ProductDTO[];
 }
 
@@ -109,8 +119,18 @@ export function buildShopMenuDTO(
     return mapProductToDTO(product, categoryDetails, listing);
   });
 
+  const categoryDTOs: MenuCategoryDTO[] = categories.map((category) => ({
+    id: category.id,
+    shopId: (category as { shopId?: string }).shopId,
+    name: category.name,
+    description: category.description,
+    position: category.position,
+    isActive: category.isActive,
+    parentCategoryId: category.parentCategoryId,
+  }));
+
   return {
-    categories,
+    categories: categoryDTOs,
     products: productDTOs,
   };
 }

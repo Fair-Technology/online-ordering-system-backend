@@ -207,7 +207,7 @@ const schemas = {
     properties: {
       categories: {
         type: 'array',
-        items: { $ref: '#/components/schemas/ProductCategory' },
+        items: { $ref: '#/components/schemas/MenuCategory' },
       },
       products: {
         type: 'array',
@@ -215,6 +215,19 @@ const schemas = {
       },
     },
     required: ['categories', 'products'],
+  },
+  MenuCategory: {
+    type: 'object',
+    properties: {
+      id: { type: 'string' },
+      shopId: { type: 'string' },
+      name: { type: 'string' },
+      description: { type: 'string' },
+      position: { type: 'number' },
+      isActive: { type: 'boolean' },
+      parentCategoryId: { type: 'string' },
+    },
+    required: ['id', 'name', 'isActive'],
   },
   ShopWithMenuResponse: {
     type: 'object',
