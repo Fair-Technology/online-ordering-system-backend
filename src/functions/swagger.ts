@@ -1911,9 +1911,7 @@ export const openApiDocument: Record<string, any> = {
     description:
       'Auto-generated specification derived from the Azure Functions in this repository. The schema reflects the DTOs currently returned by handlers and used by the frontend apiClient.',
   },
-  servers: [
-    { url: 'http://localhost:7071/api', description: 'Local development' },
-  ],
+  servers: [{ url: '/api', description: 'Relative API base' }],
   tags: [
     { name: 'Shops', description: 'Shop and menu management' },
     { name: 'Shop Members', description: 'Membership administration' },
