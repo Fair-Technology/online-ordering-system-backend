@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "npm run build && func start",
-    "dev": "concurrently \"npm run build:watch\" \"nodemon --watch dist --exec 'func start --port 7071'\"",
+    "dev": "concurrently \"npm run build:watch\" \"nodemon --watch dist --exec \\\"npx kill-port 7071 && func start --port 7071\\\"\"",
     "build:watch": "tsc -w -p tsconfig.json",
     "start:dist": "func start --script-root dist --port 7073"
   },
@@ -21,6 +21,7 @@
     "@types/node": "^20.9.1",
     "azure-functions-core-tools": "^4.0.0",
     "concurrently": "^9.2.1",
+    "kill-port": "^2.0.1",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.1",
     "typescript": "^5.5.6"
