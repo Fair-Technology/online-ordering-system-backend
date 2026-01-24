@@ -51,7 +51,7 @@ export async function getCategoriesByNames(
   const { resources } = await categoriesContainer.items
     .query<ProductCategory>({
       query:
-        'SELECT * FROM c WHERE ARRAY_CONTAINS(@names, c.name) AND c.isActive = true',
+        'SELECT * FROM c WHERE ARRAY_CONTAINS(@names, c.name) AND (c.isActive = true OR NOT IS_DEFINED(c.isActive))',
       parameters: [{ name: '@names', value: names }],
     })
     .fetchAll();
