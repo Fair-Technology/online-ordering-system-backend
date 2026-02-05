@@ -322,6 +322,19 @@ export const swaggerSpec = {
         properties: {
           slug: { type: 'string', description: 'Unique shop identifier' },
           name: { type: 'string', description: 'Shop name' },
+          isDeleted: {
+            type: 'boolean',
+            description: 'Whether shop is deleted',
+          },
+          acceptingOrders: {
+            type: 'boolean',
+            description: 'Whether shop is accepting orders',
+          },
+          isPaused: { type: 'boolean', description: 'Whether shop is paused' },
+          pausedMessage: {
+            type: 'string',
+            description: 'Message when shop is paused',
+          },
           currency: {
             type: 'string',
             example: 'AUD',
@@ -341,6 +354,11 @@ export const swaggerSpec = {
             enum: ['pay_online'],
             description: 'Payment policy',
           },
+          orderAcceptanceMode: {
+            type: 'string',
+            enum: ['auto'],
+            description: 'Order acceptance mode',
+          },
           allowGuestCheckout: {
             type: 'boolean',
             description: 'Allow guest checkout',
@@ -353,6 +371,104 @@ export const swaggerSpec = {
               state: { type: 'string' },
               postcode: { type: 'string' },
               country: { type: 'string' },
+            },
+          },
+          openingHours: {
+            type: 'object',
+            properties: {
+              mon: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    open: { type: 'string' },
+                    close: { type: 'string' },
+                  },
+                },
+              },
+              tue: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    open: { type: 'string' },
+                    close: { type: 'string' },
+                  },
+                },
+              },
+              wed: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    open: { type: 'string' },
+                    close: { type: 'string' },
+                  },
+                },
+              },
+              thu: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    open: { type: 'string' },
+                    close: { type: 'string' },
+                  },
+                },
+              },
+              fri: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    open: { type: 'string' },
+                    close: { type: 'string' },
+                  },
+                },
+              },
+              sat: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    open: { type: 'string' },
+                    close: { type: 'string' },
+                  },
+                },
+              },
+              sun: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    open: { type: 'string' },
+                    close: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          closures: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                start: { type: 'string', format: 'date-time' },
+                end: { type: 'string', format: 'date-time' },
+                reason: { type: 'string' },
+              },
+            },
+          },
+          members: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                userId: { type: 'string' },
+                role: { type: 'string', enum: ['owner', 'staff'] },
+                isActive: { type: 'boolean' },
+              },
             },
           },
         },
