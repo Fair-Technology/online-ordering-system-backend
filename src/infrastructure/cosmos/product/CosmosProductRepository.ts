@@ -1,0 +1,57 @@
+import { ProductRepository } from '../../../domain/product/ProductRepository';
+import { Product } from '../../../domain/product/Product';
+import { productContainer } from '../cosmosClient';
+
+export class CosmosProductRepository implements ProductRepository {
+  async findById(productId: string, shopId: string): Promise<Product | null> {
+    try {
+      const { resource } = await productContainer.item(productId, shopId).read<Product>();
+      return resource || null;
+    } catch (error: any) {
+      if (error.code === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  async findByShopId(shopId: string): Promise<Product[]> {
+    try {
+      const querySpec = {
+        query: 'SELECT * FROM c WHERE c.shopId = @shopId AND c.isDeleted = false',
+        parameters: [{ name: '@shopId', value: shopId }]
+      };
+      
+      const { resources } = await productContainer.items.query<Product>(querySpec).fetchAll();
+      return resources || [];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async create(product: Product): Promise<Product> {
+    try {
+      const { resource } = await productContainer.items.create<Product>(product);
+      return resource!;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async update(product: Product): Promise<Product> {
+    try {
+      const { resource } = await productContainer.item(product.id, product.shopId).replace<Product>(product);
+      return resource!;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async delete(productId: string, shopId: string): Promise<void> {
+    try {
+      await productContainer.item(productId, shopId).delete();
+    } catch (error) {
+      throw error;
+    }
+  }
+}

@@ -2,16 +2,11 @@ export interface GetShopRequestDto {
   shopId: string;
 }
 
-export interface ShopDto {
+export interface GetShopResultDto {
   id: string;
-  shopId: string;
+  slug: string;
   name: string;
-  description?: string;
-  isActive: boolean;
+  isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface GetShopResultDto {
-  shop: ShopDto;
 }
