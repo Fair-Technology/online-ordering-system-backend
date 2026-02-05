@@ -17,6 +17,22 @@ export class CosmosShopRepository implements ShopRepository {
     }
   }
 
+  async findBySlug(slug: string): Promise<Shop | null> {
+    try {
+      const querySpec = {
+        query: 'SELECT * FROM c WHERE c.slug = @slug AND c.isDeleted = false',
+        parameters: [{ name: '@slug', value: slug }],
+      };
+
+      const { resources } = await shopContainer.items
+        .query<Shop>(querySpec)
+        .fetchAll();
+      return resources && resources.length > 0 ? resources[0] : null;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async create(shop: Shop): Promise<Shop> {
     try {
       const { resource } = await shopContainer.items.create<Shop>(shop);

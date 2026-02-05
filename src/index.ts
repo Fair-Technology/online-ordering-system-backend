@@ -3,6 +3,7 @@
 
 // Shop endpoints
 import './functions/shop/getShop/index';
+import './functions/shop/getShopBySlug/index';
 import './functions/shop/createShop/index';
 import './functions/shop/updateShop/index';
 import './functions/shop/deleteShop/index';

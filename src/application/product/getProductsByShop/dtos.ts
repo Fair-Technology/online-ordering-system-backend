@@ -14,6 +14,4 @@ export interface ProductDto {
   updatedAt: string;
 }
 
-export interface GetProductsByShopResultDto {
-  products: ProductDto[];
-}
+export type GetProductsByShopResultDto = ProductDto[];

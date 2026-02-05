@@ -39,6 +39,33 @@ export const swaggerSpec = {
         },
       },
     },
+    '/shops/slug/{slug}': {
+      get: {
+        summary: 'Get shop by slug',
+        tags: ['Shops'],
+        parameters: [
+          {
+            name: 'slug',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop slug (public identifier)',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Shop retrieved successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ShopResponse' },
+              },
+            },
+          },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
     '/shops/{shopId}': {
       get: {
         summary: 'Get shop by ID',
@@ -498,13 +525,8 @@ export const swaggerSpec = {
         },
       },
       ProductsResponse: {
-        type: 'object',
-        properties: {
-          products: {
-            type: 'array',
-            items: { $ref: '#/components/schemas/ProductResponse' },
-          },
-        },
+        type: 'array',
+        items: { $ref: '#/components/schemas/ProductResponse' },
       },
       DeleteResponse: {
         type: 'object',
