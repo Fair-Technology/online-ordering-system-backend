@@ -8,8 +8,8 @@ export const swaggerSpec = {
   },
   servers: [
     {
-      url: 'http://localhost:7071/api',
-      description: 'Development server',
+      url: '/api',
+      description: 'API base',
     },
   ],
   paths: {
