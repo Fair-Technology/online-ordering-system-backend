@@ -5,7 +5,7 @@ This project includes comprehensive Swagger/OpenAPI documentation for all CRUD e
 ## Accessing Swagger Documentation
 
 ### Swagger UI (Interactive Documentation)
-- **URL**: `http://localhost:7072/api/swagger`
+- **URL**: `http://localhost:7071/api/swagger`
 - **Description**: Interactive web interface to explore and test all API endpoints
 - **Features**:
   - Browse all available endpoints
@@ -14,7 +14,7 @@ This project includes comprehensive Swagger/OpenAPI documentation for all CRUD e
   - See example requests and responses
 
 ### Swagger JSON Specification
-- **URL**: `http://localhost:7072/api/swagger.json`
+- **URL**: `http://localhost:7071/api/swagger.json`
 - **Description**: Raw OpenAPI 3.0 specification in JSON format
 - **Use Cases**:
   - Import into API testing tools (Postman, Insomnia)
@@ -38,12 +38,12 @@ This project includes comprehensive Swagger/OpenAPI documentation for all CRUD e
 
 ## Features
 
-✅ **Complete API Coverage**: All CRUD endpoints documented  
-✅ **Request/Response Schemas**: Detailed data models for all operations  
-✅ **Parameter Documentation**: Path parameters, query parameters, and request bodies  
-✅ **Error Response Documentation**: Standard error responses (400, 404, 500)  
-✅ **Interactive Testing**: Try out endpoints directly from Swagger UI  
-✅ **CORS Enabled**: Cross-origin requests supported for development  
+✅ **Complete API Coverage**: All CRUD endpoints documented
+✅ **Request/Response Schemas**: Detailed data models for all operations
+✅ **Parameter Documentation**: Path parameters, query parameters, and request bodies
+✅ **Error Response Documentation**: Standard error responses (400, 404, 500)
+✅ **Interactive Testing**: Try out endpoints directly from Swagger UI
+✅ **CORS Enabled**: Cross-origin requests supported for development
 
 ## Development
 
@@ -55,7 +55,7 @@ The Swagger documentation is automatically updated when you modify the API endpo
 ## Usage Examples
 
 ### Testing with Swagger UI
-1. Open `http://localhost:7072/api/swagger` in your browser
+1. Open `http://localhost:7071/api/swagger` in your browser
 2. Expand any endpoint section
 3. Click "Try it out"
 4. Fill in the required parameters
@@ -64,5 +64,5 @@ The Swagger documentation is automatically updated when you modify the API endpo
 ### Importing into Postman
 1. Open Postman
 2. Click "Import"
-3. Enter URL: `http://localhost:7072/api/swagger.json`
+3. Enter URL: `http://localhost:7071/api/swagger.json`
 4. All endpoints will be imported as a collection
