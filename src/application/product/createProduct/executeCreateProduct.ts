@@ -1,25 +1,37 @@
 import { CosmosProductRepository } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
+import { CosmosCategoryRepository } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { CreateProductRequestDto, CreateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Product } from '../../../domain/product/Product';
 
 const productRepository = new CosmosProductRepository();
+const categoryRepository = new CosmosCategoryRepository();
 
-export async function executeCreateProduct(request: CreateProductRequestDto): Promise<ApplicationResult<CreateProductResultDto>> {
+export async function executeCreateProduct(
+  request: CreateProductRequestDto,
+): Promise<ApplicationResult<CreateProductResultDto>> {
   // Validate input
-  if (!request.shopId || typeof request.shopId !== 'string' || request.shopId.trim() === '') {
+  if (
+    !request.shopId ||
+    typeof request.shopId !== 'string' ||
+    request.shopId.trim() === ''
+  ) {
     return {
       ok: false,
       code: 'INVALID_INPUT',
-      error: 'shopId is required and must be a non-empty string'
+      error: 'shopId is required and must be a non-empty string',
     };
   }
 
-  if (!request.name || typeof request.name !== 'string' || request.name.trim() === '') {
+  if (
+    !request.name ||
+    typeof request.name !== 'string' ||
+    request.name.trim() === ''
+  ) {
     return {
       ok: false,
       code: 'INVALID_INPUT',
-      error: 'name is required and must be a non-empty string'
+      error: 'name is required and must be a non-empty string',
     };
   }
 
@@ -27,7 +39,7 @@ export async function executeCreateProduct(request: CreateProductRequestDto): Pr
     return {
       ok: false,
       code: 'INVALID_INPUT',
-      error: 'description is required and must be a string'
+      error: 'description is required and must be a string',
     };
   }
 
@@ -35,8 +47,46 @@ export async function executeCreateProduct(request: CreateProductRequestDto): Pr
     return {
       ok: false,
       code: 'INVALID_INPUT',
-      error: 'price is required and must be a non-negative number'
+      error: 'price is required and must be a non-negative number',
     };
+  }
+
+  // Validate categoryIds if provided
+  if (request.categoryIds && request.categoryIds.length > 0) {
+    // De-duplicate categoryIds
+    const uniqueCategoryIds = [...new Set(request.categoryIds)];
+
+    // Validate each categoryId
+    const invalidCategoryIds: string[] = [];
+
+    for (const categoryId of uniqueCategoryIds) {
+      try {
+        const category = await categoryRepository.findById(
+          categoryId,
+          request.shopId.trim(),
+        );
+        if (
+          !category ||
+          category.isDeleted ||
+          category.shopId !== request.shopId.trim()
+        ) {
+          invalidCategoryIds.push(categoryId);
+        }
+      } catch (error) {
+        invalidCategoryIds.push(categoryId);
+      }
+    }
+
+    if (invalidCategoryIds.length > 0) {
+      return {
+        ok: false,
+        code: 'INVALID_INPUT',
+        error: `Invalid category IDs: ${invalidCategoryIds.join(', ')}. Categories must exist, be active, and belong to the same shop.`,
+      };
+    }
+
+    // Update request with de-duplicated categoryIds
+    request.categoryIds = uniqueCategoryIds;
   }
 
   try {
@@ -58,7 +108,7 @@ export async function executeCreateProduct(request: CreateProductRequestDto): Pr
       isAvailable: request.isAvailable ?? true,
       isDeleted: false,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
 
     const createdProduct = await productRepository.create(product);
@@ -72,18 +122,18 @@ export async function executeCreateProduct(request: CreateProductRequestDto): Pr
       isAvailable: createdProduct.isAvailable,
       isDeleted: createdProduct.isDeleted,
       createdAt: createdProduct.createdAt,
-      updatedAt: createdProduct.updatedAt
+      updatedAt: createdProduct.updatedAt,
     };
 
     return {
       ok: true,
-      data: resultDto
+      data: resultDto,
     };
   } catch (error) {
     return {
       ok: false,
       code: 'INTERNAL_ERROR',
-      error: 'Failed to create product'
+      error: 'Failed to create product',
     };
   }
 }

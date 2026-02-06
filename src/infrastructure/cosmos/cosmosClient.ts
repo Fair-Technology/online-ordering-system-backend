@@ -8,9 +8,13 @@ const key =
 const databaseId = process.env.COSMOS_DB_ID || 'test-db';
 const shopContainerId = process.env.COSMOS_SHOP_CONTAINER || 'shops';
 const productContainerId = process.env.COSMOS_PRODUCT_CONTAINER || 'products';
+const categoryContainerId =
+  process.env.COSMOS_CATEGORY_CONTAINER || 'categories';
 
 export const cosmosClient = new CosmosClient({ endpoint, key });
 export const database: Database = cosmosClient.database(databaseId);
 export const shopContainer: Container = database.container(shopContainerId);
 export const productContainer: Container =
   database.container(productContainerId);
+export const categoryContainer: Container =
+  database.container(categoryContainerId);

@@ -15,6 +15,13 @@ import './functions/product/createProduct/index';
 import './functions/product/updateProduct/index';
 import './functions/product/deleteProduct/index';
 
+// Category endpoints
+import './functions/category/getCategoriesByShop/index';
+import './functions/category/getCategory/index';
+import './functions/category/createCategory/index';
+import './functions/category/updateCategory/index';
+import './functions/category/deleteCategory/index';
+
 // Swagger endpoints
 import './functions/swagger/swaggerJson/index';
 import './functions/swagger/swaggerUi/index';
