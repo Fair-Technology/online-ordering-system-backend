@@ -1,0 +1,17 @@
+{
+  "shopId": "3120b85e-fed1-4329-a97e-a306480cdaf1",
+  "name": "Chicken Wings",
+  "description": "Crispy chicken wings with buffalo sauce",
+  "price": 1450,
+  "sortOrder": 1,
+  "categoryIds": ["d39ae618-4401-470d-b70e-97c827ce279a"],
+  "images": [
+    {
+      "id": "img-wings",
+      "url": "https://example.com/wings.jpg",
+      "isPrimary": true
+    }
+  ],
+  "allergyInfo": [],
+  "isAvailable": true
+}

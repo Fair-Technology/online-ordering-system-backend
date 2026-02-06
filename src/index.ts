@@ -1,29 +1,27 @@
-import { ensureContainerExists } from './infrastructure/cosmosClient';
+// Entry point for Azure Functions v4
+// This file imports all function definitions to register them with the runtime
 
-const requiredContainers = [
-  'users',
-  'shops',
-  'shopMembers',
-  'shopHours',
-  'categories',
-  'products',
-  'shopProducts',
-  'orders',
-  'auditLogs',
-];
+// Shop endpoints
+import './functions/shop/getShop/index';
+import './functions/shop/getShopBySlug/index';
+import './functions/shop/createShop/index';
+import './functions/shop/updateShop/index';
+import './functions/shop/deleteShop/index';
 
-(async () => {
-  // Ensure necessary containers exist at startup
-  await Promise.all(requiredContainers.map((id) => ensureContainerExists(id)));
-})();
+// Product endpoints
+import './functions/product/getProductsByShop/index';
+import './functions/product/getProduct/index';
+import './functions/product/createProduct/index';
+import './functions/product/updateProduct/index';
+import './functions/product/deleteProduct/index';
 
-// Register Azure Function HTTP triggers by requiring their modules so they execute on load
-require('./functions/auditLogs');
-require('./functions/categories');
-require('./functions/orders');
-require('./functions/products');
-require('./functions/shopHours');
-require('./functions/shopMembers');
-require('./functions/shops');
-require('./functions/users');
-require('./functions/swagger');
+// Category endpoints
+import './functions/category/getCategoriesByShop/index';
+import './functions/category/getCategory/index';
+import './functions/category/createCategory/index';
+import './functions/category/updateCategory/index';
+import './functions/category/deleteCategory/index';
+
+// Swagger endpoints
+import './functions/swagger/swaggerJson/index';
+import './functions/swagger/swaggerUi/index';

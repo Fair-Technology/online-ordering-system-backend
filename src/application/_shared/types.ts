@@ -1,0 +1,12 @@
+export interface ApplicationError {
+  ok: false;
+  code: string;
+  error: string;
+}
+
+export interface ApplicationSuccess<T = any> {
+  ok: true;
+  data: T;
+}
+
+export type ApplicationResult<T = any> = ApplicationSuccess<T> | ApplicationError;

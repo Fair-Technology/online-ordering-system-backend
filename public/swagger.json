@@ -1,0 +1,956 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Online Ordering System API",
+    "version": "1.0.0",
+    "description": "REST API for managing shops and products in an online ordering system"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:7071/api",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/shops": {
+      "post": {
+        "summary": "Create a new shop",
+        "tags": ["Shops"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShopRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Shop created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/shops/slug/{slug}": {
+      "get": {
+        "summary": "Get shop by slug",
+        "tags": ["Shops"],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Shop slug (public identifier)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shop retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/shops/{shopId}": {
+      "get": {
+        "summary": "Get shop by ID",
+        "tags": ["Shops"],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Shop ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shop retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update shop",
+        "tags": ["Shops"],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Shop ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateShopRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Shop updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete shop (soft delete)",
+        "tags": ["Shops"],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Shop ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shop deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "summary": "Get products by shop",
+        "tags": ["Products"],
+        "parameters": [
+          {
+            "name": "shopId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Shop ID to filter products"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Products retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new product",
+        "tags": ["Products"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Product created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/products/{productId}": {
+      "get": {
+        "summary": "Get product by ID",
+        "tags": ["Products"],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Product ID"
+          },
+          {
+            "name": "shopId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Shop ID (required for partition key)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update product",
+        "tags": ["Products"],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Product ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Product updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete product (soft delete)",
+        "tags": ["Products"],
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Product ID"
+          },
+          {
+            "name": "shopId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Shop ID (required for partition key)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateShopRequest": {
+        "type": "object",
+        "required": [
+          "slug",
+          "name",
+          "currency",
+          "timezone",
+          "minOrderAmountCents",
+          "paymentPolicy",
+          "allowGuestCheckout"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "Unique shop identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Shop name"
+          },
+          "isDeleted": {
+            "type": "boolean",
+            "description": "Whether shop is deleted"
+          },
+          "acceptingOrders": {
+            "type": "boolean",
+            "description": "Whether shop is accepting orders"
+          },
+          "isPaused": {
+            "type": "boolean",
+            "description": "Whether shop is paused"
+          },
+          "pausedMessage": {
+            "type": "string",
+            "description": "Message when shop is paused"
+          },
+          "currency": {
+            "type": "string",
+            "example": "AUD",
+            "description": "Shop currency"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "Australia/Sydney",
+            "description": "Shop timezone"
+          },
+          "minOrderAmountCents": {
+            "type": "number",
+            "description": "Minimum order amount in cents"
+          },
+          "paymentPolicy": {
+            "type": "string",
+            "enum": ["pay_online"],
+            "description": "Payment policy"
+          },
+          "orderAcceptanceMode": {
+            "type": "string",
+            "enum": ["auto"],
+            "description": "Order acceptance mode"
+          },
+          "allowGuestCheckout": {
+            "type": "boolean",
+            "description": "Allow guest checkout"
+          },
+          "address": {
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "postcode": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              }
+            }
+          },
+          "openingHours": {
+            "type": "object",
+            "properties": {
+              "mon": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": {
+                      "type": "string"
+                    },
+                    "close": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "tue": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": {
+                      "type": "string"
+                    },
+                    "close": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "wed": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": {
+                      "type": "string"
+                    },
+                    "close": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "thu": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": {
+                      "type": "string"
+                    },
+                    "close": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "fri": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": {
+                      "type": "string"
+                    },
+                    "close": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "sat": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": {
+                      "type": "string"
+                    },
+                    "close": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "sun": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "open": {
+                      "type": "string"
+                    },
+                    "close": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "closures": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "userId": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": ["owner", "staff"]
+                },
+                "isActive": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "UpdateShopRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Shop name"
+          },
+          "acceptingOrders": {
+            "type": "boolean",
+            "description": "Whether shop is accepting orders"
+          },
+          "isPaused": {
+            "type": "boolean",
+            "description": "Whether shop is paused"
+          },
+          "pausedMessage": {
+            "type": "string",
+            "description": "Message when shop is paused"
+          },
+          "paymentPolicy": {
+            "type": "string",
+            "enum": ["pay_online"],
+            "description": "Payment policy"
+          },
+          "allowGuestCheckout": {
+            "type": "boolean",
+            "description": "Allow guest checkout"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Shop currency"
+          },
+          "timezone": {
+            "type": "string",
+            "description": "Shop timezone"
+          },
+          "minOrderAmountCents": {
+            "type": "number",
+            "description": "Minimum order amount in cents"
+          },
+          "address": {
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "postcode": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ShopResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Shop ID"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Shop slug"
+          },
+          "name": {
+            "type": "string",
+            "description": "Shop name"
+          },
+          "isDeleted": {
+            "type": "boolean",
+            "description": "Whether shop is deleted"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp"
+          }
+        }
+      },
+      "CreateProductRequest": {
+        "type": "object",
+        "required": ["shopId", "name", "description", "price"],
+        "properties": {
+          "shopId": {
+            "type": "string",
+            "description": "Shop ID that owns this product"
+          },
+          "name": {
+            "type": "string",
+            "description": "Product name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Product description"
+          },
+          "price": {
+            "type": "number",
+            "description": "Product price in cents"
+          },
+          "sortOrder": {
+            "type": "number",
+            "description": "Sort order for display"
+          },
+          "categoryIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Category IDs"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "isPrimary": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "allergyInfo": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allergy information"
+          },
+          "isAvailable": {
+            "type": "boolean",
+            "description": "Whether product is available"
+          }
+        }
+      },
+      "UpdateProductRequest": {
+        "type": "object",
+        "properties": {
+          "shopId": {
+            "type": "string",
+            "description": "Shop ID (required for partition key)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Product name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Product description"
+          },
+          "price": {
+            "type": "number",
+            "description": "Product price in cents"
+          },
+          "sortOrder": {
+            "type": "number",
+            "description": "Sort order for display"
+          },
+          "categoryIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Category IDs"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "isPrimary": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "allergyInfo": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Allergy information"
+          },
+          "isAvailable": {
+            "type": "boolean",
+            "description": "Whether product is available"
+          }
+        }
+      },
+      "ProductResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Product ID"
+          },
+          "shopId": {
+            "type": "string",
+            "description": "Shop ID"
+          },
+          "name": {
+            "type": "string",
+            "description": "Product name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Product description"
+          },
+          "price": {
+            "type": "number",
+            "description": "Product price in cents"
+          },
+          "isAvailable": {
+            "type": "boolean",
+            "description": "Whether product is available"
+          },
+          "isDeleted": {
+            "type": "boolean",
+            "description": "Whether product is deleted"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp"
+          }
+        }
+      },
+      "ProductsResponse": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ProductResponse"
+        }
+      },
+      "DeleteResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether deletion was successful"
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Bad request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
