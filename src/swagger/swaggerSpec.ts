@@ -152,6 +152,173 @@ export const swaggerSpec = {
         },
       },
     },
+    '/shops/{shopId}/categories': {
+      get: {
+        summary: 'Get categories by shop',
+        tags: ['Categories'],
+        parameters: [
+          {
+            name: 'shopId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Categories retrieved successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CategoriesResponse' },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+      post: {
+        summary: 'Create a new category',
+        tags: ['Categories'],
+        parameters: [
+          {
+            name: 'shopId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateCategoryRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Category created successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CategoryResponse' },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
+    '/shops/{shopId}/categories/{categoryId}': {
+      get: {
+        summary: 'Get category by ID',
+        tags: ['Categories'],
+        parameters: [
+          {
+            name: 'shopId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop ID',
+          },
+          {
+            name: 'categoryId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Category ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Category retrieved successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CategoryResponse' },
+              },
+            },
+          },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+      patch: {
+        summary: 'Update category',
+        tags: ['Categories'],
+        parameters: [
+          {
+            name: 'shopId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop ID',
+          },
+          {
+            name: 'categoryId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Category ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UpdateCategoryRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Category updated successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CategoryResponse' },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+      delete: {
+        summary: 'Delete category (soft delete)',
+        tags: ['Categories'],
+        parameters: [
+          {
+            name: 'shopId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop ID',
+          },
+          {
+            name: 'categoryId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Category ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Category deleted successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CategoryResponse' },
+              },
+            },
+          },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
     '/products': {
       get: {
         summary: 'Get products by shop',
@@ -535,6 +702,57 @@ export const swaggerSpec = {
           },
         },
       },
+      CreateCategoryRequest: {
+        type: 'object',
+        required: ['name', 'slug'],
+        properties: {
+          name: { type: 'string', description: 'Category name' },
+          slug: {
+            type: 'string',
+            description: 'Unique category identifier within shop',
+          },
+          sortOrder: { type: 'number', description: 'Sort order for display' },
+        },
+      },
+      UpdateCategoryRequest: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Category name' },
+          slug: {
+            type: 'string',
+            description: 'Unique category identifier within shop',
+          },
+          sortOrder: { type: 'number', description: 'Sort order for display' },
+        },
+      },
+      CategoryResponse: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Category ID' },
+          shopId: { type: 'string', description: 'Shop ID' },
+          name: { type: 'string', description: 'Category name' },
+          slug: { type: 'string', description: 'Category slug' },
+          sortOrder: { type: 'number', description: 'Sort order for display' },
+          isDeleted: {
+            type: 'boolean',
+            description: 'Whether category is deleted',
+          },
+          createdAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Creation timestamp',
+          },
+          updatedAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Last update timestamp',
+          },
+        },
+      },
+      CategoriesResponse: {
+        type: 'array',
+        items: { $ref: '#/components/schemas/CategoryResponse' },
+      },
       CreateProductRequest: {
         type: 'object',
         required: ['shopId', 'name', 'description', 'price'],
@@ -619,7 +837,110 @@ export const swaggerSpec = {
           shopId: { type: 'string', description: 'Shop ID' },
           name: { type: 'string', description: 'Product name' },
           description: { type: 'string', description: 'Product description' },
+          sortOrder: { type: 'number', description: 'Sort order for display' },
           price: { type: 'number', description: 'Product price in cents' },
+          categories: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'Category ID' },
+                name: { type: 'string', description: 'Category name' },
+                slug: { type: 'string', description: 'Category slug' },
+                sortOrder: {
+                  type: 'number',
+                  description: 'Category sort order',
+                },
+              },
+            },
+            description: 'Product categories with full details',
+          },
+          images: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'Image ID' },
+                url: { type: 'string', description: 'Image URL' },
+                isPrimary: {
+                  type: 'boolean',
+                  description: 'Whether this is the primary image',
+                },
+              },
+            },
+            description: 'Product images',
+          },
+          allergyInfo: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Allergy information',
+          },
+          variantGroups: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'Variant group ID' },
+                name: { type: 'string', description: 'Variant group name' },
+                options: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string', description: 'Option ID' },
+                      name: { type: 'string', description: 'Option name' },
+                      priceDelta: {
+                        type: 'number',
+                        description: 'Price difference in cents',
+                      },
+                      isAvailable: {
+                        type: 'boolean',
+                        description: 'Whether option is available',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            description: 'Product variant groups (optional)',
+          },
+          addonGroups: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'Addon group ID' },
+                name: { type: 'string', description: 'Addon group name' },
+                minSelectable: {
+                  type: 'number',
+                  description: 'Minimum selectable options',
+                },
+                maxSelectable: {
+                  type: 'number',
+                  description: 'Maximum selectable options',
+                },
+                options: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string', description: 'Option ID' },
+                      name: { type: 'string', description: 'Option name' },
+                      priceDelta: {
+                        type: 'number',
+                        description: 'Price difference in cents',
+                      },
+                      isAvailable: {
+                        type: 'boolean',
+                        description: 'Whether option is available',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            description: 'Product addon groups (optional)',
+          },
           isAvailable: {
             type: 'boolean',
             description: 'Whether product is available',
