@@ -1,8 +1,6 @@
-import { CosmosShopRepository } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { GetShopRequestDto, GetShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-
-const shopRepository = new CosmosShopRepository();
 
 export async function executeGetShop(
   request: GetShopRequestDto,
@@ -21,7 +19,7 @@ export async function executeGetShop(
   }
 
   try {
-    const shop = await shopRepository.findById(request.shopId.trim());
+    const shop = await findShopById(request.shopId.trim());
 
     if (!shop) {
       return {

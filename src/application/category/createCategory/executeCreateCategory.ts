@@ -1,9 +1,10 @@
-import { CosmosCategoryRepository } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import {
+  createCategory as createCategoryInRepo,
+  findCategoryBySlugAndShopId,
+} from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { CreateCategoryRequestDto, CreateCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Category } from '../../../domain/category/Category';
-
-const categoryRepository = new CosmosCategoryRepository();
 
 export async function executeCreateCategory(
   request: CreateCategoryRequestDto,
@@ -47,9 +48,9 @@ export async function executeCreateCategory(
 
   try {
     // Check if slug already exists in this shop
-    const existingCategory = await categoryRepository.findBySlugAndShopId(
+    const existingCategory = await findCategoryBySlugAndShopId(
       request.slug.trim(),
-      request.shopId.trim()
+      request.shopId.trim(),
     );
     if (existingCategory) {
       return {
@@ -73,7 +74,7 @@ export async function executeCreateCategory(
       updatedAt: now,
     };
 
-    const createdCategory = await categoryRepository.create(category);
+    const createdCategory = await createCategoryInRepo(category);
 
     const resultDto: CreateCategoryResultDto = {
       id: createdCategory.id,
@@ -99,7 +100,7 @@ export async function executeCreateCategory(
         error: 'A category with this slug already exists in this shop',
       };
     }
-    
+
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

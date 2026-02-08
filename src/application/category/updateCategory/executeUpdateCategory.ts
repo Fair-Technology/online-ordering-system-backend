@@ -1,8 +1,10 @@
-import { CosmosCategoryRepository } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import {
+  findCategoryById,
+  findCategoryBySlugAndShopId,
+  updateCategory as updateCategoryInRepo,
+} from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { UpdateCategoryRequestDto, UpdateCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-
-const categoryRepository = new CosmosCategoryRepository();
 
 export async function executeUpdateCategory(
   request: UpdateCategoryRequestDto,
@@ -33,9 +35,9 @@ export async function executeUpdateCategory(
   }
 
   try {
-    const existingCategory = await categoryRepository.findById(
+    const existingCategory = await findCategoryById(
       request.categoryId.trim(),
-      request.shopId.trim()
+      request.shopId.trim(),
     );
 
     if (!existingCategory) {
@@ -48,9 +50,9 @@ export async function executeUpdateCategory(
 
     // Check slug uniqueness if slug is being updated
     if (request.slug && request.slug.trim() !== existingCategory.slug) {
-      const categoryWithSlug = await categoryRepository.findBySlugAndShopId(
+      const categoryWithSlug = await findCategoryBySlugAndShopId(
         request.slug.trim(),
-        request.shopId.trim()
+        request.shopId.trim(),
       );
       if (categoryWithSlug && categoryWithSlug.id !== existingCategory.id) {
         return {
@@ -67,11 +69,14 @@ export async function executeUpdateCategory(
       ...existingCategory,
       name: request.name?.trim() || existingCategory.name,
       slug: request.slug?.trim() || existingCategory.slug,
-      sortOrder: request.sortOrder !== undefined ? request.sortOrder : existingCategory.sortOrder,
+      sortOrder:
+        request.sortOrder !== undefined
+          ? request.sortOrder
+          : existingCategory.sortOrder,
       updatedAt: now,
     };
 
-    const savedCategory = await categoryRepository.update(updatedCategory);
+    const savedCategory = await updateCategoryInRepo(updatedCategory);
 
     const resultDto: UpdateCategoryResultDto = {
       id: savedCategory.id,
@@ -97,7 +102,7 @@ export async function executeUpdateCategory(
         error: 'A category with this slug already exists in this shop',
       };
     }
-    
+
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

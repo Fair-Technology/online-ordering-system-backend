@@ -1,11 +1,8 @@
-import { CosmosProductRepository } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
-import { CosmosCategoryRepository } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { createProduct as createProductInRepo } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
+import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { CreateProductRequestDto, CreateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Product } from '../../../domain/product/Product';
-
-const productRepository = new CosmosProductRepository();
-const categoryRepository = new CosmosCategoryRepository();
 
 export async function executeCreateProduct(
   request: CreateProductRequestDto,
@@ -61,7 +58,7 @@ export async function executeCreateProduct(
 
     for (const categoryId of uniqueCategoryIds) {
       try {
-        const category = await categoryRepository.findById(
+        const category = await findCategoryById(
           categoryId,
           request.shopId.trim(),
         );
@@ -111,7 +108,7 @@ export async function executeCreateProduct(
       updatedAt: now,
     };
 
-    const createdProduct = await productRepository.create(product);
+    const createdProduct = await createProductInRepo(product);
 
     const resultDto: CreateProductResultDto = {
       id: createdProduct.id,

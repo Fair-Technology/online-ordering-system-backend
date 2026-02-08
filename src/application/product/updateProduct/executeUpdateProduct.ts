@@ -1,10 +1,10 @@
-import { CosmosProductRepository } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
-import { CosmosCategoryRepository } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import {
+  findProductById,
+  updateProduct as updateProductInRepo,
+} from '../../../infrastructure/cosmos/product/CosmosProductRepository';
+import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { UpdateProductRequestDto, UpdateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-
-const productRepository = new CosmosProductRepository();
-const categoryRepository = new CosmosCategoryRepository();
 
 export async function executeUpdateProduct(
   request: UpdateProductRequestDto,
@@ -35,7 +35,7 @@ export async function executeUpdateProduct(
   }
 
   try {
-    const product = await productRepository.findById(
+    const product = await findProductById(
       request.productId.trim(),
       request.shopId.trim(),
     );
@@ -58,7 +58,7 @@ export async function executeUpdateProduct(
 
       for (const categoryId of uniqueCategoryIds) {
         try {
-          const category = await categoryRepository.findById(
+          const category = await findCategoryById(
             categoryId,
             request.shopId.trim(),
           );
@@ -114,7 +114,7 @@ export async function executeUpdateProduct(
       updatedAt: new Date().toISOString(),
     };
 
-    const result = await productRepository.update(updatedProduct);
+    const result = await updateProductInRepo(updatedProduct);
 
     const resultDto: UpdateProductResultDto = {
       id: result.id,

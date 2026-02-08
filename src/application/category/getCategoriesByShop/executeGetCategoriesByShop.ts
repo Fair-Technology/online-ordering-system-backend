@@ -1,12 +1,10 @@
-import { CosmosCategoryRepository } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import {
   GetCategoriesByShopRequestDto,
   GetCategoriesByShopResultDto,
   CategoryDto,
 } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-
-const categoryRepository = new CosmosCategoryRepository();
 
 export async function executeGetCategoriesByShop(
   request: GetCategoriesByShopRequestDto,
@@ -25,9 +23,9 @@ export async function executeGetCategoriesByShop(
   }
 
   try {
-    const categories = await categoryRepository.findByShopId(request.shopId.trim());
+    const categories = await findCategoriesByShopId(request.shopId.trim());
 
-    const categoryDtos: CategoryDto[] = categories.map(category => ({
+    const categoryDtos: CategoryDto[] = categories.map((category) => ({
       id: category.id,
       shopId: category.shopId,
       name: category.name,

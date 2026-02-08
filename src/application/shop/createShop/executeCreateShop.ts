@@ -1,9 +1,10 @@
-import { CosmosShopRepository } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import {
+  createShop as createShopInRepo,
+  findShopBySlug,
+} from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { CreateShopRequestDto, CreateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Shop } from '../../../domain/shop/Shop';
-
-const shopRepository = new CosmosShopRepository();
 
 export async function executeCreateShop(
   request: CreateShopRequestDto,
@@ -35,7 +36,7 @@ export async function executeCreateShop(
 
   try {
     // Check if slug already exists
-    const existingShop = await shopRepository.findBySlug(request.slug.trim());
+    const existingShop = await findShopBySlug(request.slug.trim());
     if (existingShop) {
       return {
         ok: false,
@@ -76,7 +77,7 @@ export async function executeCreateShop(
       updatedAt: now,
     };
 
-    const createdShop = await shopRepository.create(shop);
+    const createdShop = await createShopInRepo(shop);
 
     const resultDto: CreateShopResultDto = {
       id: createdShop.id,

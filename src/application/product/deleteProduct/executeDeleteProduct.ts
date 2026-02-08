@@ -1,35 +1,49 @@
-import { CosmosProductRepository } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
+import {
+  findProductById,
+  updateProduct,
+} from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { DeleteProductRequestDto, DeleteProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
-const productRepository = new CosmosProductRepository();
-
-export async function executeDeleteProduct(request: DeleteProductRequestDto): Promise<ApplicationResult<DeleteProductResultDto>> {
+export async function executeDeleteProduct(
+  request: DeleteProductRequestDto,
+): Promise<ApplicationResult<DeleteProductResultDto>> {
   // Validate input
-  if (!request.productId || typeof request.productId !== 'string' || request.productId.trim() === '') {
+  if (
+    !request.productId ||
+    typeof request.productId !== 'string' ||
+    request.productId.trim() === ''
+  ) {
     return {
       ok: false,
       code: 'INVALID_INPUT',
-      error: 'productId is required and must be a non-empty string'
+      error: 'productId is required and must be a non-empty string',
     };
   }
 
-  if (!request.shopId || typeof request.shopId !== 'string' || request.shopId.trim() === '') {
+  if (
+    !request.shopId ||
+    typeof request.shopId !== 'string' ||
+    request.shopId.trim() === ''
+  ) {
     return {
       ok: false,
       code: 'INVALID_INPUT',
-      error: 'shopId is required and must be a non-empty string'
+      error: 'shopId is required and must be a non-empty string',
     };
   }
 
   try {
-    const product = await productRepository.findById(request.productId.trim(), request.shopId.trim());
-    
+    const product = await findProductById(
+      request.productId.trim(),
+      request.shopId.trim(),
+    );
+
     if (!product) {
       return {
         ok: false,
         code: 'NOT_FOUND',
-        error: 'Product not found'
+        error: 'Product not found',
       };
     }
 
@@ -37,20 +51,20 @@ export async function executeDeleteProduct(request: DeleteProductRequestDto): Pr
     const deletedProduct = {
       ...product,
       isDeleted: true,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
 
-    await productRepository.update(deletedProduct);
+    await updateProduct(deletedProduct);
 
     return {
       ok: true,
-      data: { success: true }
+      data: { success: true },
     };
   } catch (error) {
     return {
       ok: false,
       code: 'INTERNAL_ERROR',
-      error: 'Failed to delete product'
+      error: 'Failed to delete product',
     };
   }
 }

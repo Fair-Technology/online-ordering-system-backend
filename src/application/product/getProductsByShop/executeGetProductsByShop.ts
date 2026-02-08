@@ -1,14 +1,14 @@
-import { CosmosProductRepository } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
-import { CosmosCategoryRepository } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
+import {
+  findCategoriesByShopId,
+  findCategoryById,
+} from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import {
   GetProductsByShopRequestDto,
   GetProductsByShopResultDto,
   ProductDto,
 } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-
-const productRepository = new CosmosProductRepository();
-const categoryRepository = new CosmosCategoryRepository();
 
 export async function executeGetProductsByShop(
   request: GetProductsByShopRequestDto,
@@ -27,9 +27,7 @@ export async function executeGetProductsByShop(
   }
 
   try {
-    const products = await productRepository.findByShopId(
-      request.shopId.trim(),
-    );
+    const products = await findProductsByShopId(request.shopId.trim());
 
     // Fetch category details for all products
     const productDtos: ProductDto[] = [];
@@ -44,10 +42,7 @@ export async function executeGetProductsByShop(
       }> = [];
       for (const categoryId of product.categoryIds || []) {
         try {
-          const category = await categoryRepository.findById(
-            categoryId,
-            product.shopId,
-          );
+          const category = await findCategoryById(categoryId, product.shopId);
           if (category && !category.isDeleted) {
             categories.push({
               id: category.id,

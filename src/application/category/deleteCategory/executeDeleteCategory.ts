@@ -1,8 +1,9 @@
-import { CosmosCategoryRepository } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import {
+  findCategoryById,
+  updateCategory,
+} from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { DeleteCategoryRequestDto, DeleteCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-
-const categoryRepository = new CosmosCategoryRepository();
 
 export async function executeDeleteCategory(
   request: DeleteCategoryRequestDto,
@@ -33,9 +34,9 @@ export async function executeDeleteCategory(
   }
 
   try {
-    const existingCategory = await categoryRepository.findById(
+    const existingCategory = await findCategoryById(
       request.categoryId.trim(),
-      request.shopId.trim()
+      request.shopId.trim(),
     );
 
     if (!existingCategory) {
@@ -55,7 +56,7 @@ export async function executeDeleteCategory(
       updatedAt: now,
     };
 
-    const savedCategory = await categoryRepository.update(deletedCategory);
+    const savedCategory = await updateCategory(deletedCategory);
 
     const resultDto: DeleteCategoryResultDto = {
       id: savedCategory.id,

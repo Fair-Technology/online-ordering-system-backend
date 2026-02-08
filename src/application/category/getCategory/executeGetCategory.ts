@@ -1,8 +1,6 @@
-import { CosmosCategoryRepository } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { GetCategoryRequestDto, GetCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-
-const categoryRepository = new CosmosCategoryRepository();
 
 export async function executeGetCategory(
   request: GetCategoryRequestDto,
@@ -33,9 +31,9 @@ export async function executeGetCategory(
   }
 
   try {
-    const category = await categoryRepository.findById(
+    const category = await findCategoryById(
       request.categoryId.trim(),
-      request.shopId.trim()
+      request.shopId.trim(),
     );
 
     if (!category) {
