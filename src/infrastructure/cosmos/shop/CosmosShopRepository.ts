@@ -56,3 +56,20 @@ export async function deleteShop(shopId: string): Promise<void> {
     throw error;
   }
 }
+
+export async function findAllShops(): Promise<Shop[]> {
+  try {
+    const querySpec = {
+      query:
+        'SELECT * FROM c WHERE c.isDeleted = false ORDER BY c.createdAt DESC',
+      parameters: [],
+    };
+
+    const { resources } = await shopContainer.items
+      .query<Shop>(querySpec)
+      .fetchAll();
+    return resources || [];
+  } catch (error) {
+    throw error;
+  }
+}

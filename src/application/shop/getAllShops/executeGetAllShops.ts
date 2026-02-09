@@ -1,0 +1,49 @@
+import { findAllShops } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { GetAllShopsRequestDto, GetAllShopsResultDto, ShopSummaryDto } from './dtos';
+import { ApplicationResult } from '../../_shared/types';
+
+export async function executeGetAllShops(
+  request: GetAllShopsRequestDto,
+): Promise<ApplicationResult<GetAllShopsResultDto>> {
+  try {
+    const shops = await findAllShops();
+
+    const shopDtos: ShopSummaryDto[] = shops.map((shop) => ({
+      id: shop.id,
+      slug: shop.slug,
+      name: shop.name,
+      isDeleted: shop.isDeleted,
+      acceptingOrders: shop.acceptingOrders,
+      isPaused: shop.isPaused,
+      pausedMessage: shop.pausedMessage,
+      paymentPolicy: shop.paymentPolicy,
+      orderAcceptanceMode: shop.orderAcceptanceMode,
+      allowGuestCheckout: shop.allowGuestCheckout,
+      currency: shop.currency,
+      timezone: shop.timezone,
+      minOrderAmountCents: shop.minOrderAmountCents,
+      address: shop.address,
+      openingHours: shop.openingHours,
+      closures: shop.closures,
+      members: shop.members,
+      createdAt: shop.createdAt,
+      updatedAt: shop.updatedAt,
+    }));
+
+    const resultDto: GetAllShopsResultDto = {
+      shops: shopDtos,
+      total: shopDtos.length,
+    };
+
+    return {
+      ok: true,
+      data: resultDto,
+    };
+  } catch (error: any) {
+    return {
+      ok: false,
+      code: 'INTERNAL_ERROR',
+      error: 'Failed to retrieve shops',
+    };
+  }
+}

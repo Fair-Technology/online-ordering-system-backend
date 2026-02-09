@@ -2,6 +2,7 @@
 // This file imports all function definitions to register them with the runtime
 
 // Shop endpoints
+import './functions/shop/getAllShops/index';
 import './functions/shop/getShop/index';
 import './functions/shop/getShopBySlug/index';
 import './functions/shop/createShop/index';
