@@ -14,6 +14,21 @@ export const swaggerSpec = {
   ],
   paths: {
     '/shops': {
+      get: {
+        summary: 'Get all shops',
+        tags: ['Shops'],
+        responses: {
+          '200': {
+            description: 'List of all shops retrieved successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/GetAllShopsResponse' },
+              },
+            },
+          },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
       post: {
         summary: 'Create a new shop',
         tags: ['Shops'],
@@ -475,6 +490,21 @@ export const swaggerSpec = {
   },
   components: {
     schemas: {
+      GetAllShopsResponse: {
+        type: 'object',
+        properties: {
+          shops: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/ShopResponse' },
+            description: 'Array of shops',
+          },
+          total: {
+            type: 'integer',
+            description: 'Total number of shops',
+          },
+        },
+        required: ['shops', 'total'],
+      },
       CreateShopRequest: {
         type: 'object',
         required: [

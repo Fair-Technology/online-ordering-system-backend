@@ -16,7 +16,9 @@ function loadSwaggerSpec() {
     const { swaggerSpec } = require('../dist/swagger/swaggerSpec');
     return swaggerSpec;
   } catch (error) {
-    console.error('❌ Error loading swagger specification. Make sure to run "npm run build" first.');
+    console.error(
+      '❌ Error loading swagger specification. Make sure to run "npm run build" first.',
+    );
     console.error('   Error:', error.message);
     process.exit(1);
   }
@@ -25,7 +27,7 @@ function loadSwaggerSpec() {
 // Generate swagger.json file
 function generateSwaggerFile() {
   const swaggerSpec = loadSwaggerSpec();
-  
+
   // Output paths
   const outputDir = path.join(__dirname, '../public');
   const outputFile = path.join(outputDir, 'swagger.json');
@@ -42,7 +44,9 @@ function generateSwaggerFile() {
     console.log(`📄 File: ${outputFile}`);
     console.log(`📊 Size: ${fs.statSync(outputFile).size} bytes`);
     console.log(`🔗 Endpoints: ${Object.keys(swaggerSpec.paths).length}`);
-    console.log(`📋 Schemas: ${Object.keys(swaggerSpec.components.schemas).length}`);
+    console.log(
+      `📋 Schemas: ${Object.keys(swaggerSpec.components.schemas).length}`,
+    );
     return outputFile;
   } catch (error) {
     console.error('❌ Error generating swagger specification:', error.message);
@@ -53,9 +57,9 @@ function generateSwaggerFile() {
 // Validate swagger specification
 function validateSwaggerSpec() {
   const swaggerSpec = loadSwaggerSpec();
-  
+
   console.log('🔍 Validating OpenAPI specification...');
-  
+
   let isValid = true;
   const issues = [];
 
@@ -65,7 +69,11 @@ function validateSwaggerSpec() {
     isValid = false;
   }
 
-  if (!swaggerSpec.info || !swaggerSpec.info.title || !swaggerSpec.info.version) {
+  if (
+    !swaggerSpec.info ||
+    !swaggerSpec.info.title ||
+    !swaggerSpec.info.version
+  ) {
     issues.push('Missing or incomplete info section');
     isValid = false;
   }
@@ -78,27 +86,41 @@ function validateSwaggerSpec() {
   // Check for missing schema references
   const paths = swaggerSpec.paths;
   const schemas = swaggerSpec.components?.schemas || {};
-  
+
   for (const [pathName, pathObj] of Object.entries(paths)) {
     for (const [method, methodObj] of Object.entries(pathObj)) {
       // Check request body schemas
-      const requestBodySchema = methodObj.requestBody?.content?.['application/json']?.schema?.$ref;
+      const requestBodySchema =
+        methodObj.requestBody?.content?.['application/json']?.schema?.$ref;
       if (requestBodySchema) {
-        const schemaName = requestBodySchema.replace('#/components/schemas/', '');
+        const schemaName = requestBodySchema.replace(
+          '#/components/schemas/',
+          '',
+        );
         if (!schemas[schemaName]) {
-          issues.push(`Missing schema: ${schemaName} (referenced in ${method.toUpperCase()} ${pathName})`);
+          issues.push(
+            `Missing schema: ${schemaName} (referenced in ${method.toUpperCase()} ${pathName})`,
+          );
           isValid = false;
         }
       }
 
       // Check response schemas
       if (methodObj.responses) {
-        for (const [statusCode, response] of Object.entries(methodObj.responses)) {
-          const responseSchema = response.content?.['application/json']?.schema?.$ref;
+        for (const [statusCode, response] of Object.entries(
+          methodObj.responses,
+        )) {
+          const responseSchema =
+            response.content?.['application/json']?.schema?.$ref;
           if (responseSchema) {
-            const schemaName = responseSchema.replace('#/components/schemas/', '');
+            const schemaName = responseSchema.replace(
+              '#/components/schemas/',
+              '',
+            );
             if (!schemas[schemaName]) {
-              issues.push(`Missing schema: ${schemaName} (referenced in ${method.toUpperCase()} ${pathName} response ${statusCode})`);
+              issues.push(
+                `Missing schema: ${schemaName} (referenced in ${method.toUpperCase()} ${pathName} response ${statusCode})`,
+              );
               isValid = false;
             }
           }
@@ -117,7 +139,7 @@ function validateSwaggerSpec() {
     console.log(`   - Schemas: ${Object.keys(schemas).length}`);
   } else {
     console.log('❌ OpenAPI specification has issues:');
-    issues.forEach(issue => console.log(`   - ${issue}`));
+    issues.forEach((issue) => console.log(`   - ${issue}`));
     process.exit(1);
   }
 }
@@ -134,7 +156,6 @@ function showHelp() {
   console.log('  help        Show this help message');
   console.log('');
   console.log('Examples:');
-  console.log('  npm run swagger:generate');
   console.log('  node scripts/swagger-tools.js validate');
 }
 
