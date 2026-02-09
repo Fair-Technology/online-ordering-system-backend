@@ -1,3 +1,5 @@
+import { ProductImage } from '../../../domain/product/Product';
+
 export interface GetProductsByShopRequestDto {
   shopId: string;
 }
@@ -24,11 +26,7 @@ export interface ProductDto {
   }>;
 
   // Images
-  images: Array<{
-    id: string;
-    url: string;
-    isPrimary: boolean;
-  }>;
+  images: ProductImage[];
 
   // Dietary / allergy info
   allergyInfo: string[];

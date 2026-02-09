@@ -13,6 +13,7 @@
   "dependencies": {
     "@azure/cosmos": "^4.5.1",
     "@azure/functions": "^4.0.0",
+    "@azure/storage-blob": "^12.30.0",
     "axios": "^1.13.2",
     "jose": "^6.1.2",
     "openapi": "^1.0.0"
