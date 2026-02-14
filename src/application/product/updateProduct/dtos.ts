@@ -1,3 +1,5 @@
+import { ProductImage } from '../../../domain/product/Product';
+
 export interface UpdateProductRequestDto {
   productId: string;
   shopId: string;
@@ -6,11 +8,7 @@ export interface UpdateProductRequestDto {
   price?: number;
   sortOrder?: number;
   categoryIds?: string[];
-  images?: Array<{
-    id: string;
-    url: string;
-    isPrimary: boolean;
-  }>;
+  images?: ProductImage[];
   allergyInfo?: string[];
   variantGroups?: Array<{
     id: string;

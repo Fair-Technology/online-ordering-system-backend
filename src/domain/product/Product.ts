@@ -1,25 +1,29 @@
+export interface ProductImage {
+  id: string; // UUID for the image
+  url: string; // Full blob URL (without SAS)
+  alt?: string; // Optional alt text for accessibility
+  sortOrder?: number; // Optional sort order for image display
+  createdAt: string; // ISO datetime when image was added
+}
+
 export interface Product {
   // Identity & ownership
-  id: string;          // UUID (Cosmos item id)
-  shopId: string;      // owning shop UUID
+  id: string; // UUID (Cosmos item id)
+  shopId: string; // owning shop UUID
 
   // Core info
-  name: string;        // product name
+  name: string; // product name
   description: string;
   sortOrder: number;
 
   // Pricing
-  price: number;       // base price in cents (mandatory, 0 only if truly free)
+  price: number; // base price in cents (mandatory, 0 only if truly free)
 
   // Categorisation
   categoryIds: string[]; // references Category ids (no duplication)
 
   // Images
-  images: Array<{
-    id: string;
-    url: string;
-    isPrimary: boolean; // exactly one must be true
-  }>;
+  images: ProductImage[];
 
   // Dietary / allergy info
   allergyInfo: string[]; // free-text
@@ -31,7 +35,7 @@ export interface Product {
     options: Array<{
       id: string;
       name: string;
-      priceDelta: number;   // cents
+      priceDelta: number; // cents
       isAvailable: boolean; // independent availability
     }>;
   }>;
@@ -45,16 +49,16 @@ export interface Product {
     options: Array<{
       id: string;
       name: string;
-      priceDelta: number;   // cents
+      priceDelta: number; // cents
       isAvailable: boolean;
     }>;
   }>;
 
   // Availability & lifecycle
   isAvailable: boolean; // visible/purchasable if true
-  isDeleted: boolean;   // soft delete flag
+  isDeleted: boolean; // soft delete flag
 
   // Audit
-  createdAt: string;    // ISO datetime
-  updatedAt: string;    // ISO datetime
+  createdAt: string; // ISO datetime
+  updatedAt: string; // ISO datetime
 }

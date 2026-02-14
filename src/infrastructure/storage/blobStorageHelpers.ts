@@ -1,0 +1,108 @@
+import {
+  StorageSharedKeyCredential,
+  generateBlobSASQueryParameters,
+  BlobSASPermissions,
+  SASProtocol,
+} from '@azure/storage-blob';
+
+// Environment variables for Azure Storage
+const STORAGE_ACCOUNT_NAME = process.env.STORAGE_ACCOUNT_NAME;
+const STORAGE_ACCOUNT_KEY = process.env.STORAGE_ACCOUNT_KEY;
+const CONTAINER_NAME = 'product-media';
+
+if (!STORAGE_ACCOUNT_NAME || !STORAGE_ACCOUNT_KEY) {
+  throw new Error('STORAGE_ACCOUNT_NAME and STORAGE_ACCOUNT_KEY environment variables are required');
+}
+
+// Create shared key credential for SAS generation
+const sharedKeyCredential = new StorageSharedKeyCredential(
+  STORAGE_ACCOUNT_NAME,
+  STORAGE_ACCOUNT_KEY
+);
+
+/**
+ * Map content type to file extension
+ */
+export function getFileExtensionFromContentType(contentType: string): string {
+  const contentTypeMap: Record<string, string> = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+  };
+
+  const extension = contentTypeMap[contentType.toLowerCase()];
+  if (!extension) {
+    throw new Error(`Unsupported content type: ${contentType}`);
+  }
+
+  return extension;
+}
+
+/**
+ * Validate content type is allowed
+ */
+export function validateContentType(contentType: string): void {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(contentType.toLowerCase())) {
+    throw new Error(`Content type ${contentType} is not allowed. Allowed types: ${allowedTypes.join(', ')}`);
+  }
+}
+
+/**
+ * Generate blob path in the format: shops/{shopId}/products/{productId}/{imageId}{ext}
+ */
+export function generateBlobPath(shopId: string, productId: string, imageId: string, extension: string): string {
+  return `shops/${shopId}/products/${productId}/${imageId}${extension}`;
+}
+
+/**
+ * Generate full blob URL (without SAS)
+ */
+export function generateBlobUrl(blobPath: string): string {
+  return `https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${CONTAINER_NAME}/${blobPath}`;
+}
+
+/**
+ * Generate SAS URL for blob upload with write permissions
+ * @param blobPath - The blob path within the container
+ * @returns Object containing the SAS URL and expiry time
+ */
+export function generateUploadSasUrl(blobPath: string): { sasUrl: string; expiresAt: string } {
+  const expiresAt = new Date();
+  expiresAt.setMinutes(expiresAt.getMinutes() + 10); // 10 minutes from now
+
+  // Set permissions for create and write only
+  const permissions = new BlobSASPermissions();
+  permissions.create = true;
+  permissions.write = true;
+
+  // Generate SAS query parameters
+  const sasQueryParams = generateBlobSASQueryParameters(
+    {
+      containerName: CONTAINER_NAME,
+      blobName: blobPath,
+      permissions,
+      expiresOn: expiresAt,
+      protocol: SASProtocol.Https,
+    },
+    sharedKeyCredential
+  );
+
+  const sasUrl = `https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${CONTAINER_NAME}/${blobPath}?${sasQueryParams.toString()}`;
+
+  return {
+    sasUrl,
+    expiresAt: expiresAt.toISOString(),
+  };
+}
+
+/**
+ * Validate maxSizeBytes parameter if provided
+ */
+export function validateMaxSizeBytes(maxSizeBytes?: any): void {
+  if (maxSizeBytes !== undefined) {
+    if (typeof maxSizeBytes !== 'number' || maxSizeBytes <= 0 || !Number.isInteger(maxSizeBytes)) {
+      throw new Error('maxSizeBytes must be a positive integer');
+    }
+  }
+}
