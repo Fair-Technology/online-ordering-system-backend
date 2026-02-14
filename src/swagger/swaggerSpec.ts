@@ -487,6 +487,104 @@ export const swaggerSpec = {
         },
       },
     },
+    '/shops/{shopId}/products/{productId}/images/upload-url': {
+      post: {
+        summary: 'Generate upload URL for product image',
+        description:
+          'Generates a short-lived SAS URL for uploading product images directly to Azure Blob Storage',
+        tags: ['Product Images'],
+        parameters: [
+          {
+            name: 'shopId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop ID',
+          },
+          {
+            name: 'productId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Product ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/GenerateImageUploadUrlRequest',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Upload URL generated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/GenerateImageUploadUrlResponse',
+                },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+        security: [{ bearerAuth: [] }],
+      },
+    },
+    '/shops/{shopId}/products/{productId}/images': {
+      post: {
+        summary: 'Add product image metadata',
+        description:
+          'Confirms image upload and saves metadata to the product after successful blob storage upload',
+        tags: ['Product Images'],
+        parameters: [
+          {
+            name: 'shopId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop ID',
+          },
+          {
+            name: 'productId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Product ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/AddProductImageRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Product image added successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ProductImageResponse' },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+        security: [{ bearerAuth: [] }],
+      },
+    },
   },
   components: {
     schemas: {
@@ -1004,6 +1102,117 @@ export const swaggerSpec = {
           },
         },
       },
+      GenerateImageUploadUrlRequest: {
+        type: 'object',
+        required: ['contentType'],
+        properties: {
+          contentType: {
+            type: 'string',
+            enum: ['image/jpeg', 'image/png', 'image/webp'],
+            description: 'MIME type of the image to upload',
+            example: 'image/jpeg',
+          },
+          fileName: {
+            type: 'string',
+            description: 'Optional filename for the image',
+            example: 'product-image.jpg',
+          },
+          maxSizeBytes: {
+            type: 'integer',
+            description: 'Optional maximum file size in bytes',
+            example: 5242880,
+          },
+        },
+      },
+      GenerateImageUploadUrlResponse: {
+        type: 'object',
+        properties: {
+          imageId: {
+            type: 'string',
+            description: 'Unique identifier for the image',
+            example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          },
+          uploadUrl: {
+            type: 'string',
+            description:
+              'Pre-signed URL for uploading the image to Azure Blob Storage',
+            example:
+              'https://yourstorageaccount.blob.core.windows.net/product-media/shops/shop-123/products/product-456/a1b2c3d4-e5f6-7890-abcd-ef1234567890.jpg?sv=2020-04-08&st=2024-01-01T12%3A00%3A00Z&se=2024-01-01T12%3A10%3A00Z&sr=b&sp=cw&sig=...',
+          },
+          blobUrl: {
+            type: 'string',
+            description: 'Permanent URL of the blob (without SAS token)',
+            example:
+              'https://yourstorageaccount.blob.core.windows.net/product-media/shops/shop-123/products/product-456/a1b2c3d4-e5f6-7890-abcd-ef1234567890.jpg',
+          },
+          expiresAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Expiration time of the upload URL',
+            example: '2024-01-01T12:10:00.000Z',
+          },
+        },
+        required: ['imageId', 'uploadUrl', 'blobUrl', 'expiresAt'],
+      },
+      AddProductImageRequest: {
+        type: 'object',
+        required: ['imageId', 'url'],
+        properties: {
+          imageId: {
+            type: 'string',
+            description: 'Image ID returned from the upload URL generation',
+            example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          },
+          url: {
+            type: 'string',
+            description: 'Blob URL of the uploaded image',
+            example:
+              'https://yourstorageaccount.blob.core.windows.net/product-media/shops/shop-123/products/product-456/a1b2c3d4-e5f6-7890-abcd-ef1234567890.jpg',
+          },
+          alt: {
+            type: 'string',
+            description: 'Alternative text for the image',
+            example: 'Delicious pizza with pepperoni and cheese',
+          },
+          sortOrder: {
+            type: 'integer',
+            description: 'Sort order for displaying images',
+            example: 1,
+          },
+        },
+      },
+      ProductImageResponse: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            description: 'Image ID',
+            example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          },
+          url: {
+            type: 'string',
+            description: 'Image URL',
+            example:
+              'https://yourstorageaccount.blob.core.windows.net/product-media/shops/shop-123/products/product-456/a1b2c3d4-e5f6-7890-abcd-ef1234567890.jpg',
+          },
+          alt: {
+            type: 'string',
+            description: 'Alternative text for the image',
+            example: 'Delicious pizza with pepperoni and cheese',
+          },
+          sortOrder: {
+            type: 'integer',
+            description: 'Sort order for displaying images',
+            example: 1,
+          },
+          isPrimary: {
+            type: 'boolean',
+            description: 'Whether this is the primary product image',
+            example: false,
+          },
+        },
+        required: ['id', 'url', 'sortOrder', 'isPrimary'],
+      },
     },
     responses: {
       BadRequest: {
@@ -1032,6 +1241,20 @@ export const swaggerSpec = {
           },
         },
       },
+      Forbidden: {
+        description:
+          'Forbidden - Authentication required or insufficient permissions',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                error: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
       InternalError: {
         description: 'Internal server error',
         content: {
@@ -1044,6 +1267,14 @@ export const swaggerSpec = {
             },
           },
         },
+      },
+    },
+    securitySchemes: {
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'JWT Bearer token authentication',
       },
     },
   },
