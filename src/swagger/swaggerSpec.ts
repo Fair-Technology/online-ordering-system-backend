@@ -605,35 +605,27 @@ export const swaggerSpec = {
       },
       CreateShopRequest: {
         type: 'object',
+        description:
+          'Create a new shop. The following fields are automatically set: isDeleted=false, isPaused=false, acceptingOrders=true, allowGuestCheckout=true. The slug is auto-generated from the shop name. At least one day must have opening hours. If a shop with the same name already exists, an error will be returned.',
         required: [
-          'slug',
           'name',
           'currency',
           'timezone',
           'minOrderAmountCents',
           'paymentPolicy',
-          'allowGuestCheckout',
+          'address',
+          'openingHours',
         ],
         properties: {
-          slug: { type: 'string', description: 'Unique shop identifier' },
-          name: { type: 'string', description: 'Shop name' },
-          isDeleted: {
-            type: 'boolean',
-            description: 'Whether shop is deleted',
-          },
-          acceptingOrders: {
-            type: 'boolean',
-            description: 'Whether shop is accepting orders',
-          },
-          isPaused: { type: 'boolean', description: 'Whether shop is paused' },
-          pausedMessage: {
+          name: {
             type: 'string',
-            description: 'Message when shop is paused',
+            description: 'Shop name (slug will be auto-generated from this)',
+            example: 'Burger King Belconnen',
           },
           currency: {
             type: 'string',
             example: 'AUD',
-            description: 'Shop currency',
+            description: 'Shop currency (ISO code)',
           },
           timezone: {
             type: 'string',
@@ -643,101 +635,225 @@ export const swaggerSpec = {
           minOrderAmountCents: {
             type: 'number',
             description: 'Minimum order amount in cents',
+            example: 1500,
           },
           paymentPolicy: {
             type: 'string',
             enum: ['pay_online'],
             description: 'Payment policy',
           },
+          address: {
+            type: 'object',
+            required: ['street', 'city', 'state', 'postcode', 'country'],
+            properties: {
+              street: {
+                type: 'string',
+                description: 'Street address',
+                example: '123 Main Street',
+              },
+              city: {
+                type: 'string',
+                description: 'City',
+                example: 'Belconnen',
+              },
+              state: {
+                type: 'string',
+                description: 'State or territory',
+                example: 'ACT',
+              },
+              postcode: {
+                type: 'string',
+                description: 'Postal code',
+                example: '2617',
+              },
+              country: {
+                type: 'string',
+                description: 'Country',
+                example: 'Australia',
+              },
+            },
+          },
+          pausedMessage: {
+            type: 'string',
+            description: 'Message when shop is paused (optional)',
+          },
           orderAcceptanceMode: {
             type: 'string',
             enum: ['auto'],
-            description: 'Order acceptance mode',
-          },
-          allowGuestCheckout: {
-            type: 'boolean',
-            description: 'Allow guest checkout',
-          },
-          address: {
-            type: 'object',
-            properties: {
-              street: { type: 'string' },
-              city: { type: 'string' },
-              state: { type: 'string' },
-              postcode: { type: 'string' },
-              country: { type: 'string' },
-            },
+            description: 'Order acceptance mode (optional, defaults to auto)',
           },
           openingHours: {
             type: 'object',
+            description:
+              'Shop opening hours for each day of the week. At least one day must have opening hours.',
+            example: {
+              mon: [{ open: '09:00', close: '17:00' }],
+              tue: [{ open: '09:00', close: '17:00' }],
+              wed: [],
+              thu: [{ open: '09:00', close: '17:00' }],
+              fri: [{ open: '09:00', close: '22:00' }],
+              sat: [{ open: '10:00', close: '16:00' }],
+              sun: [{ open: '11:00', close: '15:00' }],
+            },
             properties: {
               mon: {
                 type: 'array',
+                description: 'Monday opening hours',
                 items: {
                   type: 'object',
                   properties: {
-                    open: { type: 'string' },
-                    close: { type: 'string' },
+                    open: {
+                      type: 'string',
+                      format: 'time',
+                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
+                      description: 'Opening time in 24-hour format (HH:MM)',
+                      example: '09:00',
+                    },
+                    close: {
+                      type: 'string',
+                      format: 'time',
+                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
+                      description: 'Closing time in 24-hour format (HH:MM)',
+                      example: '17:00',
+                    },
                   },
                 },
               },
               tue: {
                 type: 'array',
+                description: 'Tuesday opening hours',
                 items: {
                   type: 'object',
                   properties: {
-                    open: { type: 'string' },
-                    close: { type: 'string' },
+                    open: {
+                      type: 'string',
+                      format: 'time',
+                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
+                      description: 'Opening time in 24-hour format (HH:MM)',
+                      example: '09:00',
+                    },
+                    close: {
+                      type: 'string',
+                      format: 'time',
+                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
+                      description: 'Closing time in 24-hour format (HH:MM)',
+                      example: '17:00',
+                    },
                   },
                 },
               },
               wed: {
                 type: 'array',
+                description: 'Wednesday opening hours',
                 items: {
                   type: 'object',
                   properties: {
-                    open: { type: 'string' },
-                    close: { type: 'string' },
+                    open: {
+                      type: 'string',
+                      format: 'time',
+                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
+                      description: 'Opening time in 24-hour format (HH:MM)',
+                      example: '09:00',
+                    },
+                    close: {
+                      type: 'string',
+                      format: 'time',
+                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
+                      description: 'Closing time in 24-hour format (HH:MM)',
+                      example: '17:00',
+                    },
                   },
                 },
               },
               thu: {
                 type: 'array',
+                description: 'Thursday opening hours',
                 items: {
                   type: 'object',
                   properties: {
-                    open: { type: 'string' },
-                    close: { type: 'string' },
+                    open: {
+                      type: 'string',
+                      format: 'time',
+                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
+                      description: 'Opening time in 24-hour format (HH:MM)',
+                      example: '09:00',
+                    },
+                    close: {
+                      type: 'string',
+                      format: 'time',
+                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
+                      description: 'Closing time in 24-hour format (HH:MM)',
+                      example: '17:00',
+                    },
                   },
                 },
               },
               fri: {
                 type: 'array',
+                description: 'Friday opening hours',
                 items: {
                   type: 'object',
                   properties: {
-                    open: { type: 'string' },
-                    close: { type: 'string' },
+                    open: {
+                      type: 'string',
+                      format: 'time',
+                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
+                      description: 'Opening time in 24-hour format (HH:MM)',
+                      example: '09:00',
+                    },
+                    close: {
+                      type: 'string',
+                      format: 'time',
+                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
+                      description: 'Closing time in 24-hour format (HH:MM)',
+                      example: '17:00',
+                    },
                   },
                 },
               },
               sat: {
                 type: 'array',
+                description: 'Saturday opening hours',
                 items: {
                   type: 'object',
                   properties: {
-                    open: { type: 'string' },
-                    close: { type: 'string' },
+                    open: {
+                      type: 'string',
+                      format: 'time',
+                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
+                      description: 'Opening time in 24-hour format (HH:MM)',
+                      example: '10:00',
+                    },
+                    close: {
+                      type: 'string',
+                      format: 'time',
+                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
+                      description: 'Closing time in 24-hour format (HH:MM)',
+                      example: '16:00',
+                    },
                   },
                 },
               },
               sun: {
                 type: 'array',
+                description: 'Sunday opening hours',
                 items: {
                   type: 'object',
                   properties: {
-                    open: { type: 'string' },
-                    close: { type: 'string' },
+                    open: {
+                      type: 'string',
+                      format: 'time',
+                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
+                      description: 'Opening time in 24-hour format (HH:MM)',
+                      example: '10:00',
+                    },
+                    close: {
+                      type: 'string',
+                      format: 'time',
+                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
+                      description: 'Closing time in 24-hour format (HH:MM)',
+                      example: '15:00',
+                    },
                   },
                 },
               },

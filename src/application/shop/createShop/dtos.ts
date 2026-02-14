@@ -1,30 +1,28 @@
 export interface CreateShopRequestDto {
-  slug: string;
+  // Required fields from user
   name: string;
-  isDeleted?: boolean;
-  acceptingOrders?: boolean;
-  isPaused?: boolean;
-  pausedMessage?: string;
-  paymentPolicy: 'pay_online' | string;
-  orderAcceptanceMode?: 'auto';
-  allowGuestCheckout: boolean;
   currency: string;
   timezone: string;
+  paymentPolicy: 'pay_online' | string;
   minOrderAmountCents: number;
-  address?: {
+  address: {
     street?: string;
     city?: string;
     state?: string;
     postcode?: string;
     country?: string;
   };
-  openingHours?: Record<
+  openingHours: Record<
     'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun',
     Array<{
       open: string;
       close: string;
     }>
   >;
+
+  // Optional fields
+  pausedMessage?: string;
+  orderAcceptanceMode?: 'auto';
   closures?: Array<{
     id: string;
     start: string;
