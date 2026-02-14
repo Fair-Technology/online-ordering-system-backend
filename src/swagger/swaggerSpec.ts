@@ -948,13 +948,9 @@ export const swaggerSpec = {
       },
       CreateCategoryRequest: {
         type: 'object',
-        required: ['name', 'slug'],
+        required: ['name'],
         properties: {
           name: { type: 'string', description: 'Category name' },
-          slug: {
-            type: 'string',
-            description: 'Unique category identifier within shop',
-          },
           sortOrder: { type: 'number', description: 'Sort order for display' },
         },
       },
@@ -962,10 +958,6 @@ export const swaggerSpec = {
         type: 'object',
         properties: {
           name: { type: 'string', description: 'Category name' },
-          slug: {
-            type: 'string',
-            description: 'Unique category identifier within shop',
-          },
           sortOrder: { type: 'number', description: 'Sort order for display' },
         },
       },
@@ -975,7 +967,6 @@ export const swaggerSpec = {
           id: { type: 'string', description: 'Category ID' },
           shopId: { type: 'string', description: 'Shop ID' },
           name: { type: 'string', description: 'Category name' },
-          slug: { type: 'string', description: 'Category slug' },
           sortOrder: { type: 'number', description: 'Sort order for display' },
           isDeleted: {
             type: 'boolean',
@@ -1090,7 +1081,6 @@ export const swaggerSpec = {
               properties: {
                 id: { type: 'string', description: 'Category ID' },
                 name: { type: 'string', description: 'Category name' },
-                slug: { type: 'string', description: 'Category slug' },
                 sortOrder: {
                   type: 'number',
                   description: 'Category sort order',

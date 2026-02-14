@@ -48,7 +48,6 @@ export async function executeGetCategory(
       id: category.id,
       shopId: category.shopId,
       name: category.name,
-      slug: category.slug,
       sortOrder: category.sortOrder,
       isDeleted: category.isDeleted,
       createdAt: category.createdAt,

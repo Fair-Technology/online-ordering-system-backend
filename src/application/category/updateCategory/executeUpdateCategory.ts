@@ -1,6 +1,5 @@
 import {
   findCategoryById,
-  findCategoryBySlugAndShopId,
   updateCategory as updateCategoryInRepo,
 } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { UpdateCategoryRequestDto, UpdateCategoryResultDto } from './dtos';
@@ -48,27 +47,11 @@ export async function executeUpdateCategory(
       };
     }
 
-    // Check slug uniqueness if slug is being updated
-    if (request.slug && request.slug.trim() !== existingCategory.slug) {
-      const categoryWithSlug = await findCategoryBySlugAndShopId(
-        request.slug.trim(),
-        request.shopId.trim(),
-      );
-      if (categoryWithSlug && categoryWithSlug.id !== existingCategory.id) {
-        return {
-          ok: false,
-          code: 'INVALID_INPUT',
-          error: 'A category with this slug already exists in this shop',
-        };
-      }
-    }
-
     const now = new Date().toISOString();
 
     const updatedCategory = {
       ...existingCategory,
       name: request.name?.trim() || existingCategory.name,
-      slug: request.slug?.trim() || existingCategory.slug,
       sortOrder:
         request.sortOrder !== undefined
           ? request.sortOrder
@@ -82,7 +65,6 @@ export async function executeUpdateCategory(
       id: savedCategory.id,
       shopId: savedCategory.shopId,
       name: savedCategory.name,
-      slug: savedCategory.slug,
       sortOrder: savedCategory.sortOrder,
       isDeleted: savedCategory.isDeleted,
       createdAt: savedCategory.createdAt,
@@ -94,15 +76,6 @@ export async function executeUpdateCategory(
       data: resultDto,
     };
   } catch (error: any) {
-    // Handle Cosmos DB conflict errors (in case of race conditions)
-    if (error.code === 409) {
-      return {
-        ok: false,
-        code: 'INVALID_INPUT',
-        error: 'A category with this slug already exists in this shop',
-      };
-    }
-
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

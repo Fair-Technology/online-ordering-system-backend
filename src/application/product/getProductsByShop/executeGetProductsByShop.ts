@@ -37,7 +37,6 @@ export async function executeGetProductsByShop(
       const categories: Array<{
         id: string;
         name: string;
-        slug: string;
         sortOrder: number;
       }> = [];
       for (const categoryId of product.categoryIds || []) {
@@ -47,7 +46,6 @@ export async function executeGetProductsByShop(
             categories.push({
               id: category.id,
               name: category.name,
-              slug: category.slug,
               sortOrder: category.sortOrder,
             });
           }

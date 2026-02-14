@@ -21,7 +21,6 @@ export interface ProductDto {
   categories: Array<{
     id: string;
     name: string;
-    slug: string;
     sortOrder: number;
   }>;
 

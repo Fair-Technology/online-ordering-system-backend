@@ -38,29 +38,6 @@ export async function findCategoriesByShopId(
   }
 }
 
-export async function findCategoryBySlugAndShopId(
-  slug: string,
-  shopId: string,
-): Promise<Category | null> {
-  try {
-    const querySpec = {
-      query:
-        'SELECT * FROM c WHERE c.slug = @slug AND c.shopId = @shopId AND c.isDeleted = false',
-      parameters: [
-        { name: '@slug', value: slug },
-        { name: '@shopId', value: shopId },
-      ],
-    };
-
-    const { resources } = await categoryContainer.items
-      .query<Category>(querySpec)
-      .fetchAll();
-    return resources && resources.length > 0 ? resources[0] : null;
-  } catch (error) {
-    throw error;
-  }
-}
-
 export async function createCategory(category: Category): Promise<Category> {
   try {
     const { resource } =

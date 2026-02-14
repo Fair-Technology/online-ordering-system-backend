@@ -62,7 +62,6 @@ export async function executeDeleteCategory(
       id: savedCategory.id,
       shopId: savedCategory.shopId,
       name: savedCategory.name,
-      slug: savedCategory.slug,
       sortOrder: savedCategory.sortOrder,
       isDeleted: savedCategory.isDeleted,
       createdAt: savedCategory.createdAt,
