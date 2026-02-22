@@ -25,6 +25,10 @@ import './functions/category/createCategory/index';
 import './functions/category/updateCategory/index';
 import './functions/category/deleteCategory/index';
 
+// Order endpoints
+import './functions/order/checkout/index';
+import './functions/order/stripeWebhook/index';
+
 // Swagger endpoints
 import './functions/swagger/swaggerJson/index';
 import './functions/swagger/swaggerUi/index';

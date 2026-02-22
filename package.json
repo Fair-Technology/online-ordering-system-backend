@@ -8,7 +8,8 @@
     "start": "npm run build && func start",
     "dev": "concurrently \"npm run build:watch\" \"nodemon --watch dist --exec \\\"npx kill-port 7071 && func start --port 7071\\\"\"",
     "build:watch": "tsc -w -p tsconfig.json",
-    "start:dist": "func start --script-root dist --port 7073"
+    "start:dist": "func start --script-root dist --port 7073",
+    "seed": "ts-node --transpile-only scripts/seed.ts"
   },
   "dependencies": {
     "@azure/cosmos": "^4.5.1",
@@ -16,7 +17,8 @@
     "@azure/storage-blob": "^12.30.0",
     "axios": "^1.13.2",
     "jose": "^6.1.2",
-    "openapi": "^1.0.0"
+    "openapi": "^1.0.0",
+    "stripe": "^20.3.1"
   },
   "devDependencies": {
     "@types/node": "^20.9.1",

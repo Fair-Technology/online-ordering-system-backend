@@ -1,0 +1,216 @@
+import Stripe from 'stripe';
+import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { findProductById } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
+import { createOrder } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
+import { CheckoutRequestDto, CheckoutResultDto } from './dtos';
+import { ApplicationResult } from '../../_shared/types';
+import { Order, OrderItem } from '../../../domain/order/Order';
+
+function getStripe(): Stripe {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    throw new Error('STRIPE_SECRET_KEY is not configured');
+  }
+  return new Stripe(key);
+}
+
+export async function executeCheckout(
+  request: CheckoutRequestDto,
+): Promise<ApplicationResult<CheckoutResultDto>> {
+  // --- Basic input validation ---
+  if (!request.shopId || typeof request.shopId !== 'string') {
+    return { ok: false, code: 'INVALID_INPUT', error: 'shopId is required' };
+  }
+
+  if (!Array.isArray(request.items) || request.items.length === 0) {
+    return {
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'items must be a non-empty array',
+    };
+  }
+
+  for (let i = 0; i < request.items.length; i++) {
+    const item = request.items[i];
+    if (!item.productId || typeof item.productId !== 'string') {
+      return {
+        ok: false,
+        code: 'INVALID_INPUT',
+        error: `items[${i}].productId is required`,
+      };
+    }
+    if (
+      typeof item.quantity !== 'number' ||
+      !Number.isInteger(item.quantity) ||
+      item.quantity < 1
+    ) {
+      return {
+        ok: false,
+        code: 'INVALID_INPUT',
+        error: `items[${i}].quantity must be a positive integer`,
+      };
+    }
+  }
+
+  try {
+    // --- Fetch and validate shop ---
+    const shop = await findShopById(request.shopId);
+    if (!shop || shop.isDeleted) {
+      return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
+    }
+    if (!shop.acceptingOrders || shop.isPaused) {
+      return {
+        ok: false,
+        code: 'INVALID_INPUT',
+        error: shop.isPaused && shop.pausedMessage
+          ? shop.pausedMessage
+          : 'This shop is not currently accepting orders',
+      };
+    }
+
+    // --- Resolve prices server-side (never trust client amounts) ---
+    const orderItems: OrderItem[] = [];
+    let subtotalCents = 0;
+
+    for (let i = 0; i < request.items.length; i++) {
+      const item = request.items[i];
+
+      const product = await findProductById(item.productId, request.shopId);
+      if (!product || product.isDeleted) {
+        return {
+          ok: false,
+          code: 'INVALID_INPUT',
+          error: `Product not found: ${item.productId}`,
+        };
+      }
+      if (!product.isAvailable) {
+        return {
+          ok: false,
+          code: 'INVALID_INPUT',
+          error: `Product is not available: ${product.name}`,
+        };
+      }
+
+      let unitPriceCents = product.price;
+
+      // Add selected variant priceDelta
+      if (item.selectedVariantOptionId) {
+        let found = false;
+        outer: for (const vg of product.variantGroups ?? []) {
+          for (const opt of vg.options) {
+            if (opt.id === item.selectedVariantOptionId) {
+              if (!opt.isAvailable) {
+                return {
+                  ok: false,
+                  code: 'INVALID_INPUT',
+                  error: `Variant option is not available: ${opt.name}`,
+                };
+              }
+              unitPriceCents += opt.priceDelta;
+              found = true;
+              break outer;
+            }
+          }
+        }
+        if (!found) {
+          return {
+            ok: false,
+            code: 'INVALID_INPUT',
+            error: `Variant option not found: ${item.selectedVariantOptionId}`,
+          };
+        }
+      }
+
+      // Add selected addon priceDelta(s)
+      for (const addonOptId of item.selectedAddonOptionIds ?? []) {
+        let found = false;
+        outer: for (const ag of product.addonGroups ?? []) {
+          for (const opt of ag.options) {
+            if (opt.id === addonOptId) {
+              if (!opt.isAvailable) {
+                return {
+                  ok: false,
+                  code: 'INVALID_INPUT',
+                  error: `Addon option is not available: ${opt.name}`,
+                };
+              }
+              unitPriceCents += opt.priceDelta;
+              found = true;
+              break outer;
+            }
+          }
+        }
+        if (!found) {
+          return {
+            ok: false,
+            code: 'INVALID_INPUT',
+            error: `Addon option not found: ${addonOptId}`,
+          };
+        }
+      }
+
+      const lineTotalCents = unitPriceCents * item.quantity;
+      subtotalCents += lineTotalCents;
+
+      orderItems.push({
+        productId: product.id,
+        productName: product.name,
+        quantity: item.quantity,
+        unitPriceCents,
+        selectedVariantOptionId: item.selectedVariantOptionId,
+        selectedAddonOptionIds: item.selectedAddonOptionIds,
+        lineTotalCents,
+      });
+    }
+
+    // --- Enforce minimum order amount ---
+    if (subtotalCents < shop.minOrderAmountCents) {
+      const minDollars = (shop.minOrderAmountCents / 100).toFixed(2);
+      return {
+        ok: false,
+        code: 'INVALID_INPUT',
+        error: `Order total is below the minimum of ${shop.currency} ${minDollars}`,
+      };
+    }
+
+    // --- Create Stripe PaymentIntent ---
+    const orderId = crypto.randomUUID();
+    const stripe = getStripe();
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: subtotalCents,
+      currency: shop.currency.toLowerCase(),
+      metadata: { orderId, shopId: shop.id },
+    });
+
+    // --- Persist order ---
+    const now = new Date().toISOString();
+    const order: Order = {
+      id: orderId,
+      shopId: shop.id,
+      status: 'pending_payment',
+      items: orderItems,
+      subtotalCents,
+      currency: shop.currency,
+      stripePaymentIntentId: paymentIntent.id,
+      customerEmail: request.customerEmail,
+      customerName: request.customerName,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await createOrder(order);
+
+    return {
+      ok: true,
+      data: {
+        orderId,
+        clientSecret: paymentIntent.client_secret!,
+        subtotalCents,
+        currency: shop.currency,
+      },
+    };
+  } catch (error: any) {
+    return { ok: false, code: 'INTERNAL_ERROR', error: 'Checkout failed' };
+  }
+}

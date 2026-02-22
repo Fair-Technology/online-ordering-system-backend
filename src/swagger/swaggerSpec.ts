@@ -585,6 +585,68 @@ export const swaggerSpec = {
         security: [{ bearerAuth: [] }],
       },
     },
+    '/orders': {
+      post: {
+        summary: 'Create an order and initiate payment',
+        tags: ['Orders'],
+        description:
+          'Server recalculates the total from product prices, selected variants, and addons stored in the database. The client-submitted amount is never trusted. Returns a Stripe clientSecret for the frontend to call stripe.confirmPayment().',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CheckoutRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Order created and PaymentIntent initiated',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CheckoutResponse' },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
+    '/webhooks/stripe': {
+      post: {
+        summary: 'Stripe webhook receiver',
+        tags: ['Orders'],
+        description:
+          'Receives Stripe events (payment_intent.succeeded, payment_intent.payment_failed) and updates the order status. Signature is verified using STRIPE_WEBHOOK_SECRET.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { type: 'object' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Event received',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    received: { type: 'boolean', example: true },
+                  },
+                },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
   },
   components: {
     schemas: {
@@ -1382,6 +1444,87 @@ export const swaggerSpec = {
           },
         },
         required: ['id', 'url', 'sortOrder', 'isPrimary'],
+      },
+      CheckoutItem: {
+        type: 'object',
+        required: ['productId', 'quantity'],
+        properties: {
+          productId: {
+            type: 'string',
+            description: 'Product ID',
+            example: 'abc123',
+          },
+          quantity: {
+            type: 'integer',
+            minimum: 1,
+            description: 'Quantity to order',
+            example: 2,
+          },
+          selectedVariantOptionId: {
+            type: 'string',
+            description: 'ID of the selected variant option (e.g. size)',
+            example: 'opt-uuid-large',
+          },
+          selectedAddonOptionIds: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'IDs of selected addon options',
+            example: ['addon-cheese', 'addon-bacon'],
+          },
+        },
+      },
+      CheckoutRequest: {
+        type: 'object',
+        required: ['shopId', 'items'],
+        properties: {
+          shopId: {
+            type: 'string',
+            description: 'ID of the shop to order from',
+            example: 'shop-uuid',
+          },
+          items: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/CheckoutItem' },
+            description: 'Items to order',
+          },
+          customerEmail: {
+            type: 'string',
+            format: 'email',
+            description: 'Customer email (optional)',
+            example: 'customer@example.com',
+          },
+          customerName: {
+            type: 'string',
+            description: 'Customer name (optional)',
+            example: 'Jane Smith',
+          },
+        },
+      },
+      CheckoutResponse: {
+        type: 'object',
+        required: ['orderId', 'clientSecret', 'subtotalCents', 'currency'],
+        properties: {
+          orderId: {
+            type: 'string',
+            description: 'Created order ID',
+            example: 'order-uuid',
+          },
+          clientSecret: {
+            type: 'string',
+            description: 'Stripe PaymentIntent client secret. Pass this to stripe.confirmPayment() on the frontend.',
+            example: 'pi_3xxx_secret_yyy',
+          },
+          subtotalCents: {
+            type: 'integer',
+            description: 'Server-computed order total in cents',
+            example: 3600,
+          },
+          currency: {
+            type: 'string',
+            description: 'ISO currency code from the shop',
+            example: 'AUD',
+          },
+        },
       },
     },
     responses: {
