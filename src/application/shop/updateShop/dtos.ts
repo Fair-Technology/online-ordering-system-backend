@@ -1,3 +1,5 @@
+import { ShopBranding } from '../../../domain/shop/Shop';
+
 export interface UpdateShopRequestDto {
   shopId: string;
   name?: string;
@@ -16,6 +18,7 @@ export interface UpdateShopRequestDto {
     postcode?: string;
     country?: string;
   };
+  branding?: ShopBranding | null;
 }
 
 export interface UpdateShopResultDto {

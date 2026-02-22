@@ -7,6 +7,37 @@ import { ApplicationResult } from '../../_shared/types';
 import { Shop } from '../../../domain/shop/Shop';
 import { validateUniqueSlug } from './slugHelpers';
 
+function validateBranding(branding: unknown): string | null {
+  if (branding === null || branding === undefined) return null;
+  if (typeof branding !== 'object' || Array.isArray(branding)) {
+    return 'branding must be an object or null';
+  }
+  const b = branding as any;
+  if (b.logoUrl !== null && b.logoUrl !== undefined) {
+    if (typeof b.logoUrl !== 'string' || !b.logoUrl.startsWith('https://')) {
+      return 'branding.logoUrl must be a valid https URL or null';
+    }
+  }
+  if (b.heroImageUrl !== null && b.heroImageUrl !== undefined) {
+    if (typeof b.heroImageUrl !== 'string' || !b.heroImageUrl.startsWith('https://')) {
+      return 'branding.heroImageUrl must be a valid https URL or null';
+    }
+  }
+  if (!b.colors || typeof b.colors !== 'object') {
+    return 'branding.colors is required and must be an object';
+  }
+  const hexRegex = /^#[0-9A-Fa-f]{6}$/;
+  for (const field of ['primary', 'secondary', 'tertiary', 'background']) {
+    if (typeof b.colors[field] !== 'string') {
+      return `branding.colors.${field} is required`;
+    }
+    if (!hexRegex.test(b.colors[field])) {
+      return `branding.colors.${field} must be a valid hex color (e.g. "#1D4ED8")`;
+    }
+  }
+  return null;
+}
+
 export async function executeCreateShop(
   request: CreateShopRequestDto,
 ): Promise<ApplicationResult<CreateShopResultDto>> {
@@ -101,6 +132,11 @@ export async function executeCreateShop(
     };
   }
 
+  const brandingError = validateBranding(request.branding);
+  if (brandingError) {
+    return { ok: false, code: 'INVALID_INPUT', error: brandingError };
+  }
+
   try {
     // Validate that slug generated from name is unique
     const checkSlugExists = async (slug: string): Promise<boolean> => {
@@ -137,6 +173,7 @@ export async function executeCreateShop(
       orderAcceptanceMode: request.orderAcceptanceMode || 'auto',
       closures: request.closures || [],
       members: request.members || [],
+      branding: request.branding ?? null,
       createdAt: now,
       updatedAt: now,
     };

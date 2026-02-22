@@ -1,3 +1,5 @@
+import { ShopBranding } from '../../../domain/shop/Shop';
+
 export interface GetAllShopsRequestDto {
   // No parameters needed for getting all shops
 }
@@ -41,6 +43,7 @@ export interface ShopSummaryDto {
     role: 'owner' | 'staff';
     isActive: boolean;
   }>;
+  branding: ShopBranding | null;
   createdAt: string;
   updatedAt: string;
 }

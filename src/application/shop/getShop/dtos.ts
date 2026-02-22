@@ -1,3 +1,5 @@
+import { ShopBranding } from '../../../domain/shop/Shop';
+
 export interface GetShopRequestDto {
   shopId: string;
 }
@@ -41,6 +43,7 @@ export interface GetShopResultDto {
     role: 'owner' | 'staff';
     isActive: boolean;
   }>;
+  branding: ShopBranding | null;
   createdAt: string;
   updatedAt: string;
 }

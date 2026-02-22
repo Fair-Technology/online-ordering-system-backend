@@ -47,6 +47,7 @@ export async function executeGetShopBySlug(
       openingHours: shop.openingHours,
       closures: shop.closures,
       members: shop.members,
+      branding: shop.branding ?? null,
       createdAt: shop.createdAt,
       updatedAt: shop.updatedAt,
     };

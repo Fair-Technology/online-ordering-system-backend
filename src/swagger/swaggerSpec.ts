@@ -588,6 +588,55 @@ export const swaggerSpec = {
   },
   components: {
     schemas: {
+      ShopBranding: {
+        type: 'object',
+        nullable: true,
+        required: ['colors'],
+        properties: {
+          logoUrl: {
+            type: 'string',
+            nullable: true,
+            description: 'Logo URL (must start with https://)',
+            example: 'https://cdn.example.com/logo.png',
+          },
+          heroImageUrl: {
+            type: 'string',
+            nullable: true,
+            description: 'Hero image URL (must start with https://)',
+            example: 'https://cdn.example.com/hero.jpg',
+          },
+          colors: {
+            type: 'object',
+            required: ['primary', 'secondary', 'tertiary', 'background'],
+            properties: {
+              primary: {
+                type: 'string',
+                pattern: '^#[0-9A-Fa-f]{6}$',
+                description: 'Primary brand color (hex)',
+                example: '#1D4ED8',
+              },
+              secondary: {
+                type: 'string',
+                pattern: '^#[0-9A-Fa-f]{6}$',
+                description: 'Secondary brand color (hex)',
+                example: '#9333EA',
+              },
+              tertiary: {
+                type: 'string',
+                pattern: '^#[0-9A-Fa-f]{6}$',
+                description: 'Tertiary brand color (hex)',
+                example: '#F59E0B',
+              },
+              background: {
+                type: 'string',
+                pattern: '^#[0-9A-Fa-f]{6}$',
+                description: 'Background color (hex)',
+                example: '#F9FAFB',
+              },
+            },
+          },
+        },
+      },
       GetAllShopsResponse: {
         type: 'object',
         properties: {
@@ -882,6 +931,11 @@ export const swaggerSpec = {
               },
             },
           },
+          branding: {
+            nullable: true,
+            description: 'Shop branding configuration (optional). Set to null to disable branding.',
+            $ref: '#/components/schemas/ShopBranding',
+          },
         },
       },
       UpdateShopRequest: {
@@ -922,6 +976,11 @@ export const swaggerSpec = {
               country: { type: 'string' },
             },
           },
+          branding: {
+            nullable: true,
+            description: 'Shop branding configuration. Set to null to clear branding.',
+            $ref: '#/components/schemas/ShopBranding',
+          },
         },
       },
       ShopResponse: {
@@ -943,6 +1002,11 @@ export const swaggerSpec = {
             type: 'string',
             format: 'date-time',
             description: 'Last update timestamp',
+          },
+          branding: {
+            nullable: true,
+            description: 'Shop branding configuration, or null if not configured.',
+            $ref: '#/components/schemas/ShopBranding',
           },
         },
       },

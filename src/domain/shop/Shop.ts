@@ -1,3 +1,16 @@
+export interface ShopBrandingColors {
+  primary: string;
+  secondary: string;
+  tertiary: string;
+  background: string;
+}
+
+export interface ShopBranding {
+  logoUrl: string | null;
+  heroImageUrl: string | null;
+  colors: ShopBrandingColors;
+}
+
 export interface Shop {
   // Identity
   id: string; // UUID (Cosmos item id)
@@ -52,6 +65,9 @@ export interface Shop {
     role: 'owner' | 'staff';
     isActive: boolean;
   }>;
+
+  // Branding
+  branding: ShopBranding | null;
 
   // Audit
   createdAt: string; // ISO

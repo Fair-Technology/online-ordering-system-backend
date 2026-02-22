@@ -1,3 +1,5 @@
+import { ShopBranding } from '../../../domain/shop/Shop';
+
 export interface CreateShopRequestDto {
   // Required fields from user
   name: string;
@@ -34,6 +36,7 @@ export interface CreateShopRequestDto {
     role: 'owner' | 'staff';
     isActive: boolean;
   }>;
+  branding?: ShopBranding | null;
 }
 
 export interface CreateShopResultDto {
