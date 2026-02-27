@@ -18,7 +18,7 @@ app.http('deleteProduct', {
         };
       }
       
-      const result = await executeDeleteProduct({ productId, shopId });
+      const result = await executeDeleteProduct({ productId, shopId }, request);
       
       return mapResultToHttp(result);
     } catch (error) {

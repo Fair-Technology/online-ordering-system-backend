@@ -17,7 +17,7 @@ app.http('createCategory', {
         shopId
       };
       
-      const result = await executeCreateCategory(requestWithShopId);
+      const result = await executeCreateCategory(requestWithShopId, request);
       
       return mapResultToHttp(result);
     } catch (error) {

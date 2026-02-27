@@ -1,10 +1,13 @@
+import { HttpRequest } from '@azure/functions';
 import { createCategory as createCategoryInRepo } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { CreateCategoryRequestDto, CreateCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Category } from '../../../domain/category/Category';
 
 export async function executeCreateCategory(
   request: CreateCategoryRequestDto,
+  httpRequest: HttpRequest,
 ): Promise<ApplicationResult<CreateCategoryResultDto>> {
   // Validate input
   if (
@@ -32,6 +35,8 @@ export async function executeCreateCategory(
   }
 
   try {
+    getUserIdFromAuth(httpRequest);
+
     const now = new Date().toISOString();
     const categoryId = crypto.randomUUID();
 
@@ -62,6 +67,9 @@ export async function executeCreateCategory(
       data: resultDto,
     };
   } catch (error: any) {
+    if (error.message === 'Authentication required') {
+      return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
+    }
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

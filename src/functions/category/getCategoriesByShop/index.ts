@@ -10,7 +10,7 @@ app.http('getCategoriesByShop', {
     try {
       const shopId = request.params.shopId;
       
-      const result = await executeGetCategoriesByShop({ shopId });
+      const result = await executeGetCategoriesByShop({ shopId }, request);
       
       return mapResultToHttp(result);
     } catch (error) {

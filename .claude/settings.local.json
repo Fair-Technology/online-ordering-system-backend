@@ -5,7 +5,8 @@
       "Bash(curl:*)",
       "Bash(npm run seed:*)",
       "Bash(npm install:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(__NEW_LINE_d935f80495a1dd3a__ curl:*)"
     ]
   }
 }

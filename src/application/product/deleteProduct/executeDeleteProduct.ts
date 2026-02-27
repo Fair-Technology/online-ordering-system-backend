@@ -1,12 +1,15 @@
+import { HttpRequest } from '@azure/functions';
 import {
   findProductById,
   updateProduct,
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
+import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { DeleteProductRequestDto, DeleteProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
 export async function executeDeleteProduct(
   request: DeleteProductRequestDto,
+  httpRequest: HttpRequest,
 ): Promise<ApplicationResult<DeleteProductResultDto>> {
   // Validate input
   if (
@@ -34,6 +37,8 @@ export async function executeDeleteProduct(
   }
 
   try {
+    getUserIdFromAuth(httpRequest);
+
     const product = await findProductById(
       request.productId.trim(),
       request.shopId.trim(),
@@ -60,7 +65,10 @@ export async function executeDeleteProduct(
       ok: true,
       data: { success: true },
     };
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'Authentication required') {
+      return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
+    }
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

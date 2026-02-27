@@ -12,6 +12,7 @@ export const swaggerSpec = {
       description: 'API base',
     },
   ],
+  security: [{ bearerAuth: [] }],
   paths: {
     '/shops': {
       get: {
@@ -58,6 +59,7 @@ export const swaggerSpec = {
       get: {
         summary: 'Get shop by slug',
         tags: ['Shops'],
+        security: [],
         parameters: [
           {
             name: 'slug',
@@ -77,6 +79,24 @@ export const swaggerSpec = {
             },
           },
           '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
+    '/shops/me': {
+      get: {
+        summary: "Get the authenticated user's shops",
+        tags: ['Shops'],
+        responses: {
+          '200': {
+            description: 'Shops where the user is an active owner member',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/GetAllShopsResponse' },
+              },
+            },
+          },
+          '403': { $ref: '#/components/responses/Forbidden' },
           '500': { $ref: '#/components/responses/InternalError' },
         },
       },
@@ -338,6 +358,7 @@ export const swaggerSpec = {
       get: {
         summary: 'Get products by shop',
         tags: ['Products'],
+        security: [],
         parameters: [
           {
             name: 'shopId',
@@ -535,7 +556,6 @@ export const swaggerSpec = {
           '404': { $ref: '#/components/responses/NotFound' },
           '500': { $ref: '#/components/responses/InternalError' },
         },
-        security: [{ bearerAuth: [] }],
       },
     },
     '/shops/{shopId}/products/{productId}/images': {
@@ -582,7 +602,6 @@ export const swaggerSpec = {
           '404': { $ref: '#/components/responses/NotFound' },
           '500': { $ref: '#/components/responses/InternalError' },
         },
-        security: [{ bearerAuth: [] }],
       },
     },
     '/orders': {

@@ -10,7 +10,7 @@ app.http('getShop', {
     try {
       const shopId = request.params.shopId;
       
-      const result = await executeGetShop({ shopId });
+      const result = await executeGetShop({ shopId }, request);
       
       return mapResultToHttp(result);
     } catch (error) {

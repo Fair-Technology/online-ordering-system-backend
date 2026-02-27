@@ -10,7 +10,7 @@ app.http('createProduct', {
     try {
       const body = await request.json() as any;
       
-      const result = await executeCreateProduct(body);
+      const result = await executeCreateProduct(body, request);
       
       return mapResultToHttp(result);
     } catch (error) {

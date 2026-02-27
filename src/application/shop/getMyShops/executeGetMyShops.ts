@@ -1,40 +1,19 @@
 import { HttpRequest } from '@azure/functions';
-import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { findShopsByMemberId } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
-import { GetShopRequestDto, GetShopResultDto } from './dtos';
+import { GetMyShopsRequestDto, GetMyShopsResultDto, ShopSummaryDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
-export async function executeGetShop(
-  request: GetShopRequestDto,
+export async function executeGetMyShops(
+  request: GetMyShopsRequestDto,
   httpRequest: HttpRequest,
-): Promise<ApplicationResult<GetShopResultDto>> {
-  // Validate input
-  if (
-    !request.shopId ||
-    typeof request.shopId !== 'string' ||
-    request.shopId.trim() === ''
-  ) {
-    return {
-      ok: false,
-      code: 'INVALID_INPUT',
-      error: 'shopId is required and must be a non-empty string',
-    };
-  }
-
+): Promise<ApplicationResult<GetMyShopsResultDto>> {
   try {
-    getUserIdFromAuth(httpRequest);
+    const userId = getUserIdFromAuth(httpRequest);
 
-    const shop = await findShopById(request.shopId.trim());
+    const shops = await findShopsByMemberId(userId);
 
-    if (!shop) {
-      return {
-        ok: false,
-        code: 'NOT_FOUND',
-        error: 'Shop not found',
-      };
-    }
-
-    const shopDto: GetShopResultDto = {
+    const shopDtos: ShopSummaryDto[] = shops.map((shop) => ({
       id: shop.id,
       slug: shop.slug,
       name: shop.name,
@@ -55,20 +34,13 @@ export async function executeGetShop(
       branding: shop.branding ?? null,
       createdAt: shop.createdAt,
       updatedAt: shop.updatedAt,
-    };
+    }));
 
-    return {
-      ok: true,
-      data: shopDto,
-    };
+    return { ok: true, data: { shops: shopDtos, total: shopDtos.length } };
   } catch (error: any) {
     if (error.message === 'Authentication required') {
       return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
     }
-    return {
-      ok: false,
-      code: 'INTERNAL_ERROR',
-      error: 'Failed to retrieve shop',
-    };
+    return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve shops' };
   }
 }

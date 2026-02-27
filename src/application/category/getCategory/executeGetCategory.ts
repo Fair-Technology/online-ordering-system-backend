@@ -1,9 +1,12 @@
+import { HttpRequest } from '@azure/functions';
 import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { GetCategoryRequestDto, GetCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
 export async function executeGetCategory(
   request: GetCategoryRequestDto,
+  httpRequest: HttpRequest,
 ): Promise<ApplicationResult<GetCategoryResultDto>> {
   // Validate input
   if (
@@ -31,6 +34,8 @@ export async function executeGetCategory(
   }
 
   try {
+    getUserIdFromAuth(httpRequest);
+
     const category = await findCategoryById(
       request.categoryId.trim(),
       request.shopId.trim(),
@@ -58,7 +63,10 @@ export async function executeGetCategory(
       ok: true,
       data: categoryDto,
     };
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'Authentication required') {
+      return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
+    }
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

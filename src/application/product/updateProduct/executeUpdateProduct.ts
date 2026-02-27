@@ -1,13 +1,16 @@
+import { HttpRequest } from '@azure/functions';
 import {
   findProductById,
   updateProduct as updateProductInRepo,
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { UpdateProductRequestDto, UpdateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
 export async function executeUpdateProduct(
   request: UpdateProductRequestDto,
+  httpRequest: HttpRequest,
 ): Promise<ApplicationResult<UpdateProductResultDto>> {
   // Validate input
   if (
@@ -35,6 +38,8 @@ export async function executeUpdateProduct(
   }
 
   try {
+    getUserIdFromAuth(httpRequest);
+
     const product = await findProductById(
       request.productId.trim(),
       request.shopId.trim(),
@@ -132,7 +137,10 @@ export async function executeUpdateProduct(
       ok: true,
       data: resultDto,
     };
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'Authentication required') {
+      return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
+    }
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

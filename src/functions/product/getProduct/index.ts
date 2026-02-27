@@ -18,7 +18,7 @@ app.http('getProduct', {
         };
       }
       
-      const result = await executeGetProduct({ productId, shopId });
+      const result = await executeGetProduct({ productId, shopId }, request);
       
       return mapResultToHttp(result);
     } catch (error) {

@@ -1,12 +1,15 @@
+import { HttpRequest } from '@azure/functions';
 import {
   findCategoryById,
   updateCategory,
 } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { DeleteCategoryRequestDto, DeleteCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
 export async function executeDeleteCategory(
   request: DeleteCategoryRequestDto,
+  httpRequest: HttpRequest,
 ): Promise<ApplicationResult<DeleteCategoryResultDto>> {
   // Validate input
   if (
@@ -34,6 +37,8 @@ export async function executeDeleteCategory(
   }
 
   try {
+    getUserIdFromAuth(httpRequest);
+
     const existingCategory = await findCategoryById(
       request.categoryId.trim(),
       request.shopId.trim(),
@@ -72,7 +77,10 @@ export async function executeDeleteCategory(
       ok: true,
       data: resultDto,
     };
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'Authentication required') {
+      return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
+    }
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

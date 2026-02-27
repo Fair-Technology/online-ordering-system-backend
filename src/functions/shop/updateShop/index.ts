@@ -11,7 +11,7 @@ app.http('updateShop', {
       const shopId = request.params.shopId;
       const body = await request.json() as any;
       
-      const result = await executeUpdateShop({ shopId, ...body });
+      const result = await executeUpdateShop({ shopId, ...body }, request);
       
       return mapResultToHttp(result);
     } catch (error) {

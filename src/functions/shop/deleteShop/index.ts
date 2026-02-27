@@ -10,7 +10,7 @@ app.http('deleteShop', {
     try {
       const shopId = request.params.shopId;
       
-      const result = await executeDeleteShop({ shopId });
+      const result = await executeDeleteShop({ shopId }, request);
       
       return mapResultToHttp(result);
     } catch (error) {

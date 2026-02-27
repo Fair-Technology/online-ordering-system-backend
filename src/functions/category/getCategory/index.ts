@@ -11,7 +11,7 @@ app.http('getCategory', {
       const shopId = request.params.shopId;
       const categoryId = request.params.categoryId;
       
-      const result = await executeGetCategory({ categoryId, shopId });
+      const result = await executeGetCategory({ categoryId, shopId }, request);
       
       return mapResultToHttp(result);
     } catch (error) {

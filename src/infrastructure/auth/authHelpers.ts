@@ -1,26 +1,26 @@
 import { HttpRequest } from '@azure/functions';
+import { decodeJwt } from 'jose';
 
 /**
- * Extract user ID from authentication headers/tokens
- * TODO: Implement actual authentication logic based on your auth provider
- * @param request - HTTP request object
- * @returns User ID string or throws error if not authenticated
+ * Extract user ID (oid claim) from the Bearer JWT in the Authorization header.
+ * Decodes without signature verification — suitable for local dev and trusted
+ * Azure infrastructure where the gateway already validates tokens.
  */
 export function getUserIdFromAuth(request: HttpRequest): string {
-  // TODO: Implement actual authentication logic
-  // This could involve:
-  // - Parsing JWT tokens from Authorization header
-  // - Validating tokens with your auth provider
-  // - Extracting user ID from validated token claims
-  
-  // For now, return a placeholder - replace with actual implementation
   const authHeader = request.headers.get('authorization');
-  if (!authHeader) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     throw new Error('Authentication required');
   }
-  
-  // Placeholder implementation - replace with actual auth logic
-  return 'placeholder-user-id';
+
+  const token = authHeader.slice(7);
+  const claims = decodeJwt(token);
+
+  const oid = claims['oid'] as string | undefined;
+  if (!oid) {
+    throw new Error('Authentication required');
+  }
+
+  return oid;
 }
 
 /**

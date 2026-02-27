@@ -19,7 +19,7 @@ app.http('updateCategory', {
         categoryId
       };
       
-      const result = await executeUpdateCategory(requestWithParams);
+      const result = await executeUpdateCategory(requestWithParams, request);
       
       return mapResultToHttp(result);
     } catch (error) {

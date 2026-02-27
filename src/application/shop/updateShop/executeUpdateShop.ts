@@ -1,7 +1,9 @@
+import { HttpRequest } from '@azure/functions';
 import {
   findShopById,
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { UpdateShopRequestDto, UpdateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -38,6 +40,7 @@ function validateBranding(branding: unknown): string | null {
 
 export async function executeUpdateShop(
   request: UpdateShopRequestDto,
+  httpRequest: HttpRequest,
 ): Promise<ApplicationResult<UpdateShopResultDto>> {
   // Validate input
   if (
@@ -60,6 +63,8 @@ export async function executeUpdateShop(
   }
 
   try {
+    getUserIdFromAuth(httpRequest);
+
     const shop = await findShopById(request.shopId.trim());
 
     if (!shop) {
@@ -114,7 +119,10 @@ export async function executeUpdateShop(
       ok: true,
       data: resultDto,
     };
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'Authentication required') {
+      return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
+    }
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

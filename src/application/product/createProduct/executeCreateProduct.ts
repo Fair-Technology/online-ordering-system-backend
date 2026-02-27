@@ -1,11 +1,14 @@
+import { HttpRequest } from '@azure/functions';
 import { createProduct as createProductInRepo } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { CreateProductRequestDto, CreateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Product } from '../../../domain/product/Product';
 
 export async function executeCreateProduct(
   request: CreateProductRequestDto,
+  httpRequest: HttpRequest,
 ): Promise<ApplicationResult<CreateProductResultDto>> {
   // Validate input
   if (
@@ -87,6 +90,8 @@ export async function executeCreateProduct(
   }
 
   try {
+    getUserIdFromAuth(httpRequest);
+
     const now = new Date().toISOString();
     const productId = crypto.randomUUID();
 
@@ -126,7 +131,10 @@ export async function executeCreateProduct(
       ok: true,
       data: resultDto,
     };
-  } catch (error) {
+  } catch (error: any) {
+    if (error.message === 'Authentication required') {
+      return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
+    }
     return {
       ok: false,
       code: 'INTERNAL_ERROR',

@@ -11,7 +11,7 @@ app.http('deleteCategory', {
       const shopId = request.params.shopId;
       const categoryId = request.params.categoryId;
       
-      const result = await executeDeleteCategory({ categoryId, shopId });
+      const result = await executeDeleteCategory({ categoryId, shopId }, request);
       
       return mapResultToHttp(result);
     } catch (error) {

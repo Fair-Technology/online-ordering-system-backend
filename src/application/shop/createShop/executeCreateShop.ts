@@ -1,7 +1,9 @@
+import { HttpRequest } from '@azure/functions';
 import {
   createShop as createShopInRepo,
   findShopBySlug,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { CreateShopRequestDto, CreateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Shop } from '../../../domain/shop/Shop';
@@ -40,6 +42,7 @@ function validateBranding(branding: unknown): string | null {
 
 export async function executeCreateShop(
   request: CreateShopRequestDto,
+  httpRequest: HttpRequest,
 ): Promise<ApplicationResult<CreateShopResultDto>> {
   // Validate required fields
   if (
@@ -138,6 +141,8 @@ export async function executeCreateShop(
   }
 
   try {
+    getUserIdFromAuth(httpRequest);
+
     // Validate that slug generated from name is unique
     const checkSlugExists = async (slug: string): Promise<boolean> => {
       const existingShop = await findShopBySlug(slug);
@@ -194,6 +199,9 @@ export async function executeCreateShop(
       data: resultDto,
     };
   } catch (error: any) {
+    if (error.message === 'Authentication required') {
+      return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
+    }
     // Handle slug validation error
     if (error.message === 'A shop with this name already exists') {
       return {
