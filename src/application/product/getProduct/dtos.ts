@@ -1,3 +1,5 @@
+import { ProductImage } from '../../../domain/product/Product';
+
 export interface GetProductRequestDto {
   productId: string;
   shopId: string;
@@ -13,4 +15,5 @@ export interface GetProductResultDto {
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
+  images: ProductImage[];
 }

@@ -59,6 +59,7 @@ export async function executeGetProduct(
       isDeleted: product.isDeleted,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
+      images: product.images ?? [],
     };
 
     return {
