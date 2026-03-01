@@ -13,7 +13,7 @@ export interface CheckoutRequestDto {
 }
 
 export interface CheckoutResultDto {
-  orderId: string;
+  sessionId: string;
   clientSecret: string;
   subtotalCents: number;
   currency: string;

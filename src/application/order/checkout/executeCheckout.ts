@@ -1,10 +1,11 @@
 import Stripe from 'stripe';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { findProductById } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
-import { createOrder } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
+import { createCheckoutSession } from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
 import { CheckoutRequestDto, CheckoutResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
-import { Order, OrderItem } from '../../../domain/order/Order';
+import { OrderItem } from '../../../domain/order/Order';
+import { CheckoutSession } from '../../../domain/order/CheckoutSession';
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -174,37 +175,36 @@ export async function executeCheckout(
     }
 
     // --- Create Stripe PaymentIntent ---
-    const orderId = crypto.randomUUID();
+    const sessionId = crypto.randomUUID();
     const stripe = getStripe();
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: subtotalCents,
       currency: shop.currency.toLowerCase(),
-      metadata: { orderId, shopId: shop.id },
+      metadata: { sessionId, shopId: shop.id },
     });
 
-    // --- Persist order ---
+    // --- Persist checkout session (no Order created until payment succeeds) ---
     const now = new Date().toISOString();
-    const order: Order = {
-      id: orderId,
+    const session: CheckoutSession = {
+      id: sessionId,
       shopId: shop.id,
-      status: 'pending_payment',
+      stripePaymentIntentId: paymentIntent.id,
       items: orderItems,
       subtotalCents,
       currency: shop.currency,
-      stripePaymentIntentId: paymentIntent.id,
       customerEmail: request.customerEmail,
       customerName: request.customerName,
       createdAt: now,
-      updatedAt: now,
+      ttl: 3600,
     };
 
-    await createOrder(order);
+    await createCheckoutSession(session);
 
     return {
       ok: true,
       data: {
-        orderId,
+        sessionId,
         clientSecret: paymentIntent.client_secret!,
         subtotalCents,
         currency: shop.currency,

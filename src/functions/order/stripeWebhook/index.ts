@@ -1,6 +1,11 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import Stripe from 'stripe';
-import { updateOrderStatus } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
+import {
+  findCheckoutSessionById,
+  deleteCheckoutSession,
+} from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
+import { createOrder } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
+import { Order } from '../../../domain/order/Order';
 
 app.http('stripeWebhook', {
   methods: ['POST'],
@@ -34,24 +39,37 @@ app.http('stripeWebhook', {
       return { status: 400, jsonBody: { error: `Webhook Error: ${err.message}` } };
     }
 
-    const now = new Date().toISOString();
-
     try {
       switch (event.type) {
         case 'payment_intent.succeeded': {
           const pi = event.data.object as Stripe.PaymentIntent;
-          const { orderId, shopId } = pi.metadata;
-          if (orderId && shopId) {
-            await updateOrderStatus(orderId, shopId, 'paid', now);
-          }
+          const { sessionId, shopId } = pi.metadata;
+          if (!sessionId || !shopId) break;
+          const session = await findCheckoutSessionById(sessionId);
+          if (!session) break; // idempotent: session expired or already processed
+          const orderId = crypto.randomUUID();
+          const now = new Date().toISOString();
+          const order: Order = {
+            id: orderId,
+            shopId: session.shopId,
+            status: 'paid',
+            items: session.items,
+            subtotalCents: session.subtotalCents,
+            currency: session.currency,
+            stripePaymentIntentId: pi.id,
+            customerEmail: session.customerEmail,
+            customerName: session.customerName,
+            createdAt: now,
+            updatedAt: now,
+          };
+          await createOrder(order);
+          await deleteCheckoutSession(sessionId);
           break;
         }
         case 'payment_intent.payment_failed': {
           const pi = event.data.object as Stripe.PaymentIntent;
-          const { orderId, shopId } = pi.metadata;
-          if (orderId && shopId) {
-            await updateOrderStatus(orderId, shopId, 'failed', now);
-          }
+          const { sessionId } = pi.metadata;
+          if (sessionId) await deleteCheckoutSession(sessionId);
           break;
         }
         default:

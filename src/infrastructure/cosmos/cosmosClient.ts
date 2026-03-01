@@ -17,6 +17,8 @@ const productContainerId = process.env.COSMOS_PRODUCT_CONTAINER || 'products';
 const categoryContainerId =
   process.env.COSMOS_CATEGORY_CONTAINER || 'categories';
 const orderContainerId = process.env.COSMOS_ORDER_CONTAINER || 'orders';
+const checkoutSessionContainerId =
+  process.env.COSMOS_CHECKOUT_SESSION_CONTAINER || 'checkout_sessions';
 
 export const cosmosClient = new CosmosClient({ endpoint, key });
 export const database: Database = cosmosClient.database(databaseId);
@@ -26,3 +28,5 @@ export const productContainer: Container =
 export const categoryContainer: Container =
   database.container(categoryContainerId);
 export const orderContainer: Container = database.container(orderContainerId);
+export const checkoutSessionContainer: Container =
+  database.container(checkoutSessionContainerId);

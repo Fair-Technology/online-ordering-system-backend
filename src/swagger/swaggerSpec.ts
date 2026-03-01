@@ -1521,12 +1521,12 @@ export const swaggerSpec = {
       },
       CheckoutResponse: {
         type: 'object',
-        required: ['orderId', 'clientSecret', 'subtotalCents', 'currency'],
+        required: ['sessionId', 'clientSecret', 'subtotalCents', 'currency'],
         properties: {
-          orderId: {
+          sessionId: {
             type: 'string',
-            description: 'Created order ID',
-            example: 'order-uuid',
+            description: 'Checkout session ID',
+            example: 'session-uuid',
           },
           clientSecret: {
             type: 'string',
