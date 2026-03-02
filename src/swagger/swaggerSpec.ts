@@ -1494,7 +1494,7 @@ export const swaggerSpec = {
       },
       CheckoutRequest: {
         type: 'object',
-        required: ['shopId', 'items'],
+        required: ['shopId', 'items', 'customerName', 'customerEmail', 'customerPhone'],
         properties: {
           shopId: {
             type: 'string',
@@ -1506,16 +1506,26 @@ export const swaggerSpec = {
             items: { $ref: '#/components/schemas/CheckoutItem' },
             description: 'Items to order',
           },
+          customerName: {
+            type: 'string',
+            description: 'Customer name',
+            example: 'Jane Smith',
+          },
           customerEmail: {
             type: 'string',
             format: 'email',
-            description: 'Customer email (optional)',
+            description: 'Customer email',
             example: 'customer@example.com',
           },
-          customerName: {
+          customerPhone: {
             type: 'string',
-            description: 'Customer name (optional)',
-            example: 'Jane Smith',
+            description: 'Customer phone number',
+            example: '+61412345678',
+          },
+          customerNotes: {
+            type: 'string',
+            description: 'Optional notes for the order',
+            example: 'No onions please',
           },
         },
       },

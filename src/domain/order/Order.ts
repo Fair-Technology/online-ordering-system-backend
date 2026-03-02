@@ -18,13 +18,16 @@ export interface OrderItem {
 export interface Order {
   id: string; // UUID (Cosmos item id)
   shopId: string; // partition key
+  orderRef: string; // human-readable e.g. "AB3-K7P"
   status: OrderStatus;
   items: OrderItem[];
   subtotalCents: number; // sum of all lineTotalCents (server-computed)
   currency: string; // from shop (e.g. "AUD")
   stripePaymentIntentId: string;
-  customerEmail?: string;
-  customerName?: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerNotes?: string;
   createdAt: string; // ISO
   updatedAt: string; // ISO
 }

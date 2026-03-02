@@ -7,8 +7,10 @@ export interface CheckoutSession {
   items: OrderItem[];            // server-computed, copied directly into Order on success
   subtotalCents: number;
   currency: string;
-  customerEmail?: string;
-  customerName?: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerNotes?: string;
   createdAt: string;
   ttl: number;                   // Cosmos TTL in seconds from _ts (set to 3600)
 }

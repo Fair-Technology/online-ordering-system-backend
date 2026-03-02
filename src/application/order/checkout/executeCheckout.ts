@@ -53,6 +53,16 @@ export async function executeCheckout(
     }
   }
 
+  if (!request.customerName || typeof request.customerName !== 'string') {
+    return { ok: false, code: 'INVALID_INPUT', error: 'customerName is required' };
+  }
+  if (!request.customerEmail || typeof request.customerEmail !== 'string') {
+    return { ok: false, code: 'INVALID_INPUT', error: 'customerEmail is required' };
+  }
+  if (!request.customerPhone || typeof request.customerPhone !== 'string') {
+    return { ok: false, code: 'INVALID_INPUT', error: 'customerPhone is required' };
+  }
+
   try {
     // --- Fetch and validate shop ---
     const shop = await findShopById(request.shopId);
@@ -193,8 +203,10 @@ export async function executeCheckout(
       items: orderItems,
       subtotalCents,
       currency: shop.currency,
-      customerEmail: request.customerEmail,
       customerName: request.customerName,
+      customerEmail: request.customerEmail,
+      customerPhone: request.customerPhone,
+      customerNotes: request.customerNotes,
       createdAt: now,
       ttl: 3600,
     };

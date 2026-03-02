@@ -7,6 +7,16 @@ import {
 import { createOrder } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { Order } from '../../../domain/order/Order';
 
+function generateOrderRef(): string {
+  // A-Z plus 1-9 (no letter O, no digit 0 — visually ambiguous)
+  const chars = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789';
+  let s = '';
+  for (let i = 0; i < 6; i++) {
+    s += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return `${s.slice(0, 3)}-${s.slice(3)}`;
+}
+
 app.http('stripeWebhook', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -52,13 +62,16 @@ app.http('stripeWebhook', {
           const order: Order = {
             id: orderId,
             shopId: session.shopId,
+            orderRef: generateOrderRef(),
             status: 'paid',
             items: session.items,
             subtotalCents: session.subtotalCents,
             currency: session.currency,
             stripePaymentIntentId: pi.id,
-            customerEmail: session.customerEmail,
             customerName: session.customerName,
+            customerEmail: session.customerEmail,
+            customerPhone: session.customerPhone,
+            customerNotes: session.customerNotes,
             createdAt: now,
             updatedAt: now,
           };

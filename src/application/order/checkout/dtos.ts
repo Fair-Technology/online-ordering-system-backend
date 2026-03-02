@@ -8,8 +8,10 @@ export interface CheckoutItemDto {
 export interface CheckoutRequestDto {
   shopId: string;
   items: CheckoutItemDto[];
-  customerEmail?: string;
-  customerName?: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  customerNotes?: string;
 }
 
 export interface CheckoutResultDto {
