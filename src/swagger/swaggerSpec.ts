@@ -666,6 +666,36 @@ export const swaggerSpec = {
         },
       },
     },
+    '/orders/by-payment-intent/{paymentIntentId}': {
+      get: {
+        summary: 'Get order by Stripe payment intent ID',
+        tags: ['Orders'],
+        description:
+          'Retrieves order details using the Stripe payment intent ID. The payment intent ID is available on the frontend from stripe.confirmPayment() result or by parsing the clientSecret (format: pi_xxx_secret_xxx). Returns 404 if the order has not yet been created (webhook not yet processed) — poll with back-off until a 200 is returned.',
+        security: [],
+        parameters: [
+          {
+            name: 'paymentIntentId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', example: 'pi_3xxx' },
+            description: 'Stripe PaymentIntent ID (starts with pi_)',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Order found',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/OrderByPaymentIntentResponse' },
+              },
+            },
+          },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
   },
   components: {
     schemas: {
@@ -1553,6 +1583,45 @@ export const swaggerSpec = {
             description: 'ISO currency code from the shop',
             example: 'AUD',
           },
+        },
+      },
+      OrderItemResponse: {
+        type: 'object',
+        required: ['productId', 'productName', 'quantity', 'unitPriceCents', 'lineTotalCents'],
+        properties: {
+          productId: { type: 'string', example: 'prod-uuid' },
+          productName: { type: 'string', example: 'Margherita Pizza' },
+          quantity: { type: 'integer', minimum: 1, example: 2 },
+          unitPriceCents: { type: 'integer', example: 1800 },
+          selectedVariantOptionId: { type: 'string', nullable: true, example: 'opt-large' },
+          selectedAddonOptionIds: {
+            type: 'array',
+            items: { type: 'string' },
+            nullable: true,
+            example: ['addon-extra-cheese'],
+          },
+          lineTotalCents: { type: 'integer', example: 3600 },
+        },
+      },
+      OrderByPaymentIntentResponse: {
+        type: 'object',
+        required: ['orderId', 'orderRef', 'status', 'items', 'subtotalCents', 'currency', 'customerName', 'createdAt'],
+        properties: {
+          orderId: { type: 'string', format: 'uuid', example: 'order-uuid' },
+          orderRef: { type: 'string', example: 'AB3-K7P' },
+          status: {
+            type: 'string',
+            enum: ['pending_payment', 'paid', 'failed', 'cancelled', 'refunded'],
+            example: 'paid',
+          },
+          items: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/OrderItemResponse' },
+          },
+          subtotalCents: { type: 'integer', example: 3600 },
+          currency: { type: 'string', example: 'AUD' },
+          customerName: { type: 'string', example: 'Jane Smith' },
+          createdAt: { type: 'string', format: 'date-time', example: '2026-03-02T10:00:00.000Z' },
         },
       },
     },

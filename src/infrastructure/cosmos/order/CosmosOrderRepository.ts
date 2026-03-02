@@ -27,6 +27,23 @@ export async function findOrderById(
   }
 }
 
+export async function findOrderByStripePaymentIntentId(
+  paymentIntentId: string,
+): Promise<Order | null> {
+  try {
+    const querySpec = {
+      query: 'SELECT * FROM c WHERE c.stripePaymentIntentId = @paymentIntentId',
+      parameters: [{ name: '@paymentIntentId', value: paymentIntentId }],
+    };
+    const { resources } = await orderContainer.items
+      .query<Order>(querySpec)
+      .fetchAll();
+    return resources[0] ?? null;
+  } catch (error) {
+    throw error;
+  }
+}
+
 export async function updateOrderStatus(
   orderId: string,
   shopId: string,
