@@ -4,6 +4,7 @@ import {
   updateProduct,
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
 import { DeleteProductRequestDto, DeleteProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -60,6 +61,14 @@ export async function executeDeleteProduct(
     };
 
     await updateProduct(deletedProduct);
+
+    // Clean up image blobs — best effort, never fails the delete response
+    await Promise.allSettled(
+      (product.images ?? []).map((img) => {
+        const path = extractBlobPath(img.url);
+        return path ? deleteBlob(path) : Promise.resolve();
+      }),
+    );
 
     return {
       ok: true,

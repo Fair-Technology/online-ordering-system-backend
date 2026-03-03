@@ -3,6 +3,7 @@ import {
   generateBlobSASQueryParameters,
   BlobSASPermissions,
   SASProtocol,
+  BlobServiceClient,
 } from '@azure/storage-blob';
 
 // Environment variables for Azure Storage
@@ -94,6 +95,36 @@ export function generateUploadSasUrl(blobPath: string): { sasUrl: string; expire
     sasUrl,
     expiresAt: expiresAt.toISOString(),
   };
+}
+
+/**
+ * Generate blob path for shop branding: shops/{shopId}/branding/{imageId}{ext}
+ */
+export function generateShopBrandingBlobPath(shopId: string, imageId: string, extension: string): string {
+  return `shops/${shopId}/branding/${imageId}${extension}`;
+}
+
+/**
+ * Delete a blob by its path — no-op if it no longer exists
+ */
+export async function deleteBlob(blobPath: string): Promise<void> {
+  const serviceClient = new BlobServiceClient(
+    `https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net`,
+    sharedKeyCredential,
+  );
+  await serviceClient
+    .getContainerClient(CONTAINER_NAME)
+    .getBlockBlobClient(blobPath)
+    .deleteIfExists();
+}
+
+/**
+ * Extract the relative blob path from a full storage URL
+ */
+export function extractBlobPath(blobUrl: string): string | null {
+  const marker = `/${CONTAINER_NAME}/`;
+  const idx = blobUrl.indexOf(marker);
+  return idx === -1 ? null : blobUrl.slice(idx + marker.length);
 }
 
 /**

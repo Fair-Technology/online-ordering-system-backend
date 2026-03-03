@@ -604,6 +604,84 @@ export const swaggerSpec = {
         },
       },
     },
+    '/shops/{shopId}/logo/upload-url': {
+      post: {
+        summary: 'Generate upload URL for shop logo',
+        description:
+          'Generates a short-lived SAS URL for uploading the shop logo directly to Azure Blob Storage',
+        tags: ['Shop Logo'],
+        parameters: [
+          {
+            name: 'shopId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/GenerateShopLogoUploadUrlRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Upload URL generated successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/GenerateShopLogoUploadUrlResponse' },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
+    '/shops/{shopId}/logo': {
+      post: {
+        summary: 'Set shop logo',
+        description:
+          'Registers the uploaded logo blob URL on the shop. Deletes the previous logo blob if one existed.',
+        tags: ['Shop Logo'],
+        parameters: [
+          {
+            name: 'shopId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop ID',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/SetShopLogoRequest' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Shop logo updated successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ShopResponse' },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
     '/orders': {
       post: {
         summary: 'Create an order and initiate payment',
@@ -1092,6 +1170,28 @@ export const swaggerSpec = {
             description: 'Shop branding configuration. Set to null to clear branding.',
             $ref: '#/components/schemas/ShopBranding',
           },
+          openingHours: {
+            type: 'object',
+            description: 'Shop opening hours per day. At least one day must have opening hours.',
+            properties: {
+              mon: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    open: { type: 'string', format: 'time', pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$', description: 'Opening time (HH:mm)' },
+                    close: { type: 'string', format: 'time', pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$', description: 'Closing time (HH:mm)' },
+                  },
+                },
+              },
+              tue: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
+              wed: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
+              thu: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
+              fri: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
+              sat: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
+              sun: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
+            },
+          },
         },
       },
       ShopResponse: {
@@ -1118,6 +1218,19 @@ export const swaggerSpec = {
             nullable: true,
             description: 'Shop branding configuration, or null if not configured.',
             $ref: '#/components/schemas/ShopBranding',
+          },
+          openingHours: {
+            type: 'object',
+            description: 'Shop opening hours per day of the week.',
+            properties: {
+              mon: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
+              tue: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
+              wed: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
+              thu: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
+              fri: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
+              sat: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
+              sun: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
+            },
           },
         },
       },
@@ -1380,6 +1493,57 @@ export const swaggerSpec = {
           success: {
             type: 'boolean',
             description: 'Whether deletion was successful',
+          },
+        },
+      },
+      GenerateShopLogoUploadUrlRequest: {
+        type: 'object',
+        required: ['contentType'],
+        properties: {
+          contentType: {
+            type: 'string',
+            enum: ['image/jpeg', 'image/png', 'image/webp'],
+            description: 'MIME type of the logo image to upload',
+            example: 'image/jpeg',
+          },
+        },
+      },
+      GenerateShopLogoUploadUrlResponse: {
+        type: 'object',
+        required: ['imageId', 'uploadUrl', 'blobUrl', 'expiresAt'],
+        properties: {
+          imageId: {
+            type: 'string',
+            description: 'Unique identifier for the logo image',
+            example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          },
+          uploadUrl: {
+            type: 'string',
+            description: 'Pre-signed URL for uploading the logo to Azure Blob Storage',
+          },
+          blobUrl: {
+            type: 'string',
+            description: 'Permanent URL of the logo blob (without SAS token)',
+          },
+          expiresAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'Expiration time of the upload URL',
+          },
+        },
+      },
+      SetShopLogoRequest: {
+        type: 'object',
+        required: ['imageId', 'url'],
+        properties: {
+          imageId: {
+            type: 'string',
+            description: 'Image ID returned from the logo upload URL generation',
+            example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+          },
+          url: {
+            type: 'string',
+            description: 'Blob URL of the uploaded logo',
           },
         },
       },

@@ -7,6 +7,37 @@ import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { UpdateShopRequestDto, UpdateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
+const TIME_PATTERN = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+const VALID_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+
+function validateOpeningHours(openingHours: unknown): string | null {
+  if (typeof openingHours !== 'object' || openingHours === null || Array.isArray(openingHours)) {
+    return 'openingHours must be an object';
+  }
+  const oh = openingHours as Record<string, unknown>;
+  let hasOpenDay = false;
+  for (const day of VALID_DAYS) {
+    const slots = oh[day];
+    if (slots === undefined || slots === null) continue;
+    if (!Array.isArray(slots)) return `openingHours.${day} must be an array`;
+    for (const slot of slots) {
+      if (!slot || typeof slot !== 'object' || Array.isArray(slot)) {
+        return `openingHours.${day} contains an invalid time slot`;
+      }
+      const s = slot as Record<string, unknown>;
+      if (typeof s.open !== 'string' || !TIME_PATTERN.test(s.open)) {
+        return `openingHours.${day} has invalid open time — expected HH:mm`;
+      }
+      if (typeof s.close !== 'string' || !TIME_PATTERN.test(s.close)) {
+        return `openingHours.${day} has invalid close time — expected HH:mm`;
+      }
+    }
+    if (slots.length > 0) hasOpenDay = true;
+  }
+  if (!hasOpenDay) return 'At least one day must have opening hours';
+  return null;
+}
+
 function validateBranding(branding: unknown): string | null {
   if (branding === null || branding === undefined) return null;
   if (typeof branding !== 'object' || Array.isArray(branding)) {
@@ -62,6 +93,13 @@ export async function executeUpdateShop(
     }
   }
 
+  if (request.openingHours !== undefined) {
+    const hoursError = validateOpeningHours(request.openingHours);
+    if (hoursError) {
+      return { ok: false, code: 'INVALID_INPUT', error: hoursError };
+    }
+  }
+
   try {
     getUserIdFromAuth(httpRequest);
 
@@ -101,6 +139,7 @@ export async function executeUpdateShop(
         address: { ...shop.address, ...request.address },
       }),
       ...(request.branding !== undefined && { branding: request.branding }),
+      ...(request.openingHours !== undefined && { openingHours: request.openingHours }),
       updatedAt: new Date().toISOString(),
     };
 

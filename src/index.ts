@@ -9,6 +9,8 @@ import './functions/shop/getShopBySlug/index';
 import './functions/shop/createShop/index';
 import './functions/shop/updateShop/index';
 import './functions/shop/deleteShop/index';
+import './functions/shop/generateShopLogoUploadUrl/index';
+import './functions/shop/setShopLogo/index';
 
 // Product endpoints
 import './functions/product/getProductsByShop/index';

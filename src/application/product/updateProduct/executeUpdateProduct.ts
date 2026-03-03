@@ -5,6 +5,7 @@ import {
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
 import { UpdateProductRequestDto, UpdateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -120,6 +121,19 @@ export async function executeUpdateProduct(
     };
 
     const result = await updateProductInRepo(updatedProduct);
+
+    // Delete blobs for images removed from the array — best effort
+    if (request.images !== undefined) {
+      const removedImages = (product.images ?? []).filter(
+        (old) => !(request.images ?? []).some((n) => n.id === old.id),
+      );
+      await Promise.allSettled(
+        removedImages.map((img) => {
+          const path = extractBlobPath(img.url);
+          return path ? deleteBlob(path) : Promise.resolve();
+        }),
+      );
+    }
 
     const resultDto: UpdateProductResultDto = {
       id: result.id,

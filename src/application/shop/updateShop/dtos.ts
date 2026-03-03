@@ -19,6 +19,10 @@ export interface UpdateShopRequestDto {
     country?: string;
   };
   branding?: ShopBranding | null;
+  openingHours?: Record<
+    'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun',
+    Array<{ open: string; close: string }>
+  >;
 }
 
 export interface UpdateShopResultDto {
