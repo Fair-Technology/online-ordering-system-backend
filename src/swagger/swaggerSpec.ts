@@ -17,6 +17,7 @@ export const swaggerSpec = {
     '/shops': {
       get: {
         summary: 'Get all shops',
+        operationId: 'getShops',
         tags: ['Shops'],
         responses: {
           '200': {
@@ -32,6 +33,7 @@ export const swaggerSpec = {
       },
       post: {
         summary: 'Create a new shop',
+        operationId: 'createShop',
         tags: ['Shops'],
         requestBody: {
           required: true,
@@ -58,6 +60,7 @@ export const swaggerSpec = {
     '/shops/slug/{slug}': {
       get: {
         summary: 'Get shop by slug',
+        operationId: 'getShopBySlug',
         tags: ['Shops'],
         security: [],
         parameters: [
@@ -86,6 +89,7 @@ export const swaggerSpec = {
     '/shops/me': {
       get: {
         summary: "Get the authenticated user's shops",
+        operationId: 'getMyShops',
         tags: ['Shops'],
         responses: {
           '200': {
@@ -104,6 +108,7 @@ export const swaggerSpec = {
     '/shops/{shopId}': {
       get: {
         summary: 'Get shop by ID',
+        operationId: 'getShopById',
         tags: ['Shops'],
         parameters: [
           {
@@ -129,6 +134,7 @@ export const swaggerSpec = {
       },
       patch: {
         summary: 'Update shop',
+        operationId: 'updateShop',
         tags: ['Shops'],
         parameters: [
           {
@@ -163,6 +169,7 @@ export const swaggerSpec = {
       },
       delete: {
         summary: 'Delete shop (soft delete)',
+        operationId: 'deleteShop',
         tags: ['Shops'],
         parameters: [
           {
@@ -190,6 +197,7 @@ export const swaggerSpec = {
     '/shops/{shopId}/categories': {
       get: {
         summary: 'Get categories by shop',
+        operationId: 'getCategoriesByShop',
         tags: ['Categories'],
         parameters: [
           {
@@ -215,6 +223,7 @@ export const swaggerSpec = {
       },
       post: {
         summary: 'Create a new category',
+        operationId: 'createCategory',
         tags: ['Categories'],
         parameters: [
           {
@@ -250,6 +259,7 @@ export const swaggerSpec = {
     '/shops/{shopId}/categories/{categoryId}': {
       get: {
         summary: 'Get category by ID',
+        operationId: 'getCategoryById',
         tags: ['Categories'],
         parameters: [
           {
@@ -282,6 +292,7 @@ export const swaggerSpec = {
       },
       patch: {
         summary: 'Update category',
+        operationId: 'updateCategory',
         tags: ['Categories'],
         parameters: [
           {
@@ -323,6 +334,7 @@ export const swaggerSpec = {
       },
       delete: {
         summary: 'Delete category (soft delete)',
+        operationId: 'deleteCategory',
         tags: ['Categories'],
         parameters: [
           {
@@ -357,6 +369,7 @@ export const swaggerSpec = {
     '/products': {
       get: {
         summary: 'Get products by shop',
+        operationId: 'getProductsByShop',
         tags: ['Products'],
         security: [],
         parameters: [
@@ -383,6 +396,7 @@ export const swaggerSpec = {
       },
       post: {
         summary: 'Create a new product',
+        operationId: 'createProduct',
         tags: ['Products'],
         requestBody: {
           required: true,
@@ -409,6 +423,7 @@ export const swaggerSpec = {
     '/products/{productId}': {
       get: {
         summary: 'Get product by ID',
+        operationId: 'getProductById',
         tags: ['Products'],
         parameters: [
           {
@@ -442,6 +457,7 @@ export const swaggerSpec = {
       },
       patch: {
         summary: 'Update product',
+        operationId: 'updateProduct',
         tags: ['Products'],
         parameters: [
           {
@@ -476,6 +492,7 @@ export const swaggerSpec = {
       },
       delete: {
         summary: 'Delete product (soft delete)',
+        operationId: 'deleteProduct',
         tags: ['Products'],
         parameters: [
           {
@@ -511,6 +528,7 @@ export const swaggerSpec = {
     '/shops/{shopId}/products/{productId}/images/upload-url': {
       post: {
         summary: 'Generate upload URL for product image',
+        operationId: 'generateUploadUrl',
         description:
           'Generates a short-lived SAS URL for uploading product images directly to Azure Blob Storage',
         tags: ['Product Images'],
@@ -561,6 +579,7 @@ export const swaggerSpec = {
     '/shops/{shopId}/products/{productId}/images': {
       post: {
         summary: 'Add product image metadata',
+        operationId: 'addProductImage',
         description:
           'Confirms image upload and saves metadata to the product after successful blob storage upload',
         tags: ['Product Images'],
@@ -607,6 +626,7 @@ export const swaggerSpec = {
     '/shops/{shopId}/logo/upload-url': {
       post: {
         summary: 'Generate upload URL for shop logo',
+        operationId: 'generateShopLogoUploadUrl',
         description:
           'Generates a short-lived SAS URL for uploading the shop logo directly to Azure Blob Storage',
         tags: ['Shop Logo'],
@@ -646,6 +666,7 @@ export const swaggerSpec = {
     '/shops/{shopId}/logo': {
       post: {
         summary: 'Set shop logo',
+        operationId: 'setShopLogo',
         description:
           'Registers the uploaded logo blob URL on the shop. Deletes the previous logo blob if one existed.',
         tags: ['Shop Logo'],
@@ -685,6 +706,7 @@ export const swaggerSpec = {
     '/orders': {
       post: {
         summary: 'Create an order and initiate payment',
+        operationId: 'createOrder',
         tags: ['Orders'],
         description:
           'Server recalculates the total from product prices, selected variants, and addons stored in the database. The client-submitted amount is never trusted. Returns a Stripe clientSecret for the frontend to call stripe.confirmPayment().',
@@ -714,6 +736,7 @@ export const swaggerSpec = {
     '/webhooks/stripe': {
       post: {
         summary: 'Stripe webhook receiver',
+        operationId: 'stripeWebhook',
         tags: ['Orders'],
         description:
           'Receives Stripe events (payment_intent.succeeded, payment_intent.payment_failed) and updates the order status. Signature is verified using STRIPE_WEBHOOK_SECRET.',
@@ -747,6 +770,7 @@ export const swaggerSpec = {
     '/orders/by-payment-intent/{paymentIntentId}': {
       get: {
         summary: 'Get order by Stripe payment intent ID',
+        operationId: 'getOrderByPaymentIntent',
         tags: ['Orders'],
         description:
           'Retrieves order details using the Stripe payment intent ID. The payment intent ID is available on the frontend from stripe.confirmPayment() result or by parsing the clientSecret (format: pi_xxx_secret_xxx). Returns 404 if the order has not yet been created (webhook not yet processed) — poll with back-off until a 200 is returned.',
@@ -1203,6 +1227,41 @@ export const swaggerSpec = {
           isDeleted: {
             type: 'boolean',
             description: 'Whether shop is deleted',
+          },
+          acceptingOrders: {
+            type: 'boolean',
+            description: 'Whether shop is accepting orders',
+          },
+          isPaused: {
+            type: 'boolean',
+            description: 'Whether shop is paused',
+          },
+          pausedMessage: {
+            type: 'string',
+            description: 'Message shown when shop is paused',
+          },
+          currency: {
+            type: 'string',
+            description: 'Shop currency (ISO code)',
+          },
+          timezone: {
+            type: 'string',
+            description: 'Shop timezone',
+          },
+          minOrderAmountCents: {
+            type: 'number',
+            description: 'Minimum order amount in cents',
+          },
+          address: {
+            type: 'object',
+            description: 'Shop address',
+            properties: {
+              street: { type: 'string' },
+              city: { type: 'string' },
+              state: { type: 'string' },
+              postcode: { type: 'string' },
+              country: { type: 'string' },
+            },
           },
           createdAt: {
             type: 'string',
