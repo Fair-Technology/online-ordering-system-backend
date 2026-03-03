@@ -44,6 +44,17 @@ export async function findOrderByStripePaymentIntentId(
   }
 }
 
+export async function findOrdersByShopId(shopId: string): Promise<Order[]> {
+  const querySpec = {
+    query: 'SELECT * FROM c WHERE c.shopId = @shopId ORDER BY c.createdAt DESC',
+    parameters: [{ name: '@shopId', value: shopId }],
+  };
+  const { resources } = await orderContainer.items
+    .query<Order>(querySpec)
+    .fetchAll();
+  return resources;
+}
+
 export async function updateOrderStatus(
   orderId: string,
   shopId: string,

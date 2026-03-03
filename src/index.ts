@@ -32,6 +32,7 @@ import './functions/category/deleteCategory/index';
 import './functions/order/checkout/index';
 import './functions/order/stripeWebhook/index';
 import './functions/order/getOrderByPaymentIntent/index';
+import './functions/order/getOrdersByShop/index';
 
 // Swagger endpoints
 import './functions/swagger/swaggerJson/index';

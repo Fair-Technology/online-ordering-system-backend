@@ -767,6 +767,39 @@ export const swaggerSpec = {
         },
       },
     },
+    '/shops/{shopId}/orders': {
+      get: {
+        summary: 'List orders for a shop',
+        operationId: 'getOrdersByShop',
+        tags: ['Orders'],
+        parameters: [
+          {
+            name: 'shopId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Orders retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: { $ref: '#/components/schemas/OrderResponse' },
+                },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+        security: [{ bearerAuth: [] }],
+      },
+    },
     '/orders/by-payment-intent/{paymentIntentId}': {
       get: {
         summary: 'Get order by Stripe payment intent ID',
@@ -1806,6 +1839,41 @@ export const swaggerSpec = {
             description: 'ISO currency code from the shop',
             example: 'AUD',
           },
+        },
+      },
+      OrderResponse: {
+        type: 'object',
+        required: [
+          'id',
+          'orderRef',
+          'status',
+          'items',
+          'subtotalCents',
+          'currency',
+          'customerName',
+          'customerEmail',
+          'customerPhone',
+          'createdAt',
+        ],
+        properties: {
+          id: { type: 'string', format: 'uuid', example: 'order-uuid' },
+          orderRef: { type: 'string', example: 'AB3-K7P' },
+          status: {
+            type: 'string',
+            enum: ['pending_payment', 'paid', 'failed', 'cancelled', 'refunded'],
+            example: 'paid',
+          },
+          items: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/OrderItemResponse' },
+          },
+          subtotalCents: { type: 'integer', example: 3600 },
+          currency: { type: 'string', example: 'AUD' },
+          customerName: { type: 'string', example: 'Jane Smith' },
+          customerEmail: { type: 'string', format: 'email', example: 'jane@example.com' },
+          customerPhone: { type: 'string', example: '+61400000000' },
+          customerNotes: { type: 'string', nullable: true, example: 'No onions please' },
+          createdAt: { type: 'string', format: 'date-time', example: '2026-03-02T10:00:00.000Z' },
         },
       },
       OrderItemResponse: {
