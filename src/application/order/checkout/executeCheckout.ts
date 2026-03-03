@@ -103,6 +103,8 @@ export async function executeCheckout(
       }
 
       let unitPriceCents = product.price;
+      let selectedVariantOptionName: string | undefined;
+      const selectedAddonOptionNames: string[] = [];
 
       // Add selected variant priceDelta
       if (item.selectedVariantOptionId) {
@@ -118,6 +120,7 @@ export async function executeCheckout(
                 };
               }
               unitPriceCents += opt.priceDelta;
+              selectedVariantOptionName = opt.name;
               found = true;
               break outer;
             }
@@ -146,6 +149,7 @@ export async function executeCheckout(
                 };
               }
               unitPriceCents += opt.priceDelta;
+              selectedAddonOptionNames.push(opt.name);
               found = true;
               break outer;
             }
@@ -169,7 +173,9 @@ export async function executeCheckout(
         quantity: item.quantity,
         unitPriceCents,
         selectedVariantOptionId: item.selectedVariantOptionId,
+        selectedVariantOptionName,
         selectedAddonOptionIds: item.selectedAddonOptionIds,
+        selectedAddonOptionNames: selectedAddonOptionNames.length > 0 ? selectedAddonOptionNames : undefined,
         lineTotalCents,
       });
     }

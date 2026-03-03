@@ -6,7 +6,9 @@ export type OrderItemDto = {
   quantity: number;
   unitPriceCents: number;
   selectedVariantOptionId?: string | null;
+  selectedVariantOptionName?: string | null;
   selectedAddonOptionIds?: string[] | null;
+  selectedAddonOptionNames?: string[] | null;
   lineTotalCents: number;
 };
 

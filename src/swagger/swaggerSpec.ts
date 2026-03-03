@@ -1443,6 +1443,58 @@ export const swaggerSpec = {
             type: 'boolean',
             description: 'Whether product is available',
           },
+          variantGroups: {
+            type: 'array',
+            description: 'Variant groups (single-select per group, e.g. Size)',
+            items: {
+              type: 'object',
+              required: ['id', 'name', 'options'],
+              properties: {
+                id: { type: 'string', format: 'uuid' },
+                name: { type: 'string', example: 'Size' },
+                options: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    required: ['id', 'name', 'priceDelta', 'isAvailable'],
+                    properties: {
+                      id: { type: 'string', format: 'uuid' },
+                      name: { type: 'string', example: 'Large' },
+                      priceDelta: { type: 'integer', example: 200, description: 'Price delta in cents' },
+                      isAvailable: { type: 'boolean', example: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          addonGroups: {
+            type: 'array',
+            description: 'Addon groups (multi-select per group, e.g. Extras)',
+            items: {
+              type: 'object',
+              required: ['id', 'name', 'minSelectable', 'maxSelectable', 'options'],
+              properties: {
+                id: { type: 'string', format: 'uuid' },
+                name: { type: 'string', example: 'Extras' },
+                minSelectable: { type: 'integer', example: 0 },
+                maxSelectable: { type: 'integer', example: 3 },
+                options: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    required: ['id', 'name', 'priceDelta', 'isAvailable'],
+                    properties: {
+                      id: { type: 'string', format: 'uuid' },
+                      name: { type: 'string', example: 'Extra cheese' },
+                      priceDelta: { type: 'integer', example: 150, description: 'Price delta in cents' },
+                      isAvailable: { type: 'boolean', example: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
       ProductResponse: {
@@ -1885,11 +1937,18 @@ export const swaggerSpec = {
           quantity: { type: 'integer', minimum: 1, example: 2 },
           unitPriceCents: { type: 'integer', example: 1800 },
           selectedVariantOptionId: { type: 'string', nullable: true, example: 'opt-large' },
+          selectedVariantOptionName: { type: 'string', nullable: true, example: 'Large' },
           selectedAddonOptionIds: {
             type: 'array',
             items: { type: 'string' },
             nullable: true,
             example: ['addon-extra-cheese'],
+          },
+          selectedAddonOptionNames: {
+            type: 'array',
+            items: { type: 'string' },
+            nullable: true,
+            example: ['Extra cheese'],
           },
           lineTotalCents: { type: 'integer', example: 3600 },
         },

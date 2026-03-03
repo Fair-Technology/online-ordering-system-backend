@@ -11,7 +11,9 @@ export interface GetOrderByPaymentIntentResultDto {
     quantity: number;
     unitPriceCents: number;
     selectedVariantOptionId?: string;
+    selectedVariantOptionName?: string;
     selectedAddonOptionIds?: string[];
+    selectedAddonOptionNames?: string[];
     lineTotalCents: number;
   }>;
   subtotalCents: number;
@@ -44,7 +46,9 @@ export async function getOrderByPaymentIntent(
           quantity: item.quantity,
           unitPriceCents: item.unitPriceCents,
           selectedVariantOptionId: item.selectedVariantOptionId,
+          selectedVariantOptionName: item.selectedVariantOptionName,
           selectedAddonOptionIds: item.selectedAddonOptionIds,
+          selectedAddonOptionNames: item.selectedAddonOptionNames,
           lineTotalCents: item.lineTotalCents,
         })),
         subtotalCents: order.subtotalCents,

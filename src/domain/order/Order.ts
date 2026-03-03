@@ -11,7 +11,9 @@ export interface OrderItem {
   quantity: number;
   unitPriceCents: number; // server-computed (base + variant + addons)
   selectedVariantOptionId?: string;
+  selectedVariantOptionName?: string; // snapshot at time of order
   selectedAddonOptionIds?: string[];
+  selectedAddonOptionNames?: string[]; // snapshot at time of order
   lineTotalCents: number; // unitPriceCents × quantity
 }
 
