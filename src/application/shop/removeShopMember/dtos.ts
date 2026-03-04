@@ -4,5 +4,5 @@ export interface RemoveShopMemberRequestDto {
 }
 
 export interface RemoveShopMemberResultDto {
-  members: Array<{ userId: string; role: 'owner' | 'staff'; isActive: boolean }>;
+  members: Array<{ userId: string; role: string; isActive: boolean }>;
 }

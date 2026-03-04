@@ -1,5 +1,7 @@
 import { findProductById } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
-import { getUserIdFromAuth, assertCanManageProduct } from '../../../infrastructure/auth/authHelpers';
+import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { checkShopPermission } from '../../_shared/permissions';
 import {
   validateContentType,
   validateMaxSizeBytes,
@@ -42,21 +44,18 @@ export async function executeGenerateImageUploadUrl(
   }
 
   try {
-    // Validate content type
     validateContentType(request.contentType);
-
-    // Validate maxSizeBytes if provided
     validateMaxSizeBytes(request.maxSizeBytes);
 
-    // Get user ID from auth
-    const userId = getUserIdFromAuth(httpRequest);
+    const userId = await getUserIdFromAuth(httpRequest);
 
-    // Check if user can manage this product
-    await assertCanManageProduct({
-      userId,
-      shopId: request.shopId.trim(),
-      productId: request.productId.trim(),
-    });
+    const shop = await findShopById(request.shopId.trim());
+    if (!shop) {
+      return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
+    }
+
+    const permError = checkShopPermission(shop, userId, 'manage_products');
+    if (permError) return permError;
 
     // Verify product exists
     const product = await findProductById(request.productId.trim(), request.shopId.trim());
@@ -68,19 +67,10 @@ export async function executeGenerateImageUploadUrl(
       };
     }
 
-    // Generate unique image ID
     const imageId = crypto.randomUUID();
-
-    // Get file extension from content type
     const extension = getFileExtensionFromContentType(request.contentType);
-
-    // Generate blob path
     const blobPath = generateBlobPath(request.shopId.trim(), request.productId.trim(), imageId, extension);
-
-    // Generate blob URL (without SAS)
     const blobUrl = generateBlobUrl(blobPath);
-
-    // Generate SAS URL for upload
     const { sasUrl, expiresAt } = generateUploadSasUrl(blobPath);
 
     return {

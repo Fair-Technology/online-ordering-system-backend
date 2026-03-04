@@ -40,8 +40,13 @@ export interface GetShopResultDto {
   }>;
   members: Array<{
     userId: string;
-    role: 'owner' | 'staff';
+    role: string;
     isActive: boolean;
+  }>;
+  roles: Array<{
+    id: string;
+    name: string;
+    permissions: string[];
   }>;
   branding: ShopBranding | null;
   createdAt: string;

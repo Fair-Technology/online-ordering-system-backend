@@ -79,7 +79,7 @@ export async function findShopsByMemberId(userId: string): Promise<Shop[]> {
     const querySpec = {
       query: `SELECT * FROM c WHERE c.isDeleted = false
               AND EXISTS(SELECT VALUE m FROM m IN c.members
-                         WHERE m.userId = @userId AND m.isActive = true AND m.role = 'owner')`,
+                         WHERE m.userId = @userId AND m.isActive = true)`,
       parameters: [{ name: '@userId', value: userId }],
     };
     const { resources } = await shopContainer.items.query<Shop>(querySpec).fetchAll();

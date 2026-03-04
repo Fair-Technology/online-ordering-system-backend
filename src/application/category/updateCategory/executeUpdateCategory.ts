@@ -3,7 +3,9 @@ import {
   findCategoryById,
   updateCategory as updateCategoryInRepo,
 } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { checkShopPermission } from '../../_shared/permissions';
 import { UpdateCategoryRequestDto, UpdateCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -37,7 +39,7 @@ export async function executeUpdateCategory(
   }
 
   try {
-    getUserIdFromAuth(httpRequest);
+    const userId = await getUserIdFromAuth(httpRequest);
 
     const existingCategory = await findCategoryById(
       request.categoryId.trim(),
@@ -51,6 +53,14 @@ export async function executeUpdateCategory(
         error: 'Category not found',
       };
     }
+
+    const shop = await findShopById(existingCategory.shopId);
+    if (!shop) {
+      return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
+    }
+
+    const permError = checkShopPermission(shop, userId, 'manage_products');
+    if (permError) return permError;
 
     const now = new Date().toISOString();
 

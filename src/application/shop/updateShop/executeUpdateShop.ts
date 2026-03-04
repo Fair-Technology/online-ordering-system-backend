@@ -4,6 +4,7 @@ import {
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { checkShopPermission } from '../../_shared/permissions';
 import { UpdateShopRequestDto, UpdateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -101,7 +102,7 @@ export async function executeUpdateShop(
   }
 
   try {
-    getUserIdFromAuth(httpRequest);
+    const userId = await getUserIdFromAuth(httpRequest);
 
     const shop = await findShopById(request.shopId.trim());
 
@@ -112,6 +113,9 @@ export async function executeUpdateShop(
         error: 'Shop not found',
       };
     }
+
+    const permError = checkShopPermission(shop, userId, 'manage_shop');
+    if (permError) return permError;
 
     // Update only provided fields
     const updatedShop = {

@@ -13,6 +13,9 @@ import './functions/shop/generateShopLogoUploadUrl/index';
 import './functions/shop/setShopLogo/index';
 import './functions/shop/addShopMember/index';
 import './functions/shop/removeShopMember/index';
+import './functions/shop/createShopRole/index';
+import './functions/shop/updateShopRole/index';
+import './functions/shop/deleteShopRole/index';
 
 // Product endpoints
 import './functions/product/getProductsByShop/index';

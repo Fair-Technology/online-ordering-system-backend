@@ -1,60 +1,60 @@
 import { HttpRequest } from '@azure/functions';
-import { decodeJwt } from 'jose';
+import { jwtVerify, createRemoteJWKSet } from 'jose';
+
+const tenantName = process.env.ENTRA_TENANT_NAME!;
+const tenantId = process.env.ENTRA_TENANT_ID!;
+
+// JWKS fetched once and cached by jose
+let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+function getJwks() {
+  if (!jwks) {
+    const jwksUrl = new URL(
+      `https://${tenantName}.ciamlogin.com/${tenantId}/discovery/v2.0/keys`,
+    );
+    jwks = createRemoteJWKSet(jwksUrl);
+  }
+  return jwks;
+}
 
 /**
  * Extract user ID (oid claim) from the Bearer JWT in the Authorization header.
- * Decodes without signature verification — suitable for local dev and trusted
- * Azure infrastructure where the gateway already validates tokens.
+ * Verifies the JWT signature against Entra CIAM JWKS keys and validates the issuer.
+ *
+ * Audience is not strictly checked because the current access token may be for a
+ * generic scope (no dedicated API scope registered in Entra yet). Tighten this once
+ * a dedicated API scope is registered — add `audience: process.env.ENTRA_API_AUDIENCE`
+ * to the jwtVerify options.
  */
-export function getUserIdFromAuth(request: HttpRequest): string {
+export async function getUserIdFromAuth(request: HttpRequest): Promise<string> {
   const authHeader = request.headers.get('authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     throw new Error('Authentication required');
   }
 
   const token = authHeader.slice(7);
-  const claims = decodeJwt(token);
 
-  const oid = claims['oid'] as string | undefined;
+  // CIAM issuers use the tenant ID as the subdomain, not the tenant name.
+  // Confirmed via: https://{tenantName}.ciamlogin.com/{tenantId}/v2.0/.well-known/openid-configuration
+  const expectedIssuer = `https://${tenantId}.ciamlogin.com/${tenantId}/v2.0`;
+
+  let payload: Record<string, unknown>;
+  try {
+    const result = await jwtVerify(token, getJwks(), {
+      issuer: expectedIssuer,
+      // audience: intentionally omitted — see comment above
+    });
+    payload = result.payload as Record<string, unknown>;
+  } catch (err: any) {
+    // jose throws typed errors (JWTExpired, JWSSignatureVerificationFailed, etc.)
+    // Normalise to the single error string that all service catch blocks handle.
+    console.error('[auth] jwtVerify failed:', err?.code, err?.message);
+    throw new Error('Authentication required');
+  }
+
+  const oid = payload['oid'] as string | undefined;
   if (!oid) {
     throw new Error('Authentication required');
   }
 
   return oid;
-}
-
-/**
- * Verify that a user has permission to manage a specific product
- * @param params - Object containing userId, shopId, and productId
- * @throws Error if user doesn't have permission
- */
-export async function assertCanManageProduct(params: {
-  userId: string;
-  shopId: string;
-  productId: string;
-}): Promise<void> {
-  // TODO: Implement actual authorization logic
-  // This should verify:
-  // - User exists and is active
-  // - User has permission to manage the shop (owner/staff role)
-  // - Product belongs to the specified shop
-  // - Any other business rules for product management
-  
-  const { userId, shopId, productId } = params;
-  
-  // Placeholder implementation - replace with actual authorization logic
-  if (!userId || !shopId || !productId) {
-    throw new Error('Missing required parameters for authorization check');
-  }
-  
-  // For now, just validate that parameters are provided
-  // In a real implementation, you would:
-  // 1. Query the shop to check if user is a member with appropriate role
-  // 2. Verify the product exists and belongs to the shop
-  // 3. Check any additional business rules
-  
-  console.log(`Authorization check for user ${userId} to manage product ${productId} in shop ${shopId}`);
-  
-  // Placeholder - in real implementation, throw error if unauthorized
-  // throw new Error('User not authorized to manage this product');
 }

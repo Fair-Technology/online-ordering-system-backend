@@ -1,6 +1,8 @@
 import { HttpRequest } from '@azure/functions';
 import { createCategory as createCategoryInRepo } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { checkShopPermission } from '../../_shared/permissions';
 import { CreateCategoryRequestDto, CreateCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Category } from '../../../domain/category/Category';
@@ -35,7 +37,15 @@ export async function executeCreateCategory(
   }
 
   try {
-    getUserIdFromAuth(httpRequest);
+    const userId = await getUserIdFromAuth(httpRequest);
+
+    const shop = await findShopById(request.shopId.trim());
+    if (!shop) {
+      return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
+    }
+
+    const permError = checkShopPermission(shop, userId, 'manage_products');
+    if (permError) return permError;
 
     const now = new Date().toISOString();
     const categoryId = crypto.randomUUID();

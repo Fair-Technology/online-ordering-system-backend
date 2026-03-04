@@ -9,7 +9,7 @@ export async function executeGetMyShops(
   httpRequest: HttpRequest,
 ): Promise<ApplicationResult<GetMyShopsResultDto>> {
   try {
-    const userId = getUserIdFromAuth(httpRequest);
+    const userId = await getUserIdFromAuth(httpRequest);
 
     const shops = await findShopsByMemberId(userId);
 

@@ -40,7 +40,7 @@ export interface GetShopBySlugResultDto {
   }>;
   members: Array<{
     userId: string;
-    role: 'owner' | 'staff';
+    role: string;
     isActive: boolean;
   }>;
   branding: ShopBranding | null;

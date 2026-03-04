@@ -40,7 +40,7 @@ export interface ShopSummaryDto {
   }>;
   members: Array<{
     userId: string;
-    role: 'owner' | 'staff';
+    role: string;
     isActive: boolean;
   }>;
   branding: ShopBranding | null;

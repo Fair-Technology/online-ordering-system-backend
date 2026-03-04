@@ -22,7 +22,7 @@ export async function executeGetShop(
   }
 
   try {
-    getUserIdFromAuth(httpRequest);
+    await getUserIdFromAuth(httpRequest);
 
     const shop = await findShopById(request.shopId.trim());
 
@@ -52,6 +52,7 @@ export async function executeGetShop(
       openingHours: shop.openingHours,
       closures: shop.closures,
       members: shop.members,
+      roles: shop.roles ?? [],
       branding: shop.branding ?? null,
       createdAt: shop.createdAt,
       updatedAt: shop.updatedAt,

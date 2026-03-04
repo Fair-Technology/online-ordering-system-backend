@@ -4,7 +4,9 @@ import {
   updateProduct as updateProductInRepo,
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { checkShopPermission } from '../../_shared/permissions';
 import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
 import { UpdateProductRequestDto, UpdateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
@@ -39,7 +41,7 @@ export async function executeUpdateProduct(
   }
 
   try {
-    getUserIdFromAuth(httpRequest);
+    const userId = await getUserIdFromAuth(httpRequest);
 
     const product = await findProductById(
       request.productId.trim(),
@@ -53,6 +55,14 @@ export async function executeUpdateProduct(
         error: 'Product not found',
       };
     }
+
+    const shop = await findShopById(product.shopId);
+    if (!shop) {
+      return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
+    }
+
+    const permError = checkShopPermission(shop, userId, 'manage_products');
+    if (permError) return permError;
 
     // Validate categoryIds if provided
     if (request.categoryIds !== undefined && request.categoryIds.length > 0) {

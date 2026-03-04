@@ -4,6 +4,7 @@ import {
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { checkShopPermission } from '../../_shared/permissions';
 import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
 import { SetShopLogoRequestDto, SetShopLogoResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
@@ -25,17 +26,15 @@ export async function executeSetShopLogo(
   }
 
   try {
-    const userId = getUserIdFromAuth(httpRequest);
+    const userId = await getUserIdFromAuth(httpRequest);
 
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
-    const isMember = shop.members.some((m) => m.userId === userId && m.isActive);
-    if (!isMember) {
-      return { ok: false, code: 'FORBIDDEN', error: 'User is not a member of this shop' };
-    }
+    const permError = checkShopPermission(shop, userId, 'manage_shop');
+    if (permError) return permError;
 
     // Delete old logo blob if it exists and differs from the new URL
     const oldLogoUrl = shop.branding?.logoUrl;

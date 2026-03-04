@@ -4,6 +4,7 @@ import {
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { checkIsOwner } from '../../_shared/permissions';
 import { AddShopMemberRequestDto, AddShopMemberResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -35,16 +36,16 @@ export async function executeAddShopMember(
     };
   }
 
-  if (request.role !== 'owner' && request.role !== 'staff') {
+  if (!request.role || typeof request.role !== 'string' || request.role.trim() === '') {
     return {
       ok: false,
       code: 'INVALID_INPUT',
-      error: 'role must be "owner" or "staff"',
+      error: 'role is required and must be a non-empty string',
     };
   }
 
   try {
-    const callerId = getUserIdFromAuth(httpRequest);
+    const callerId = await getUserIdFromAuth(httpRequest);
 
     const shop = await findShopById(request.shopId.trim());
 
@@ -56,16 +57,21 @@ export async function executeAddShopMember(
       };
     }
 
-    const callerMember = shop.members.find(
-      (m) => m.userId === callerId && m.isActive && m.role === 'owner',
-    );
+    const ownerError = checkIsOwner(shop, callerId);
+    if (ownerError) return ownerError;
 
-    if (!callerMember) {
-      return {
-        ok: false,
-        code: 'FORBIDDEN',
-        error: 'Only active owners can add members',
-      };
+    const role = request.role.trim();
+
+    // Validate that the role exists (unless assigning 'owner')
+    if (role !== 'owner') {
+      const roleExists = shop.roles.some((r) => r.id === role);
+      if (!roleExists) {
+        return {
+          ok: false,
+          code: 'INVALID_INPUT',
+          error: `Role '${role}' does not exist in this shop`,
+        };
+      }
     }
 
     const alreadyMember = shop.members.some(
@@ -82,7 +88,7 @@ export async function executeAddShopMember(
 
     shop.members.push({
       userId: request.userId.trim(),
-      role: request.role,
+      role,
       isActive: true,
     });
 

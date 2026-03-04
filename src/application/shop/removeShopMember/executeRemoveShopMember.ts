@@ -4,6 +4,7 @@ import {
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { checkIsOwner } from '../../_shared/permissions';
 import { RemoveShopMemberRequestDto, RemoveShopMemberResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -36,7 +37,7 @@ export async function executeRemoveShopMember(
   }
 
   try {
-    const callerId = getUserIdFromAuth(httpRequest);
+    const callerId = await getUserIdFromAuth(httpRequest);
 
     const shop = await findShopById(request.shopId.trim());
 
@@ -48,17 +49,8 @@ export async function executeRemoveShopMember(
       };
     }
 
-    const callerMember = shop.members.find(
-      (m) => m.userId === callerId && m.isActive && m.role === 'owner',
-    );
-
-    if (!callerMember) {
-      return {
-        ok: false,
-        code: 'FORBIDDEN',
-        error: 'Only active owners can remove members',
-      };
-    }
+    const ownerError = checkIsOwner(shop, callerId);
+    if (ownerError) return ownerError;
 
     const targetUserId = request.targetUserId.trim();
     const targetMember = shop.members.find((m) => m.userId === targetUserId);

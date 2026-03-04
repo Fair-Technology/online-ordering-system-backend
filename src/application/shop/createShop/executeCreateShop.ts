@@ -141,7 +141,7 @@ export async function executeCreateShop(
   }
 
   try {
-    const userId = getUserIdFromAuth(httpRequest);
+    const userId = await getUserIdFromAuth(httpRequest);
 
     // Validate that slug generated from name is unique
     const checkSlugExists = async (slug: string): Promise<boolean> => {
@@ -178,6 +178,7 @@ export async function executeCreateShop(
       orderAcceptanceMode: request.orderAcceptanceMode || 'auto',
       closures: request.closures || [],
       members: [{ userId, role: 'owner', isActive: true }],
+      roles: [{ id: 'staff', name: 'Staff', permissions: ['view_orders' as const] }],
       branding: request.branding ?? null,
       createdAt: now,
       updatedAt: now,

@@ -2,7 +2,9 @@ import {
   findProductById,
   updateProduct as updateProductInRepo,
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
-import { getUserIdFromAuth, assertCanManageProduct } from '../../../infrastructure/auth/authHelpers';
+import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { checkShopPermission } from '../../_shared/permissions';
 import { AddProductImageRequestDto, AddProductImageResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { ProductImage } from '../../../domain/product/Product';
@@ -45,7 +47,6 @@ export async function executeAddProductImage(
     };
   }
 
-  // Validate optional fields
   if (request.alt !== undefined && typeof request.alt !== 'string') {
     return {
       ok: false,
@@ -63,17 +64,16 @@ export async function executeAddProductImage(
   }
 
   try {
-    // Get user ID from auth
-    const userId = getUserIdFromAuth(httpRequest);
+    const userId = await getUserIdFromAuth(httpRequest);
 
-    // Check if user can manage this product
-    await assertCanManageProduct({
-      userId,
-      shopId: request.shopId.trim(),
-      productId: request.productId.trim(),
-    });
+    const shop = await findShopById(request.shopId.trim());
+    if (!shop) {
+      return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
+    }
 
-    // Load product
+    const permError = checkShopPermission(shop, userId, 'manage_products');
+    if (permError) return permError;
+
     const product = await findProductById(request.productId.trim(), request.shopId.trim());
     if (!product) {
       return {
@@ -83,7 +83,6 @@ export async function executeAddProductImage(
       };
     }
 
-    // Create new image entry
     const now = new Date().toISOString();
     const newImage: ProductImage = {
       id: request.imageId.trim(),
@@ -93,12 +92,10 @@ export async function executeAddProductImage(
       createdAt: now,
     };
 
-    // Initialize images array if missing
     if (!product.images) {
       product.images = [];
     }
 
-    // Check if image with same ID already exists
     const existingImageIndex = product.images.findIndex(img => img.id === newImage.id);
     if (existingImageIndex !== -1) {
       return {
@@ -108,13 +105,9 @@ export async function executeAddProductImage(
       };
     }
 
-    // Append image to product
     product.images.push(newImage);
-
-    // Update product updatedAt timestamp
     product.updatedAt = now;
 
-    // Persist product
     await updateProductInRepo(product);
 
     return {

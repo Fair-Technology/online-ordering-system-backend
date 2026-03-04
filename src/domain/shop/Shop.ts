@@ -11,6 +11,14 @@ export interface ShopBranding {
   colors: ShopBrandingColors;
 }
 
+export type ShopPermission = 'view_orders' | 'manage_products' | 'manage_shop';
+
+export interface ShopRole {
+  id: string; // UUID for custom roles; 'staff' for the seeded default
+  name: string; // display name: "Staff", "Kitchen", "Cashier"
+  permissions: ShopPermission[];
+}
+
 export interface Shop {
   // Identity
   id: string; // UUID (Cosmos item id)
@@ -62,9 +70,12 @@ export interface Shop {
   // Admins & staff
   members: Array<{
     userId: string; // Entra object id
-    role: 'owner' | 'staff';
+    role: string; // 'owner' is reserved; all other values must match a ShopRole.id
     isActive: boolean;
   }>;
+
+  // Custom roles (owner is hardcoded and not stored here)
+  roles: ShopRole[];
 
   // Branding
   branding: ShopBranding | null;

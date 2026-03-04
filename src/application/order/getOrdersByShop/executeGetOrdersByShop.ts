@@ -3,7 +3,9 @@ import {
   countOrdersByShopId,
   findOrdersByShopIdPaginated,
 } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
+import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { checkShopPermission } from '../../_shared/permissions';
 import {
   GetOrdersByShopRequestDto,
   GetOrdersByShopResultDto,
@@ -38,9 +40,18 @@ export async function executeGetOrdersByShop(
   }
 
   try {
-    getUserIdFromAuth(httpRequest);
+    const userId = await getUserIdFromAuth(httpRequest);
 
     const shopId = request.shopId.trim();
+
+    const shop = await findShopById(shopId);
+    if (!shop) {
+      return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
+    }
+
+    const permError = checkShopPermission(shop, userId, 'view_orders');
+    if (permError) return permError;
+
     const [orders, total] = await Promise.all([
       findOrdersByShopIdPaginated(shopId, page, pageSize),
       countOrdersByShopId(shopId),
