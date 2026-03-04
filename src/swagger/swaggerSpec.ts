@@ -780,16 +780,27 @@ export const swaggerSpec = {
             schema: { type: 'string' },
             description: 'Shop ID',
           },
+          {
+            name: 'page',
+            in: 'query',
+            required: false,
+            schema: { type: 'integer' },
+            description: '1-based page number (default: 1)',
+          },
+          {
+            name: 'pageSize',
+            in: 'query',
+            required: false,
+            schema: { type: 'integer' },
+            description: 'Number of orders per page (default: 20, max: 100)',
+          },
         ],
         responses: {
           '200': {
             description: 'Orders retrieved successfully',
             content: {
               'application/json': {
-                schema: {
-                  type: 'array',
-                  items: { $ref: '#/components/schemas/OrderResponse' },
-                },
+                schema: { $ref: '#/components/schemas/OrdersPageResponse' },
               },
             },
           },
@@ -1891,6 +1902,19 @@ export const swaggerSpec = {
             description: 'ISO currency code from the shop',
             example: 'AUD',
           },
+        },
+      },
+      OrdersPageResponse: {
+        type: 'object',
+        required: ['orders', 'total', 'page', 'pageSize'],
+        properties: {
+          orders: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/OrderResponse' },
+          },
+          total: { type: 'integer', example: 142 },
+          page: { type: 'integer', example: 1 },
+          pageSize: { type: 'integer', example: 20 },
         },
       },
       OrderResponse: {

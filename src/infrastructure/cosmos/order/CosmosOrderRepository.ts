@@ -55,6 +55,29 @@ export async function findOrdersByShopId(shopId: string): Promise<Order[]> {
   return resources;
 }
 
+export async function countOrdersByShopId(shopId: string): Promise<number> {
+  const querySpec = {
+    query: 'SELECT VALUE COUNT(1) FROM c WHERE c.shopId = @shopId',
+    parameters: [{ name: '@shopId', value: shopId }],
+  };
+  const { resources } = await orderContainer.items.query<number>(querySpec).fetchAll();
+  return resources[0] ?? 0;
+}
+
+export async function findOrdersByShopIdPaginated(
+  shopId: string,
+  page: number,
+  pageSize: number,
+): Promise<Order[]> {
+  const offset = (page - 1) * pageSize;
+  const querySpec = {
+    query: `SELECT * FROM c WHERE c.shopId = @shopId ORDER BY c.createdAt DESC OFFSET ${offset} LIMIT ${pageSize}`,
+    parameters: [{ name: '@shopId', value: shopId }],
+  };
+  const { resources } = await orderContainer.items.query<Order>(querySpec).fetchAll();
+  return resources;
+}
+
 export async function updateOrderStatus(
   orderId: string,
   shopId: string,

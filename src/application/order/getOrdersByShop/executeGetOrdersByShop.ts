@@ -1,5 +1,8 @@
 import { HttpRequest } from '@azure/functions';
-import { findOrdersByShopId } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
+import {
+  countOrdersByShopId,
+  findOrdersByShopIdPaginated,
+} from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import {
   GetOrdersByShopRequestDto,
@@ -24,10 +27,24 @@ export async function executeGetOrdersByShop(
     };
   }
 
+  const page = request.page ?? 1;
+  const pageSize = request.pageSize ?? 20;
+
+  if (!Number.isInteger(page) || page < 1) {
+    return { ok: false, code: 'INVALID_INPUT', error: 'page must be a positive integer' };
+  }
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+    return { ok: false, code: 'INVALID_INPUT', error: 'pageSize must be a positive integer no greater than 100' };
+  }
+
   try {
     getUserIdFromAuth(httpRequest);
 
-    const orders = await findOrdersByShopId(request.shopId.trim());
+    const shopId = request.shopId.trim();
+    const [orders, total] = await Promise.all([
+      findOrdersByShopIdPaginated(shopId, page, pageSize),
+      countOrdersByShopId(shopId),
+    ]);
 
     const orderDtos: OrderDto[] = orders.map((order) => ({
       id: order.id,
@@ -55,7 +72,7 @@ export async function executeGetOrdersByShop(
 
     return {
       ok: true,
-      data: orderDtos,
+      data: { orders: orderDtos, total, page, pageSize },
     };
   } catch (error: any) {
     if (error.message === 'Authentication required') {

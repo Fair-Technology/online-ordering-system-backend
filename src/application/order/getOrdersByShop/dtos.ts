@@ -1,4 +1,8 @@
-export type GetOrdersByShopRequestDto = { shopId: string };
+export type GetOrdersByShopRequestDto = {
+  shopId: string;
+  page?: number;
+  pageSize?: number;
+};
 
 export type OrderItemDto = {
   productId: string;
@@ -26,4 +30,9 @@ export type OrderDto = {
   createdAt: string;
 };
 
-export type GetOrdersByShopResultDto = OrderDto[];
+export type GetOrdersByShopResultDto = {
+  orders: OrderDto[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
