@@ -11,6 +11,8 @@ import './functions/shop/updateShop/index';
 import './functions/shop/deleteShop/index';
 import './functions/shop/generateShopLogoUploadUrl/index';
 import './functions/shop/setShopLogo/index';
+import './functions/shop/addShopMember/index';
+import './functions/shop/removeShopMember/index';
 
 // Product endpoints
 import './functions/product/getProductsByShop/index';
