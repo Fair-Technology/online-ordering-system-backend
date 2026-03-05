@@ -13,6 +13,7 @@ export interface GetProductResultDto {
   price: number;
   isAvailable: boolean;
   isDeleted: boolean;
+  taxRateId: string | null;
   createdAt: string;
   updatedAt: string;
   images: ProductImage[];

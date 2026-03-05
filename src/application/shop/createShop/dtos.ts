@@ -3,6 +3,7 @@ import { ShopBranding } from '../../../domain/shop/Shop';
 export interface CreateShopRequestDto {
   // Required fields from user
   name: string;
+  countryCode: string;
   currency: string;
   timezone: string;
   paymentPolicy: 'pay_online' | string;

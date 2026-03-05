@@ -32,6 +32,7 @@ export interface CreateProductRequestDto {
     }>;
   }>;
   isAvailable?: boolean;
+  taxRateId?: string | null;
 }
 
 export interface CreateProductResultDto {
@@ -42,6 +43,7 @@ export interface CreateProductResultDto {
   price: number;
   isAvailable: boolean;
   isDeleted: boolean;
+  taxRateId: string | null;
   createdAt: string;
   updatedAt: string;
 }

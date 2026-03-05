@@ -8,6 +8,7 @@ import { CreateShopRequestDto, CreateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Shop } from '../../../domain/shop/Shop';
 import { validateUniqueSlug } from './slugHelpers';
+import { seedTaxRatesForCountry } from '../../_shared/countryTaxRates';
 
 function validateBranding(branding: unknown): string | null {
   if (branding === null || branding === undefined) return null;
@@ -54,6 +55,18 @@ export async function executeCreateShop(
       ok: false,
       code: 'INVALID_INPUT',
       error: 'name is required and must be a non-empty string',
+    };
+  }
+
+  if (
+    !request.countryCode ||
+    typeof request.countryCode !== 'string' ||
+    request.countryCode.trim() === ''
+  ) {
+    return {
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'countryCode is required and must be a non-empty string',
     };
   }
 
@@ -156,6 +169,7 @@ export async function executeCreateShop(
 
     const now = new Date().toISOString();
     const shopId = crypto.randomUUID();
+    const countryCode = request.countryCode.trim().toUpperCase();
 
     const shop: Shop = {
       id: shopId,
@@ -167,6 +181,7 @@ export async function executeCreateShop(
       isPaused: false,
       allowGuestCheckout: true,
       // Required fields from user
+      countryCode,
       currency: request.currency.trim(),
       timezone: request.timezone.trim(),
       paymentPolicy: request.paymentPolicy.trim(),
@@ -179,6 +194,7 @@ export async function executeCreateShop(
       closures: request.closures || [],
       members: [{ userId, role: 'owner', isActive: true }],
       roles: [{ id: 'staff', name: 'Staff', permissions: ['view_orders' as const] }],
+      taxRates: seedTaxRatesForCountry(countryCode),
       branding: request.branding ?? null,
       createdAt: now,
       updatedAt: now,

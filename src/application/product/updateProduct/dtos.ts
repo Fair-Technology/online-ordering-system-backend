@@ -33,6 +33,7 @@ export interface UpdateProductRequestDto {
     }>;
   }>;
   isAvailable?: boolean;
+  taxRateId?: string | null;
 }
 
 export interface UpdateProductResultDto {
@@ -43,6 +44,7 @@ export interface UpdateProductResultDto {
   price: number;
   isAvailable: boolean;
   isDeleted: boolean;
+  taxRateId: string | null;
   createdAt: string;
   updatedAt: string;
 }

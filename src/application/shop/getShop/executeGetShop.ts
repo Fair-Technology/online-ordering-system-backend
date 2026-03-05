@@ -53,6 +53,8 @@ export async function executeGetShop(
       closures: shop.closures,
       members: shop.members,
       roles: shop.roles ?? [],
+      countryCode: shop.countryCode ?? '',
+      taxRates: shop.taxRates ?? [],
       branding: shop.branding ?? null,
       createdAt: shop.createdAt,
       updatedAt: shop.updatedAt,

@@ -56,6 +56,9 @@ export interface ProductDto {
     }>;
   }>;
 
+  // Tax
+  taxRateId: string | null;
+
   // Availability & lifecycle
   isAvailable: boolean;
   isDeleted: boolean;

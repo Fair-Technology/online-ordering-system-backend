@@ -54,6 +54,9 @@ export interface Product {
     }>;
   }>;
 
+  // Tax
+  taxRateId: string | null; // references ShopTaxRate.id; null = no tax assigned
+
   // Availability & lifecycle
   isAvailable: boolean; // visible/purchasable if true
   isDeleted: boolean; // soft delete flag

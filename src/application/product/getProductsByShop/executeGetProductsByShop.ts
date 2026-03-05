@@ -69,6 +69,7 @@ export async function executeGetProductsByShop(
         allergyInfo: product.allergyInfo,
         variantGroups: product.variantGroups,
         addonGroups: product.addonGroups,
+        taxRateId: product.taxRateId ?? null,
         isAvailable: product.isAvailable,
         isDeleted: product.isDeleted,
         createdAt: product.createdAt,

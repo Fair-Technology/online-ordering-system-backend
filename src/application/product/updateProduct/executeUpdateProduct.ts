@@ -127,6 +127,7 @@ export async function executeUpdateProduct(
       ...(request.isAvailable !== undefined && {
         isAvailable: request.isAvailable,
       }),
+      ...(request.taxRateId !== undefined && { taxRateId: request.taxRateId }),
       updatedAt: new Date().toISOString(),
     };
 
@@ -153,6 +154,7 @@ export async function executeUpdateProduct(
       price: result.price,
       isAvailable: result.isAvailable,
       isDeleted: result.isDeleted,
+      taxRateId: result.taxRateId ?? null,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
     };

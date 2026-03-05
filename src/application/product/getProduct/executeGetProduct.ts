@@ -57,6 +57,7 @@ export async function executeGetProduct(
       price: product.price,
       isAvailable: product.isAvailable,
       isDeleted: product.isDeleted,
+      taxRateId: product.taxRateId ?? null,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
       images: product.images ?? [],

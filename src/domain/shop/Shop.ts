@@ -13,6 +13,12 @@ export interface ShopBranding {
 
 export type ShopPermission = 'view_orders' | 'manage_products' | 'manage_shop';
 
+export interface ShopTaxRate {
+  id: string; // UUID
+  label: string; // e.g. "Standard (19%)", "Reduced (7%)"
+  rate: number; // decimal, e.g. 0.19 = 19%, 0.07 = 7%
+}
+
 export interface ShopRole {
   id: string; // UUID for custom roles; 'staff' for the seeded default
   name: string; // display name: "Staff", "Kitchen", "Cashier"
@@ -76,6 +82,10 @@ export interface Shop {
 
   // Custom roles (owner is hardcoded and not stored here)
   roles: ShopRole[];
+
+  // Tax configuration
+  countryCode: string; // ISO 3166-1 alpha-2, e.g. "AU", "DE"
+  taxRates: ShopTaxRate[];
 
   // Branding
   branding: ShopBranding | null;

@@ -119,6 +119,7 @@ export async function executeCreateProduct(
       addonGroups: request.addonGroups,
       isAvailable: request.isAvailable ?? true,
       isDeleted: false,
+      taxRateId: request.taxRateId ?? null,
       createdAt: now,
       updatedAt: now,
     };
@@ -133,6 +134,7 @@ export async function executeCreateProduct(
       price: createdProduct.price,
       isAvailable: createdProduct.isAvailable,
       isDeleted: createdProduct.isDeleted,
+      taxRateId: createdProduct.taxRateId ?? null,
       createdAt: createdProduct.createdAt,
       updatedAt: createdProduct.updatedAt,
     };

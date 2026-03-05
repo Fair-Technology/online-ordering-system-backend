@@ -1,4 +1,4 @@
-import { ShopBranding } from '../../../domain/shop/Shop';
+import { ShopBranding, ShopTaxRate } from '../../../domain/shop/Shop';
 
 export interface GetShopRequestDto {
   shopId: string;
@@ -48,6 +48,8 @@ export interface GetShopResultDto {
     name: string;
     permissions: string[];
   }>;
+  countryCode: string;
+  taxRates: ShopTaxRate[];
   branding: ShopBranding | null;
   createdAt: string;
   updatedAt: string;
