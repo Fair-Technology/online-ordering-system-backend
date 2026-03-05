@@ -1,10 +1,12 @@
 import { HttpRequest } from '@azure/functions';
 import {
   findShopById,
+  findShopBySlug,
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { checkShopPermission } from '../../_shared/permissions';
+import { generateSlugFromName } from '../createShop/slugHelpers';
 import { UpdateShopRequestDto, UpdateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
@@ -117,9 +119,27 @@ export async function executeUpdateShop(
     const permError = checkShopPermission(shop, userId, 'manage_shop');
     if (permError) return permError;
 
+    // Determine slug: regenerate if name is changing
+    let newSlug = shop.slug;
+    if (request.name !== undefined) {
+      const candidateSlug = generateSlugFromName(request.name);
+      if (candidateSlug !== shop.slug) {
+        const existing = await findShopBySlug(candidateSlug);
+        if (existing && existing.id !== shop.id) {
+          return {
+            ok: false,
+            code: 'INVALID_INPUT',
+            error: 'A shop with this name already exists',
+          };
+        }
+        newSlug = candidateSlug;
+      }
+    }
+
     // Update only provided fields
     const updatedShop = {
       ...shop,
+      slug: newSlug,
       ...(request.name !== undefined && { name: request.name }),
       ...(request.acceptingOrders !== undefined && {
         acceptingOrders: request.acceptingOrders,
