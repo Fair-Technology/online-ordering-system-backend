@@ -151,8 +151,6 @@ export async function executeUpdateShop(
       ...(request.allowGuestCheckout !== undefined && {
         allowGuestCheckout: request.allowGuestCheckout,
       }),
-      ...(request.currency !== undefined && { currency: request.currency }),
-      ...(request.timezone !== undefined && { timezone: request.timezone }),
       ...(request.minOrderAmountCents !== undefined && {
         minOrderAmountCents: request.minOrderAmountCents,
       }),

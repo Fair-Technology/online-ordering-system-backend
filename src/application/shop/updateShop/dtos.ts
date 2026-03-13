@@ -7,8 +7,6 @@ export interface UpdateShopRequestDto {
   pausedMessage?: string;
   paymentPolicy?: 'pay_online' | string;
   allowGuestCheckout?: boolean;
-  currency?: string;
-  timezone?: string;
   minOrderAmountCents?: number;
   address?: {
     street?: string;
