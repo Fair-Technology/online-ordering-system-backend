@@ -69,7 +69,7 @@ export async function executeCheckout(
     if (!shop || shop.isDeleted) {
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
-    if (!shop.acceptingOrders || shop.isPaused) {
+    if (shop.isPaused) {
       return {
         ok: false,
         code: 'INVALID_INPUT',

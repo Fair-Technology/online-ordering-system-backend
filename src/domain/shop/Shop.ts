@@ -33,7 +33,6 @@ export interface Shop {
 
   // State & visibility
   isDeleted: boolean; // soft delete
-  acceptingOrders: boolean; // default true
   isPaused: boolean;
   pausedMessage?: string; // required if isPaused === true
 

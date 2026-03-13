@@ -131,7 +131,6 @@ async function seedShops(): Promise<any[]> {
       slug,
       name: def.name,
       isDeleted: false,
-      acceptingOrders: true,
       isPaused: false,
       allowGuestCheckout: true,
       paymentPolicy: 'pay_online',

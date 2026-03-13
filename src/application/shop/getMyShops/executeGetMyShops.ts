@@ -18,7 +18,6 @@ export async function executeGetMyShops(
       slug: shop.slug,
       name: shop.name,
       isDeleted: shop.isDeleted,
-      acceptingOrders: shop.acceptingOrders,
       isPaused: shop.isPaused,
       pausedMessage: shop.pausedMessage,
       paymentPolicy: shop.paymentPolicy,

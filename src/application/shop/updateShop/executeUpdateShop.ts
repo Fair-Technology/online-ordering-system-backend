@@ -141,9 +141,6 @@ export async function executeUpdateShop(
       ...shop,
       slug: newSlug,
       ...(request.name !== undefined && { name: request.name }),
-      ...(request.acceptingOrders !== undefined && {
-        acceptingOrders: request.acceptingOrders,
-      }),
       ...(request.isPaused !== undefined && { isPaused: request.isPaused }),
       ...(request.pausedMessage !== undefined && {
         pausedMessage: request.pausedMessage,

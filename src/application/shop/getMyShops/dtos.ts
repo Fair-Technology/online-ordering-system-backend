@@ -7,7 +7,6 @@ export interface ShopSummaryDto {
   slug: string;
   name: string;
   isDeleted: boolean;
-  acceptingOrders: boolean;
   isPaused: boolean;
   pausedMessage?: string;
   paymentPolicy: string;

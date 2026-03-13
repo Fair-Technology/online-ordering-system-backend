@@ -177,7 +177,6 @@ export async function executeCreateShop(
       name: request.name.trim(),
       // Set safe defaults automatically
       isDeleted: false,
-      acceptingOrders: true,
       isPaused: false,
       allowGuestCheckout: true,
       // Required fields from user

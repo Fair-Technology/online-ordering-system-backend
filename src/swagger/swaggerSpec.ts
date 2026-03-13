@@ -912,7 +912,7 @@ export const swaggerSpec = {
       CreateShopRequest: {
         type: 'object',
         description:
-          'Create a new shop. The following fields are automatically set: isDeleted=false, isPaused=false, acceptingOrders=true, allowGuestCheckout=true. The slug is auto-generated from the shop name. At least one day must have opening hours. If a shop with the same name already exists, an error will be returned.',
+          'Create a new shop. The following fields are automatically set: isDeleted=false, isPaused=false, allowGuestCheckout=true. The slug is auto-generated from the shop name. At least one day must have opening hours. If a shop with the same name already exists, an error will be returned.',
         required: [
           'name',
           'currency',
@@ -1199,10 +1199,6 @@ export const swaggerSpec = {
         type: 'object',
         properties: {
           name: { type: 'string', description: 'Shop name' },
-          acceptingOrders: {
-            type: 'boolean',
-            description: 'Whether shop is accepting orders',
-          },
           isPaused: { type: 'boolean', description: 'Whether shop is paused' },
           pausedMessage: {
             type: 'string',
@@ -1271,10 +1267,6 @@ export const swaggerSpec = {
           isDeleted: {
             type: 'boolean',
             description: 'Whether shop is deleted',
-          },
-          acceptingOrders: {
-            type: 'boolean',
-            description: 'Whether shop is accepting orders',
           },
           isPaused: {
             type: 'boolean',
