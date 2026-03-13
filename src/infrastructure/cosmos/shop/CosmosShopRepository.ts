@@ -61,7 +61,7 @@ export async function findAllShops(): Promise<Shop[]> {
   try {
     const querySpec = {
       query:
-        'SELECT * FROM c WHERE c.isDeleted = false ORDER BY c.createdAt DESC',
+        'SELECT TOP 20 * FROM c WHERE c.isDeleted = false ORDER BY c.createdAt DESC',
       parameters: [],
     };
 

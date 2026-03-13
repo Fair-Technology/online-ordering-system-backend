@@ -1,16 +1,11 @@
-import { HttpRequest } from '@azure/functions';
 import { findAllShops } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { GetAllShopsRequestDto, GetAllShopsResultDto, ShopSummaryDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 
 export async function executeGetAllShops(
-  request: GetAllShopsRequestDto,
-  httpRequest: HttpRequest,
+  _request: GetAllShopsRequestDto,
 ): Promise<ApplicationResult<GetAllShopsResultDto>> {
   try {
-    await getUserIdFromAuth(httpRequest);
-
     const shops = await findAllShops();
 
     const shopDtos: ShopSummaryDto[] = shops.map((shop) => ({
@@ -44,15 +39,7 @@ export async function executeGetAllShops(
       ok: true,
       data: resultDto,
     };
-  } catch (error: any) {
-    if (error.message === 'Authentication required') {
-      return {
-        ok: false,
-        code: 'FORBIDDEN',
-        error: 'Authentication required',
-      };
-    }
-
+  } catch {
     return {
       ok: false,
       code: 'INTERNAL_ERROR',
