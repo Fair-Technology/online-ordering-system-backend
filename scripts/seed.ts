@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
+import { seedTaxRatesForCountry } from '../src/application/_shared/countryTaxRates';
 
 // ── 1. Load env vars BEFORE Cosmos modules initialize ────────────────────────
 // Cosmos client reads process.env at module load time, so env vars must be
@@ -126,6 +127,7 @@ async function seedShops(): Promise<any[]> {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
     const ts = now();
+    const taxRates = seedTaxRatesForCountry('AU');
     const shop = await createShop({
       id: shopId,
       slug,
@@ -138,6 +140,9 @@ async function seedShops(): Promise<any[]> {
       currency: 'AUD',
       timezone: 'Australia/Sydney',
       minOrderAmountCents: 1500,
+      countryCode: 'AU',
+      taxRates,
+      roles: [{ id: 'staff', name: 'Staff', permissions: ['view_orders'] }],
       address: def.address,
       openingHours: def.openingHours,
       closures: [],
@@ -146,7 +151,7 @@ async function seedShops(): Promise<any[]> {
       createdAt: ts,
       updatedAt: ts,
     });
-    created.push(shop);
+    created.push({ ...shop, taxRates });
     console.log(`   ✓ ${shop.name} (${shop.slug})`);
   }
   return created;
@@ -197,7 +202,8 @@ async function seedProducts(shops: any[], categoryMap: Map<string, any[]>): Prom
     const cats = categoryMap.get(shop.id) ?? [];
     const cat = (name: string) => cats.find((c: any) => c.name === name)?.id ?? cats[0]?.id;
 
-    const products = buildProducts(shop.name, shop.id, cat);
+    const gstRateId = shop.taxRates?.[0]?.id ?? null;
+    const products = buildProducts(shop.name, shop.id, cat, gstRateId);
     for (const productDef of products) {
       await createProduct(productDef);
       console.log(`   ✓ ${shop.name} → ${productDef.name} ($${(productDef.price / 100).toFixed(2)})`);
@@ -205,7 +211,7 @@ async function seedProducts(shops: any[], categoryMap: Map<string, any[]>): Prom
   }
 }
 
-function buildProducts(shopName: string, shopId: string, cat: (name: string) => string): any[] {
+function buildProducts(shopName: string, shopId: string, cat: (name: string) => string, taxRateId: string | null): any[] {
   const base = (overrides: object) => ({
     id: randomUUID(),
     shopId,
@@ -216,6 +222,7 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
     isDeleted: false,
     variantGroups: [],
     addonGroups: [],
+    taxRateId,
     createdAt: now(),
     updatedAt: now(),
     ...overrides,

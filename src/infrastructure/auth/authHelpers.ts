@@ -3,7 +3,7 @@ import { jwtVerify, createRemoteJWKSet } from 'jose';
 
 const tenantName = process.env.ENTRA_TENANT_NAME!;
 const tenantId = process.env.ENTRA_TENANT_ID!;
-const apiClientId = process.env.ENTRA_API_CLIENT_ID!;
+const apiClientId = process.env.ENTRA_CLIENT_ID!;
 
 // JWKS fetched once and cached by jose
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
