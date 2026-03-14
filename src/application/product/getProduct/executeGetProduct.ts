@@ -1,5 +1,6 @@
 import { HttpRequest } from '@azure/functions';
 import { findProductById } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
+import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { GetProductRequestDto, GetProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
@@ -49,6 +50,19 @@ export async function executeGetProduct(
       };
     }
 
+    const categories: { id: string; name: string; sortOrder: number }[] = [];
+    for (const categoryId of product.categoryIds || []) {
+      try {
+        const category = await findCategoryById(categoryId, product.shopId);
+        if (category && !category.isDeleted) {
+          categories.push({ id: category.id, name: category.name, sortOrder: category.sortOrder });
+        }
+      } catch {
+        // Skip invalid categories silently
+      }
+    }
+    categories.sort((a, b) => a.sortOrder - b.sortOrder);
+
     const productDto: GetProductResultDto = {
       id: product.id,
       shopId: product.shopId,
@@ -61,6 +75,7 @@ export async function executeGetProduct(
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
       images: product.images ?? [],
+      categories,
     };
 
     return {

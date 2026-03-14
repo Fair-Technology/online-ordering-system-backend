@@ -53,6 +53,27 @@ export async function executeCreateProduct(
     };
   }
 
+  if (
+    !request.taxRateId ||
+    typeof request.taxRateId !== 'string' ||
+    request.taxRateId.trim() === ''
+  ) {
+    return {
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'taxRateId is required and must be a non-empty string',
+    };
+  }
+
+  // At least one category is required
+  if (!request.categoryIds || request.categoryIds.length === 0) {
+    return {
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'At least one category is required',
+    };
+  }
+
   // Validate categoryIds if provided
   if (request.categoryIds && request.categoryIds.length > 0) {
     // De-duplicate categoryIds

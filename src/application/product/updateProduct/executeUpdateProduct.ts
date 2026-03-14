@@ -65,6 +65,15 @@ export async function executeUpdateProduct(
     if (permError) return permError;
 
     // Validate categoryIds if provided
+    if (request.categoryIds !== undefined) {
+      if (request.categoryIds.length === 0) {
+        return {
+          ok: false,
+          code: 'INVALID_INPUT',
+          error: 'At least one category is required',
+        };
+      }
+    }
     if (request.categoryIds !== undefined && request.categoryIds.length > 0) {
       // De-duplicate categoryIds
       const uniqueCategoryIds = [...new Set(request.categoryIds)];
