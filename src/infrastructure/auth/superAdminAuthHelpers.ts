@@ -1,39 +1,25 @@
 import { HttpRequest } from '@azure/functions';
-import { jwtVerify, createRemoteJWKSet } from 'jose';
+import { getUserIdFromAuth } from './authHelpers';
+import { findUserById } from '../cosmos/user/CosmosUserRepository';
 
-const superAdminTenantId = process.env.SUPERADMIN_ENTRA_TENANT_ID!;
-const superAdminClientId = process.env.SUPERADMIN_ENTRA_CLIENT_ID!;
-
-let superAdminJwks: ReturnType<typeof createRemoteJWKSet> | null = null;
-function getSuperAdminJwks() {
-  if (!superAdminJwks) {
-    const jwksUrl = new URL(
-      `https://login.microsoftonline.com/${superAdminTenantId}/discovery/v2.0/keys`,
-    );
-    superAdminJwks = createRemoteJWKSet(jwksUrl);
-  }
-  return superAdminJwks;
-}
-
+/**
+ * Verifies that the request carries a valid CIAM JWT and that the user has
+ * systemRole === 'superadmin' in the users container.
+ *
+ * Returns the userId string if the caller is a superadmin, null otherwise.
+ * Never throws.
+ */
 export async function verifySuperAdminToken(
   request: HttpRequest,
-): Promise<boolean> {
+): Promise<string | null> {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return false;
+    const userId = await getUserIdFromAuth(request);
+    const profile = await findUserById(userId);
+    if (profile?.systemRole === 'superadmin') {
+      return userId;
     }
-
-    const token = authHeader.slice(7);
-    const expectedIssuer = `https://login.microsoftonline.com/${superAdminTenantId}/v2.0`;
-
-    await jwtVerify(token, getSuperAdminJwks(), {
-      issuer: expectedIssuer,
-      audience: superAdminClientId,
-    });
-
-    return true;
+    return null;
   } catch {
-    return false;
+    return null;
   }
 }

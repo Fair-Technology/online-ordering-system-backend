@@ -21,6 +21,7 @@ const checkoutSessionContainerId =
   process.env.COSMOS_CHECKOUT_SESSION_CONTAINER || 'checkout_sessions';
 const auditLogsContainerId =
   process.env.COSMOS_AUDIT_LOGS_CONTAINER || 'auditLogs';
+const usersContainerId = process.env.COSMOS_USERS_CONTAINER || 'users';
 
 export const cosmosClient = new CosmosClient({ endpoint, key });
 export const database: Database = cosmosClient.database(databaseId);
@@ -34,3 +35,4 @@ export const checkoutSessionContainer: Container =
   database.container(checkoutSessionContainerId);
 export const auditLogsContainer: Container =
   database.container(auditLogsContainerId);
+export const usersContainer: Container = database.container(usersContainerId);

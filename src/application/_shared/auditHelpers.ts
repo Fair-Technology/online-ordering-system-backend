@@ -2,6 +2,7 @@ import { HttpRequest } from '@azure/functions';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 import { AuditChange, AuditEntry } from '../../domain/audit/AuditEntry';
 import { createAuditEntry } from '../../infrastructure/cosmos/audit/CosmosAuditRepository';
+import { upsertUser } from '../../infrastructure/cosmos/user/CosmosUserRepository';
 
 const AUDIT_TTL = 7776000; // 90 days in seconds
 
@@ -46,11 +47,18 @@ export async function getActorFromAuth(
   const oid = payload['oid'] as string | undefined;
   if (!oid) throw new Error('Authentication required');
 
-  return {
-    userId: oid,
-    email: payload['preferred_username'] as string | undefined,
-    name: payload['name'] as string | undefined,
-  };
+  const email = payload['preferred_username'] as string | undefined;
+  const name = payload['name'] as string | undefined;
+
+  // Fire-and-forget: ensure a user profile exists; never downgrades an existing superadmin
+  const now = new Date().toISOString();
+  upsertUser({ id: oid, email, name, systemRole: 'user', createdAt: now, updatedAt: now }).catch(
+    (err) => {
+      console.error('[auditHelpers] Failed to upsert user profile:', err?.message);
+    },
+  );
+
+  return { userId: oid, email, name };
 }
 
 export function diffFields<T extends Record<string, unknown>>(

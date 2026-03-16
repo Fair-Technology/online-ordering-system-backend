@@ -42,6 +42,9 @@ import './functions/order/getOrdersByShop/index';
 // Audit endpoints
 import './functions/audit/getAuditEntries/index';
 
+// User endpoints
+import './functions/user/getMe/index';
+
 // Swagger endpoints
 import './functions/swagger/swaggerJson/index';
 import './functions/swagger/swaggerUi/index';

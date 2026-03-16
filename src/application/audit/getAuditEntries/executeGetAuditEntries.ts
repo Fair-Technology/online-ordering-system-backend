@@ -25,9 +25,9 @@ export async function executeGetAuditEntries(
     }
 
     // Accept either a valid superadmin JWT or a regular owner JWT
-    const isSuperAdmin = await verifySuperAdminToken(httpRequest);
+    const superAdminId = await verifySuperAdminToken(httpRequest);
 
-    if (!isSuperAdmin) {
+    if (!superAdminId) {
       let userId: string;
       try {
         userId = await getUserIdFromAuth(httpRequest);
