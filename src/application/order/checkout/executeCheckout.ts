@@ -4,6 +4,7 @@ import { findProductById } from '../../../infrastructure/cosmos/product/CosmosPr
 import { createCheckoutSession } from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
 import { CheckoutRequestDto, CheckoutResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { isProductScheduleActive } from '../../_shared/scheduleUtils';
 import { OrderItem } from '../../../domain/order/Order';
 import { CheckoutSession } from '../../../domain/order/CheckoutSession';
 
@@ -100,6 +101,18 @@ export async function executeCheckout(
           code: 'INVALID_INPUT',
           error: `Product is not available: ${product.name}`,
         };
+      }
+      if (product.schedule) {
+        const scheduleActive = isProductScheduleActive(product.schedule, shop.timezone);
+        if (!scheduleActive) {
+          const from = product.schedule.startTime || '00:00';
+          const to = product.schedule.endTime || '23:59';
+          return {
+            ok: false,
+            code: 'INVALID_INPUT',
+            error: `Product is not available at this time: ${product.name} (available ${from}–${to})`,
+          };
+        }
       }
 
       let unitPriceCents = product.price;

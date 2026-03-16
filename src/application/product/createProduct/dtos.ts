@@ -1,4 +1,4 @@
-import { ProductImage } from '../../../domain/product/Product';
+import { ProductImage, ProductSchedule } from '../../../domain/product/Product';
 
 export interface CreateProductRequestDto {
   shopId: string;
@@ -33,6 +33,7 @@ export interface CreateProductRequestDto {
   }>;
   isAvailable?: boolean;
   taxRateId?: string | null;
+  schedule?: ProductSchedule | null;
 }
 
 export interface CreateProductResultDto {
@@ -44,6 +45,7 @@ export interface CreateProductResultDto {
   isAvailable: boolean;
   isDeleted: boolean;
   taxRateId: string | null;
+  schedule?: ProductSchedule | null;
   createdAt: string;
   updatedAt: string;
 }

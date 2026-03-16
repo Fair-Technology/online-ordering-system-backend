@@ -72,6 +72,7 @@ export async function executeGetProductsByShop(
         variantGroups: product.variantGroups,
         addonGroups: product.addonGroups,
         taxRateId: product.taxRateId ?? null,
+        schedule: product.schedule ?? null,
         isAvailable: product.isAvailable,
         isDeleted: product.isDeleted,
         createdAt: product.createdAt,

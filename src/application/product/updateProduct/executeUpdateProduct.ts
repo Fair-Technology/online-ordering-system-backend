@@ -111,6 +111,40 @@ export async function executeUpdateProduct(
       request.categoryIds = uniqueCategoryIds;
     }
 
+    // Validate schedule if provided
+    if (request.schedule !== undefined && request.schedule !== null) {
+      const s = request.schedule;
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      const timeRegex = /^\d{2}:\d{2}$/;
+      if (!dateRegex.test(s.startDate)) {
+        return { ok: false, code: 'INVALID_INPUT', error: 'schedule.startDate must be in YYYY-MM-DD format' };
+      }
+      if (s.startTime && !timeRegex.test(s.startTime)) {
+        return { ok: false, code: 'INVALID_INPUT', error: 'schedule.startTime must be in HH:mm format' };
+      }
+      if (s.endTime && !timeRegex.test(s.endTime)) {
+        return { ok: false, code: 'INVALID_INPUT', error: 'schedule.endTime must be in HH:mm format' };
+      }
+      if (s.endDate) {
+        if (!dateRegex.test(s.endDate)) {
+          return { ok: false, code: 'INVALID_INPUT', error: 'schedule.endDate must be in YYYY-MM-DD format' };
+        }
+        if (s.endDate < s.startDate) {
+          return { ok: false, code: 'INVALID_INPUT', error: 'schedule.endDate must be on or after startDate' };
+        }
+      }
+      if (s.startTime && s.endTime && s.endTime <= s.startTime) {
+        return { ok: false, code: 'INVALID_INPUT', error: 'schedule.endTime must be after startTime' };
+      }
+      if (s.daysOfWeek) {
+        for (const day of s.daysOfWeek) {
+          if (!Number.isInteger(day) || day < 0 || day > 6) {
+            return { ok: false, code: 'INVALID_INPUT', error: 'schedule.daysOfWeek values must be integers 0–6' };
+          }
+        }
+      }
+    }
+
     // Update only provided fields
     const updatedProduct = {
       ...product,
@@ -137,6 +171,7 @@ export async function executeUpdateProduct(
         isAvailable: request.isAvailable,
       }),
       ...(request.taxRateId !== undefined && { taxRateId: request.taxRateId }),
+      ...(request.schedule !== undefined && { schedule: request.schedule }),
       updatedAt: new Date().toISOString(),
     };
 
@@ -164,6 +199,7 @@ export async function executeUpdateProduct(
       isAvailable: result.isAvailable,
       isDeleted: result.isDeleted,
       taxRateId: result.taxRateId ?? null,
+      schedule: result.schedule ?? null,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
     };

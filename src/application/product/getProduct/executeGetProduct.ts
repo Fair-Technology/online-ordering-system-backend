@@ -76,6 +76,7 @@ export async function executeGetProduct(
       updatedAt: product.updatedAt,
       images: product.images ?? [],
       categories,
+      schedule: product.schedule ?? null,
     };
 
     return {

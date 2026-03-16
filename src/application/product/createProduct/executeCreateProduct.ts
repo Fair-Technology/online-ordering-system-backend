@@ -141,6 +141,7 @@ export async function executeCreateProduct(
       isAvailable: request.isAvailable ?? true,
       isDeleted: false,
       taxRateId: request.taxRateId ?? null,
+      schedule: request.schedule ?? null,
       createdAt: now,
       updatedAt: now,
     };
@@ -156,6 +157,7 @@ export async function executeCreateProduct(
       isAvailable: createdProduct.isAvailable,
       isDeleted: createdProduct.isDeleted,
       taxRateId: createdProduct.taxRateId ?? null,
+      schedule: createdProduct.schedule ?? null,
       createdAt: createdProduct.createdAt,
       updatedAt: createdProduct.updatedAt,
     };

@@ -1,4 +1,4 @@
-import { ProductImage } from '../../../domain/product/Product';
+import { ProductImage, ProductSchedule } from '../../../domain/product/Product';
 
 export interface GetProductsByShopRequestDto {
   shopId: string;
@@ -59,6 +59,9 @@ export interface ProductDto {
 
   // Tax
   taxRateId: string | null;
+
+  // Availability schedule (optional)
+  schedule?: ProductSchedule | null;
 
   // Availability & lifecycle
   isAvailable: boolean;

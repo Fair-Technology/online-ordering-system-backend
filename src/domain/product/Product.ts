@@ -1,3 +1,11 @@
+export interface ProductSchedule {
+  startDate: string; // "YYYY-MM-DD" — inclusive
+  endDate?: string | null; // "YYYY-MM-DD" — inclusive; null/absent = run indefinitely
+  startTime?: string | null; // "HH:mm" 24-hour — daily window open; absent = 00:00
+  endTime?: string | null; // "HH:mm" 24-hour — daily window close; absent = 23:59
+  daysOfWeek?: number[]; // 0=Sun 1=Mon … 6=Sat; absent/empty = every day
+}
+
 export interface ProductImage {
   id: string; // UUID for the image
   url: string; // Full blob URL (without SAS)
@@ -56,6 +64,9 @@ export interface Product {
 
   // Tax
   taxRateId: string | null; // references ShopTaxRate.id; null = no tax assigned
+
+  // Availability schedule (optional)
+  schedule?: ProductSchedule | null;
 
   // Availability & lifecycle
   isAvailable: boolean; // visible/purchasable if true

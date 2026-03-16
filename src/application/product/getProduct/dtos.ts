@@ -1,4 +1,4 @@
-import { ProductImage } from '../../../domain/product/Product';
+import { ProductImage, ProductSchedule } from '../../../domain/product/Product';
 
 export interface GetProductRequestDto {
   productId: string;
@@ -18,4 +18,5 @@ export interface GetProductResultDto {
   updatedAt: string;
   images: ProductImage[];
   categories: { id: string; name: string; sortOrder: number; hasStar: boolean }[];
+  schedule?: ProductSchedule | null;
 }

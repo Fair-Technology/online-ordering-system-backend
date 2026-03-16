@@ -1374,6 +1374,41 @@ export const swaggerSpec = {
         type: 'array',
         items: { $ref: '#/components/schemas/CategoryResponse' },
       },
+      ProductSchedule: {
+        type: 'object',
+        required: ['startDate'],
+        properties: {
+          startDate: {
+            type: 'string',
+            description: 'Inclusive start date (YYYY-MM-DD)',
+            example: '2026-03-18',
+          },
+          endDate: {
+            type: 'string',
+            nullable: true,
+            description: 'Inclusive end date (YYYY-MM-DD); null = run indefinitely',
+            example: '2026-03-20',
+          },
+          startTime: {
+            type: 'string',
+            nullable: true,
+            description: 'Daily window open (HH:mm, 24-hour); absent = 00:00 (all day)',
+            example: '12:00',
+          },
+          endTime: {
+            type: 'string',
+            nullable: true,
+            description: 'Daily window close (HH:mm, 24-hour); absent = 23:59 (all day)',
+            example: '16:00',
+          },
+          daysOfWeek: {
+            type: 'array',
+            items: { type: 'integer', minimum: 0, maximum: 6 },
+            description: '0=Sun 1=Mon … 6=Sat; absent/empty = every day',
+            example: [2, 3],
+          },
+        },
+      },
       CreateProductRequest: {
         type: 'object',
         required: ['shopId', 'name', 'description', 'price'],
@@ -1410,6 +1445,11 @@ export const swaggerSpec = {
           isAvailable: {
             type: 'boolean',
             description: 'Whether product is available',
+          },
+          schedule: {
+            nullable: true,
+            allOf: [{ $ref: '#/components/schemas/ProductSchedule' }],
+            description: 'Optional availability schedule; null = no time restriction',
           },
         },
       },
@@ -1500,6 +1540,11 @@ export const swaggerSpec = {
                 },
               },
             },
+          },
+          schedule: {
+            nullable: true,
+            allOf: [{ $ref: '#/components/schemas/ProductSchedule' }],
+            description: 'Optional availability schedule; null = no time restriction',
           },
         },
       },
@@ -1624,6 +1669,16 @@ export const swaggerSpec = {
           isDeleted: {
             type: 'boolean',
             description: 'Whether product is deleted',
+          },
+          schedule: {
+            nullable: true,
+            allOf: [{ $ref: '#/components/schemas/ProductSchedule' }],
+            description: 'Optional availability schedule; null = no time restriction',
+          },
+          taxRateId: {
+            type: 'string',
+            nullable: true,
+            description: 'Tax rate ID from the shop\'s taxRates list, or null',
           },
           createdAt: {
             type: 'string',
