@@ -4,10 +4,10 @@ import {
   updateCategory,
 } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { checkShopPermission } from '../../_shared/permissions';
 import { DeleteCategoryRequestDto, DeleteCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeDeleteCategory(
   request: DeleteCategoryRequestDto,
@@ -39,7 +39,8 @@ export async function executeDeleteCategory(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
+    const actor = await getActorFromAuth(httpRequest);
+    const userId = actor.userId;
 
     const existingCategory = await findCategoryById(
       request.categoryId.trim(),
@@ -72,6 +73,21 @@ export async function executeDeleteCategory(
     };
 
     const savedCategory = await updateCategory(deletedCategory);
+
+    logAudit(
+      {
+        shopId: savedCategory.shopId,
+        timestamp: new Date().toISOString(),
+        actorId: actor.userId,
+        actorEmail: actor.email,
+        actorName: actor.name,
+        action: 'category.delete',
+        entityType: 'category',
+        entityId: savedCategory.id,
+        entityName: savedCategory.name,
+      },
+      httpRequest,
+    );
 
     const resultDto: DeleteCategoryResultDto = {
       id: savedCategory.id,

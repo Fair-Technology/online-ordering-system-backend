@@ -2,11 +2,11 @@ import { HttpRequest } from '@azure/functions';
 import { createProduct as createProductInRepo } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { checkShopPermission } from '../../_shared/permissions';
 import { CreateProductRequestDto, CreateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Product } from '../../../domain/product/Product';
+import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeCreateProduct(
   request: CreateProductRequestDto,
@@ -113,7 +113,8 @@ export async function executeCreateProduct(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
+    const actor = await getActorFromAuth(httpRequest);
+    const userId = actor.userId;
 
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
@@ -147,6 +148,21 @@ export async function executeCreateProduct(
     };
 
     const createdProduct = await createProductInRepo(product);
+
+    logAudit(
+      {
+        shopId: createdProduct.shopId,
+        timestamp: new Date().toISOString(),
+        actorId: actor.userId,
+        actorEmail: actor.email,
+        actorName: actor.name,
+        action: 'product.create',
+        entityType: 'product',
+        entityId: createdProduct.id,
+        entityName: createdProduct.name,
+      },
+      httpRequest,
+    );
 
     const resultDto: CreateProductResultDto = {
       id: createdProduct.id,

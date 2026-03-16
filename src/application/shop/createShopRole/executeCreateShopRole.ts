@@ -3,11 +3,11 @@ import {
   findShopById,
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { checkIsOwner, VALID_PERMISSIONS } from '../../_shared/permissions';
 import { ShopPermission } from '../../../domain/shop/Shop';
 import { CreateShopRoleRequestDto, CreateShopRoleResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeCreateShopRole(
   request: CreateShopRoleRequestDto,
@@ -35,7 +35,8 @@ export async function executeCreateShopRole(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
+    const actor = await getActorFromAuth(httpRequest);
+    const userId = actor.userId;
 
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
@@ -55,6 +56,21 @@ export async function executeCreateShopRole(
     shop.updatedAt = new Date().toISOString();
 
     const updated = await updateShop(shop);
+
+    logAudit(
+      {
+        shopId: shop.id,
+        timestamp: new Date().toISOString(),
+        actorId: actor.userId,
+        actorEmail: actor.email,
+        actorName: actor.name,
+        action: 'role.create',
+        entityType: 'role',
+        entityId: newRole.id,
+        entityName: newRole.name,
+      },
+      httpRequest,
+    );
 
     return { ok: true, data: { roles: updated.roles } };
   } catch (error: any) {

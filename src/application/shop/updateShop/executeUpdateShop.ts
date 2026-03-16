@@ -4,11 +4,11 @@ import {
   findShopBySlug,
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { checkShopPermission } from '../../_shared/permissions';
 import { generateSlugFromName } from '../createShop/slugHelpers';
 import { UpdateShopRequestDto, UpdateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { getActorFromAuth, diffFields, logAudit } from '../../_shared/auditHelpers';
 
 const TIME_PATTERN = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
 const VALID_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
@@ -104,7 +104,8 @@ export async function executeUpdateShop(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
+    const actor = await getActorFromAuth(httpRequest);
+    const userId = actor.userId;
 
     const shop = await findShopById(request.shopId.trim());
 
@@ -163,6 +164,28 @@ export async function executeUpdateShop(
     };
 
     const result = await updateShopInRepo(updatedShop);
+
+    const changes = diffFields(
+      shop as unknown as Record<string, unknown>,
+      updatedShop as unknown as Record<string, unknown>,
+      ['name', 'isPaused', 'pausedMessage', 'minOrderAmountCents', 'currency', 'timezone'],
+      ['openingHours', 'branding', 'address'],
+    );
+    logAudit(
+      {
+        shopId: result.id,
+        timestamp: new Date().toISOString(),
+        actorId: actor.userId,
+        actorEmail: actor.email,
+        actorName: actor.name,
+        action: 'shop.update',
+        entityType: 'shop',
+        entityId: result.id,
+        entityName: result.name,
+        changes,
+      },
+      httpRequest,
+    );
 
     const resultDto: UpdateShopResultDto = {
       id: result.id,

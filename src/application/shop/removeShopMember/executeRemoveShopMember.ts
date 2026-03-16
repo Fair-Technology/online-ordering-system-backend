@@ -3,10 +3,10 @@ import {
   findShopById,
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { checkIsOwner } from '../../_shared/permissions';
 import { RemoveShopMemberRequestDto, RemoveShopMemberResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeRemoveShopMember(
   request: RemoveShopMemberRequestDto,
@@ -37,7 +37,8 @@ export async function executeRemoveShopMember(
   }
 
   try {
-    const callerId = await getUserIdFromAuth(httpRequest);
+    const actor = await getActorFromAuth(httpRequest);
+    const callerId = actor.userId;
 
     const shop = await findShopById(request.shopId.trim());
 
@@ -78,6 +79,21 @@ export async function executeRemoveShopMember(
     shop.members = shop.members.filter((m) => m.userId !== targetUserId);
     shop.updatedAt = new Date().toISOString();
     const updated = await updateShop(shop);
+
+    logAudit(
+      {
+        shopId: shop.id,
+        timestamp: new Date().toISOString(),
+        actorId: actor.userId,
+        actorEmail: actor.email,
+        actorName: actor.name,
+        action: 'member.remove',
+        entityType: 'member',
+        entityId: targetUserId,
+        entityName: targetUserId,
+      },
+      httpRequest,
+    );
 
     return {
       ok: true,

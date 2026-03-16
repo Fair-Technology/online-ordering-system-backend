@@ -3,10 +3,10 @@ import {
   findShopById,
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { checkIsOwner } from '../../_shared/permissions';
 import { DeleteShopRoleRequestDto, DeleteShopRoleResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeDeleteShopRole(
   request: DeleteShopRoleRequestDto,
@@ -25,7 +25,8 @@ export async function executeDeleteShopRole(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
+    const actor = await getActorFromAuth(httpRequest);
+    const userId = actor.userId;
 
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
@@ -37,8 +38,8 @@ export async function executeDeleteShopRole(
 
     const roleId = request.roleId.trim();
 
-    const roleExists = shop.roles.some((r) => r.id === roleId);
-    if (!roleExists) {
+    const roleToDelete = shop.roles.find((r) => r.id === roleId);
+    if (!roleToDelete) {
       return { ok: false, code: 'NOT_FOUND', error: 'Role not found' };
     }
 
@@ -55,6 +56,21 @@ export async function executeDeleteShopRole(
     shop.updatedAt = new Date().toISOString();
 
     const updated = await updateShop(shop);
+
+    logAudit(
+      {
+        shopId: shop.id,
+        timestamp: new Date().toISOString(),
+        actorId: actor.userId,
+        actorEmail: actor.email,
+        actorName: actor.name,
+        action: 'role.delete',
+        entityType: 'role',
+        entityId: roleToDelete.id,
+        entityName: roleToDelete.name,
+      },
+      httpRequest,
+    );
 
     return { ok: true, data: { roles: updated.roles } };
   } catch (error: any) {

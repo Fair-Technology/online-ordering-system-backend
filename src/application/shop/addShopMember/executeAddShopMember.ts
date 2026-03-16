@@ -3,10 +3,10 @@ import {
   findShopById,
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { checkIsOwner } from '../../_shared/permissions';
 import { AddShopMemberRequestDto, AddShopMemberResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeAddShopMember(
   request: AddShopMemberRequestDto,
@@ -45,7 +45,8 @@ export async function executeAddShopMember(
   }
 
   try {
-    const callerId = await getUserIdFromAuth(httpRequest);
+    const actor = await getActorFromAuth(httpRequest);
+    const callerId = actor.userId;
 
     const shop = await findShopById(request.shopId.trim());
 
@@ -94,6 +95,21 @@ export async function executeAddShopMember(
 
     shop.updatedAt = new Date().toISOString();
     const updated = await updateShop(shop);
+
+    logAudit(
+      {
+        shopId: shop.id,
+        timestamp: new Date().toISOString(),
+        actorId: actor.userId,
+        actorEmail: actor.email,
+        actorName: actor.name,
+        action: 'member.add',
+        entityType: 'member',
+        entityId: request.userId.trim(),
+        entityName: role,
+      },
+      httpRequest,
+    );
 
     return {
       ok: true,

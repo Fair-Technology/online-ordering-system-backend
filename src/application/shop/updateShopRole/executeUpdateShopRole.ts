@@ -3,11 +3,11 @@ import {
   findShopById,
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { checkIsOwner, VALID_PERMISSIONS } from '../../_shared/permissions';
 import { ShopPermission } from '../../../domain/shop/Shop';
 import { UpdateShopRoleRequestDto, UpdateShopRoleResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { getActorFromAuth, diffFields, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeUpdateShopRole(
   request: UpdateShopRoleRequestDto,
@@ -44,7 +44,8 @@ export async function executeUpdateShopRole(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
+    const actor = await getActorFromAuth(httpRequest);
+    const userId = actor.userId;
 
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
@@ -65,9 +66,32 @@ export async function executeUpdateShopRole(
       ...(request.name !== undefined && { name: request.name.trim() }),
       ...(request.permissions !== undefined && { permissions: request.permissions as ShopPermission[] }),
     };
+    const changes = diffFields(
+      existingRole as unknown as Record<string, unknown>,
+      shop.roles[roleIndex] as unknown as Record<string, unknown>,
+      ['name', 'permissions'],
+      [],
+    );
+
     shop.updatedAt = new Date().toISOString();
 
     const updated = await updateShop(shop);
+
+    logAudit(
+      {
+        shopId: shop.id,
+        timestamp: new Date().toISOString(),
+        actorId: actor.userId,
+        actorEmail: actor.email,
+        actorName: actor.name,
+        action: 'role.update',
+        entityType: 'role',
+        entityId: shop.roles[roleIndex].id,
+        entityName: shop.roles[roleIndex].name,
+        changes,
+      },
+      httpRequest,
+    );
 
     return { ok: true, data: { roles: updated.roles } };
   } catch (error: any) {

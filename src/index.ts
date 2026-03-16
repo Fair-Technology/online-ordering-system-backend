@@ -39,6 +39,9 @@ import './functions/order/stripeWebhook/index';
 import './functions/order/getOrderByPaymentIntent/index';
 import './functions/order/getOrdersByShop/index';
 
+// Audit endpoints
+import './functions/audit/getAuditEntries/index';
+
 // Swagger endpoints
 import './functions/swagger/swaggerJson/index';
 import './functions/swagger/swaggerUi/index';

@@ -5,11 +5,11 @@ import {
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findCategoryById } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { checkShopPermission } from '../../_shared/permissions';
 import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
 import { UpdateProductRequestDto, UpdateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { getActorFromAuth, diffFields, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeUpdateProduct(
   request: UpdateProductRequestDto,
@@ -41,7 +41,8 @@ export async function executeUpdateProduct(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
+    const actor = await getActorFromAuth(httpRequest);
+    const userId = actor.userId;
 
     const product = await findProductById(
       request.productId.trim(),
@@ -176,6 +177,28 @@ export async function executeUpdateProduct(
     };
 
     const result = await updateProductInRepo(updatedProduct);
+
+    const changes = diffFields(
+      product as unknown as Record<string, unknown>,
+      updatedProduct as unknown as Record<string, unknown>,
+      ['name', 'price', 'isAvailable', 'sortOrder', 'taxRateId', 'allergyInfo'],
+      ['variantGroups', 'addonGroups', 'schedule'],
+    );
+    logAudit(
+      {
+        shopId: result.shopId,
+        timestamp: new Date().toISOString(),
+        actorId: actor.userId,
+        actorEmail: actor.email,
+        actorName: actor.name,
+        action: 'product.update',
+        entityType: 'product',
+        entityId: result.id,
+        entityName: result.name,
+        changes,
+      },
+      httpRequest,
+    );
 
     // Delete blobs for images removed from the array — best effort
     if (request.images !== undefined) {

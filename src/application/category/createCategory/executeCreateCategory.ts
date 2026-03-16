@@ -1,11 +1,11 @@
 import { HttpRequest } from '@azure/functions';
 import { createCategory as createCategoryInRepo } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { checkShopPermission } from '../../_shared/permissions';
 import { CreateCategoryRequestDto, CreateCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Category } from '../../../domain/category/Category';
+import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeCreateCategory(
   request: CreateCategoryRequestDto,
@@ -37,7 +37,8 @@ export async function executeCreateCategory(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
+    const actor = await getActorFromAuth(httpRequest);
+    const userId = actor.userId;
 
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
@@ -62,6 +63,21 @@ export async function executeCreateCategory(
     };
 
     const createdCategory = await createCategoryInRepo(category);
+
+    logAudit(
+      {
+        shopId: createdCategory.shopId,
+        timestamp: new Date().toISOString(),
+        actorId: actor.userId,
+        actorEmail: actor.email,
+        actorName: actor.name,
+        action: 'category.create',
+        entityType: 'category',
+        entityId: createdCategory.id,
+        entityName: createdCategory.name,
+      },
+      httpRequest,
+    );
 
     const resultDto: CreateCategoryResultDto = {
       id: createdCategory.id,

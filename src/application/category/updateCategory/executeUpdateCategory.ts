@@ -4,10 +4,10 @@ import {
   updateCategory as updateCategoryInRepo,
 } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { checkShopPermission } from '../../_shared/permissions';
 import { UpdateCategoryRequestDto, UpdateCategoryResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { getActorFromAuth, diffFields, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeUpdateCategory(
   request: UpdateCategoryRequestDto,
@@ -39,7 +39,8 @@ export async function executeUpdateCategory(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
+    const actor = await getActorFromAuth(httpRequest);
+    const userId = actor.userId;
 
     const existingCategory = await findCategoryById(
       request.categoryId.trim(),
@@ -79,6 +80,28 @@ export async function executeUpdateCategory(
     };
 
     const savedCategory = await updateCategoryInRepo(updatedCategory);
+
+    const changes = diffFields(
+      existingCategory as unknown as Record<string, unknown>,
+      updatedCategory as unknown as Record<string, unknown>,
+      ['name', 'sortOrder', 'hasStar'],
+      [],
+    );
+    logAudit(
+      {
+        shopId: savedCategory.shopId,
+        timestamp: new Date().toISOString(),
+        actorId: actor.userId,
+        actorEmail: actor.email,
+        actorName: actor.name,
+        action: 'category.update',
+        entityType: 'category',
+        entityId: savedCategory.id,
+        entityName: savedCategory.name,
+        changes,
+      },
+      httpRequest,
+    );
 
     const resultDto: UpdateCategoryResultDto = {
       id: savedCategory.id,

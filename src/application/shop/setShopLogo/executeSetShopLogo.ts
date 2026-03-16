@@ -3,11 +3,11 @@ import {
   findShopById,
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { checkShopPermission } from '../../_shared/permissions';
 import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
 import { SetShopLogoRequestDto, SetShopLogoResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeSetShopLogo(
   request: SetShopLogoRequestDto,
@@ -26,7 +26,8 @@ export async function executeSetShopLogo(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
+    const actor = await getActorFromAuth(httpRequest);
+    const userId = actor.userId;
 
     const shop = await findShopById(request.shopId.trim());
     if (!shop) {
@@ -61,6 +62,21 @@ export async function executeSetShopLogo(
     };
 
     const result = await updateShopInRepo(updatedShop);
+
+    logAudit(
+      {
+        shopId: result.id,
+        timestamp: new Date().toISOString(),
+        actorId: actor.userId,
+        actorEmail: actor.email,
+        actorName: actor.name,
+        action: 'shop.logo',
+        entityType: 'shop',
+        entityId: result.id,
+        entityName: result.name,
+      },
+      httpRequest,
+    );
 
     return {
       ok: true,

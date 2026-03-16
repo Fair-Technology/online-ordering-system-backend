@@ -4,11 +4,11 @@ import {
   updateProduct,
 } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { checkShopPermission } from '../../_shared/permissions';
 import { deleteBlob, extractBlobPath } from '../../../infrastructure/storage/blobStorageHelpers';
 import { DeleteProductRequestDto, DeleteProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
+import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
 
 export async function executeDeleteProduct(
   request: DeleteProductRequestDto,
@@ -40,7 +40,8 @@ export async function executeDeleteProduct(
   }
 
   try {
-    const userId = await getUserIdFromAuth(httpRequest);
+    const actor = await getActorFromAuth(httpRequest);
+    const userId = actor.userId;
 
     const product = await findProductById(
       request.productId.trim(),
@@ -71,6 +72,21 @@ export async function executeDeleteProduct(
     };
 
     await updateProduct(deletedProduct);
+
+    logAudit(
+      {
+        shopId: product.shopId,
+        timestamp: new Date().toISOString(),
+        actorId: actor.userId,
+        actorEmail: actor.email,
+        actorName: actor.name,
+        action: 'product.delete',
+        entityType: 'product',
+        entityId: product.id,
+        entityName: product.name,
+      },
+      httpRequest,
+    );
 
     // Clean up image blobs — best effort, never fails the delete response
     await Promise.allSettled(
