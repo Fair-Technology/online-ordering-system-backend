@@ -22,6 +22,7 @@ export interface ProductDto {
     id: string;
     name: string;
     sortOrder: number;
+    hasStar: boolean;
   }>;
 
   // Images

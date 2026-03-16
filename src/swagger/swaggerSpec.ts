@@ -1335,6 +1335,7 @@ export const swaggerSpec = {
         properties: {
           name: { type: 'string', description: 'Category name' },
           sortOrder: { type: 'number', description: 'Sort order for display' },
+          hasStar: { type: 'boolean', description: 'Whether to show a star icon in the frontend' },
         },
       },
       UpdateCategoryRequest: {
@@ -1342,6 +1343,7 @@ export const swaggerSpec = {
         properties: {
           name: { type: 'string', description: 'Category name' },
           sortOrder: { type: 'number', description: 'Sort order for display' },
+          hasStar: { type: 'boolean', description: 'Whether to show a star icon in the frontend' },
         },
       },
       CategoryResponse: {
@@ -1351,6 +1353,7 @@ export const swaggerSpec = {
           shopId: { type: 'string', description: 'Shop ID' },
           name: { type: 'string', description: 'Category name' },
           sortOrder: { type: 'number', description: 'Sort order for display' },
+          hasStar: { type: 'boolean', description: 'Whether to show a star icon in the frontend' },
           isDeleted: {
             type: 'boolean',
             description: 'Whether category is deleted',
@@ -1519,6 +1522,10 @@ export const swaggerSpec = {
                 sortOrder: {
                   type: 'number',
                   description: 'Category sort order',
+                },
+                hasStar: {
+                  type: 'boolean',
+                  description: 'Whether to show a star icon in the frontend',
                 },
               },
             },

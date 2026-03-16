@@ -6,6 +6,7 @@ export interface Category {
   // Core info
   name: string; // category name
   sortOrder: number; // for ordering categories
+  hasStar: boolean; // whether to show a star icon in the frontend
 
   // Lifecycle
   isDeleted: boolean; // soft delete flag

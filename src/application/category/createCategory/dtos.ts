@@ -2,6 +2,7 @@ export interface CreateCategoryRequestDto {
   shopId: string;
   name: string;
   sortOrder?: number;
+  hasStar?: boolean;
 }
 
 export interface CreateCategoryResultDto {
@@ -9,6 +10,7 @@ export interface CreateCategoryResultDto {
   shopId: string;
   name: string;
   sortOrder: number;
+  hasStar: boolean;
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;

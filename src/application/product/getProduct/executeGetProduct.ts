@@ -50,12 +50,12 @@ export async function executeGetProduct(
       };
     }
 
-    const categories: { id: string; name: string; sortOrder: number }[] = [];
+    const categories: { id: string; name: string; sortOrder: number; hasStar: boolean }[] = [];
     for (const categoryId of product.categoryIds || []) {
       try {
         const category = await findCategoryById(categoryId, product.shopId);
         if (category && !category.isDeleted) {
-          categories.push({ id: category.id, name: category.name, sortOrder: category.sortOrder });
+          categories.push({ id: category.id, name: category.name, sortOrder: category.sortOrder, hasStar: category.hasStar ?? false });
         }
       } catch {
         // Skip invalid categories silently

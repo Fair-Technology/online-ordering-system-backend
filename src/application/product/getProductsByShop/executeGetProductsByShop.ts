@@ -38,6 +38,7 @@ export async function executeGetProductsByShop(
         id: string;
         name: string;
         sortOrder: number;
+        hasStar: boolean;
       }> = [];
       for (const categoryId of product.categoryIds || []) {
         try {
@@ -47,6 +48,7 @@ export async function executeGetProductsByShop(
               id: category.id,
               name: category.name,
               sortOrder: category.sortOrder,
+              hasStar: category.hasStar ?? false,
             });
           }
         } catch (error) {

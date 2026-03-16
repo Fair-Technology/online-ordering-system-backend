@@ -71,6 +71,10 @@ export async function executeUpdateCategory(
         request.sortOrder !== undefined
           ? request.sortOrder
           : existingCategory.sortOrder,
+      hasStar:
+        request.hasStar !== undefined
+          ? request.hasStar
+          : existingCategory.hasStar ?? false,
       updatedAt: now,
     };
 
@@ -81,6 +85,7 @@ export async function executeUpdateCategory(
       shopId: savedCategory.shopId,
       name: savedCategory.name,
       sortOrder: savedCategory.sortOrder,
+      hasStar: savedCategory.hasStar ?? false,
       isDeleted: savedCategory.isDeleted,
       createdAt: savedCategory.createdAt,
       updatedAt: savedCategory.updatedAt,

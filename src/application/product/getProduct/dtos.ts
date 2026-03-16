@@ -17,5 +17,5 @@ export interface GetProductResultDto {
   createdAt: string;
   updatedAt: string;
   images: ProductImage[];
-  categories: { id: string; name: string; sortOrder: number }[];
+  categories: { id: string; name: string; sortOrder: number; hasStar: boolean }[];
 }

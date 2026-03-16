@@ -54,6 +54,7 @@ export async function executeGetCategory(
       shopId: category.shopId,
       name: category.name,
       sortOrder: category.sortOrder,
+      hasStar: category.hasStar ?? false,
       isDeleted: category.isDeleted,
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
