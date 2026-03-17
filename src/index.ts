@@ -48,3 +48,23 @@ import './functions/user/getMe/index';
 // Swagger endpoints
 import './functions/swagger/swaggerJson/index';
 import './functions/swagger/swaggerUi/index';
+
+// Plan endpoints
+import './functions/plan/getPlans/index';
+import './functions/plan/getPlan/index';
+import './functions/plan/createPlan/index';
+import './functions/plan/updatePlan/index';
+import './functions/plan/getPlanPricing/index';
+import './functions/plan/setPlanPricing/index';
+
+// Subscription endpoints
+import './functions/subscription/getShopSubscription/index';
+import './functions/subscription/overrideShopSubscription/index';
+import './functions/subscription/createSubscriptionCheckout/index';
+
+// Usage endpoints
+import './functions/usage/getShopUsage/index';
+import './functions/usage/reconcileShopUsage/index';
+
+// Admin endpoints
+import './functions/admin/seedPlans/index';

@@ -36,3 +36,13 @@ export const checkoutSessionContainer: Container =
 export const auditLogsContainer: Container =
   database.container(auditLogsContainerId);
 export const usersContainer: Container = database.container(usersContainerId);
+
+const planContainerId = process.env.COSMOS_PLANS_CONTAINER || 'plans';
+const planPricingContainerId = process.env.COSMOS_PLAN_PRICING_CONTAINER || 'plan_pricing';
+const subscriptionContainerId = process.env.COSMOS_SUBSCRIPTIONS_CONTAINER || 'shop_subscriptions';
+const usageContainerId = process.env.COSMOS_USAGE_CONTAINER || 'shop_usage';
+
+export const planContainer: Container = database.container(planContainerId);
+export const planPricingContainer: Container = database.container(planPricingContainerId);
+export const subscriptionContainer: Container = database.container(subscriptionContainerId);
+export const usageContainer: Container = database.container(usageContainerId);

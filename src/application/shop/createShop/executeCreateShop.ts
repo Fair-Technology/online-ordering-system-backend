@@ -11,6 +11,11 @@ import { Shop } from '../../../domain/shop/Shop';
 import { Category } from '../../../domain/category/Category';
 import { validateUniqueSlug } from './slugHelpers';
 import { seedTaxRatesForCountry } from '../../_shared/countryTaxRates';
+import { upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
+import { upsertUsage } from '../../../infrastructure/cosmos/usage/CosmosUsageRepository';
+import { findPlanByInternalKey } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
+import { ShopSubscription } from '../../../domain/subscription/ShopSubscription';
+import { ShopUsage } from '../../../domain/usage/ShopUsage';
 
 function validateBranding(branding: unknown): string | null {
   if (branding === null || branding === undefined) return null;
@@ -214,6 +219,41 @@ export async function executeCreateShop(
       updatedAt: now,
     };
     await createCategoryInRepo(defaultCategory);
+
+    // Initialize subscription on free plan
+    const freePlan = await findPlanByInternalKey('free');
+    const subscription: ShopSubscription = {
+      id: shopId,
+      shopId,
+      planId: freePlan?.id ?? 'default-free',
+      status: 'free',
+      billingInterval: null,
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+      billingCustomerId: null,
+      billingSubscriptionId: null,
+      cancelAtPeriodEnd: false,
+      planSource: 'default',
+      overriddenBy: null,
+      overrideReason: null,
+      overrideExpiresAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await upsertSubscription(subscription);
+
+    // Initialize usage counters
+    const usage: ShopUsage = {
+      id: shopId,
+      shopId,
+      activeProductCount: 0,
+      periodStart: null,
+      periodEnd: null,
+      lastReconciled: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await upsertUsage(usage);
 
     const resultDto: CreateShopResultDto = {
       id: createdShop.id,

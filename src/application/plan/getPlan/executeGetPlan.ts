@@ -1,0 +1,37 @@
+import { HttpRequest } from '@azure/functions';
+import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
+import { findPlanById } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
+import { findPricingByPlan } from '../../../infrastructure/cosmos/plan/CosmosPlanPricingRepository';
+import { ApplicationResult } from '../../_shared/types';
+import { GetPlanResultDto } from './dtos';
+
+export async function executeGetPlan(
+  planId: string,
+  httpRequest: HttpRequest,
+): Promise<ApplicationResult<GetPlanResultDto>> {
+  try {
+    const userId = await getUserIdFromAuth(httpRequest);
+    const user = await findUserById(userId);
+    if (user?.systemRole !== 'superadmin') {
+      return { ok: false, code: 'FORBIDDEN', error: 'Superadmin access required' };
+    }
+
+    if (!planId || typeof planId !== 'string') {
+      return { ok: false, code: 'INVALID_INPUT', error: 'planId is required' };
+    }
+
+    const plan = await findPlanById(planId);
+    if (!plan) {
+      return { ok: false, code: 'NOT_FOUND', error: 'Plan not found' };
+    }
+
+    const pricing = await findPricingByPlan(planId);
+    return { ok: true, data: { plan, pricing } };
+  } catch (error: any) {
+    if (error.message === 'Authentication required') {
+      return { ok: false, code: 'FORBIDDEN', error: 'Authentication required' };
+    }
+    return { ok: false, code: 'INTERNAL_ERROR', error: 'Failed to retrieve plan' };
+  }
+}

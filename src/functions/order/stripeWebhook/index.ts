@@ -6,6 +6,8 @@ import {
 } from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
 import { createOrder } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
 import { Order } from '../../../domain/order/Order';
+import { executeHandleBillingSubscriptionEvent } from '../../../application/subscription/handleBillingSubscriptionEvent/executeHandleBillingSubscriptionEvent';
+import { executeHandleCheckoutSessionCompleted } from '../../../application/subscription/handleCheckoutSessionCompleted/executeHandleCheckoutSessionCompleted';
 
 function generateOrderRef(): string {
   // A-Z plus 1-9 (no letter O, no digit 0 — visually ambiguous)
@@ -51,6 +53,19 @@ app.http('stripeWebhook', {
 
     try {
       switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data.object as Stripe.Checkout.Session;
+          const { shopId, planId, billingInterval } = session.metadata ?? {};
+          if (!shopId || !planId || session.mode !== 'subscription') break;
+          await executeHandleCheckoutSessionCompleted({
+            shopId,
+            planId,
+            billingInterval: billingInterval as 'monthly' | 'yearly',
+            billingSubscriptionId: session.subscription as string,
+            billingCustomerId: session.customer as string,
+          });
+          break;
+        }
         case 'payment_intent.succeeded': {
           const pi = event.data.object as Stripe.PaymentIntent;
           const { sessionId, shopId } = pi.metadata;
@@ -83,6 +98,55 @@ app.http('stripeWebhook', {
           const pi = event.data.object as Stripe.PaymentIntent;
           const { sessionId } = pi.metadata;
           if (sessionId) await deleteCheckoutSession(sessionId);
+          break;
+        }
+        case 'customer.subscription.updated': {
+          const sub = event.data.object as any;
+          if (sub.id) {
+            await executeHandleBillingSubscriptionEvent('subscription.updated', {
+              billingSubscriptionId: sub.id,
+              periodStart: sub.current_period_start
+                ? new Date(sub.current_period_start * 1000).toISOString()
+                : null,
+              periodEnd: sub.current_period_end
+                ? new Date(sub.current_period_end * 1000).toISOString()
+                : null,
+              cancelAtPeriodEnd: sub.cancel_at_period_end ?? false,
+            });
+          }
+          break;
+        }
+        case 'customer.subscription.deleted': {
+          const sub = event.data.object as any;
+          if (sub.id) {
+            await executeHandleBillingSubscriptionEvent('subscription.deleted', {
+              billingSubscriptionId: sub.id,
+            });
+          }
+          break;
+        }
+        case 'invoice.payment_failed': {
+          const invoice = event.data.object as any;
+          if (invoice.subscription) {
+            await executeHandleBillingSubscriptionEvent('invoice.payment_failed', {
+              billingSubscriptionId: invoice.subscription,
+            });
+          }
+          break;
+        }
+        case 'invoice.payment_succeeded': {
+          const invoice = event.data.object as any;
+          if (invoice.subscription) {
+            await executeHandleBillingSubscriptionEvent('invoice.payment_succeeded', {
+              billingSubscriptionId: invoice.subscription,
+              periodStart: invoice.period_start
+                ? new Date(invoice.period_start * 1000).toISOString()
+                : null,
+              periodEnd: invoice.period_end
+                ? new Date(invoice.period_end * 1000).toISOString()
+                : null,
+            });
+          }
           break;
         }
         default:
