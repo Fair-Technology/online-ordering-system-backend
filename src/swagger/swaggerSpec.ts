@@ -1335,7 +1335,7 @@ export const swaggerSpec = {
         properties: {
           name: { type: 'string', description: 'Category name' },
           sortOrder: { type: 'number', description: 'Sort order for display' },
-          hasStar: { type: 'boolean', description: 'Whether to show a star icon in the frontend' },
+          icon: { type: 'string', description: 'Lucide icon name' },
         },
       },
       UpdateCategoryRequest: {
@@ -1343,7 +1343,7 @@ export const swaggerSpec = {
         properties: {
           name: { type: 'string', description: 'Category name' },
           sortOrder: { type: 'number', description: 'Sort order for display' },
-          hasStar: { type: 'boolean', description: 'Whether to show a star icon in the frontend' },
+          icon: { type: 'string', description: 'Lucide icon name' },
         },
       },
       CategoryResponse: {
@@ -1353,7 +1353,7 @@ export const swaggerSpec = {
           shopId: { type: 'string', description: 'Shop ID' },
           name: { type: 'string', description: 'Category name' },
           sortOrder: { type: 'number', description: 'Sort order for display' },
-          hasStar: { type: 'boolean', description: 'Whether to show a star icon in the frontend' },
+          icon: { type: 'string', description: 'Lucide icon name' },
           isDeleted: {
             type: 'boolean',
             description: 'Whether category is deleted',
@@ -1420,7 +1420,6 @@ export const swaggerSpec = {
           name: { type: 'string', description: 'Product name' },
           description: { type: 'string', description: 'Product description' },
           price: { type: 'number', description: 'Product price in cents' },
-          sortOrder: { type: 'number', description: 'Sort order for display' },
           categoryIds: {
             type: 'array',
             items: { type: 'string' },
@@ -1437,10 +1436,16 @@ export const swaggerSpec = {
               },
             },
           },
-          allergyInfo: {
+          specialInfo: {
             type: 'array',
-            items: { type: 'string' },
-            description: 'Allergy information',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string', description: 'Label text' },
+                icon: { type: 'string', description: 'Lucide icon name' },
+              },
+            },
+            description: 'Special info items (dietary labels, badges, etc.)',
           },
           isAvailable: {
             type: 'boolean',
@@ -1463,7 +1468,6 @@ export const swaggerSpec = {
           name: { type: 'string', description: 'Product name' },
           description: { type: 'string', description: 'Product description' },
           price: { type: 'number', description: 'Product price in cents' },
-          sortOrder: { type: 'number', description: 'Sort order for display' },
           categoryIds: {
             type: 'array',
             items: { type: 'string' },
@@ -1480,10 +1484,16 @@ export const swaggerSpec = {
               },
             },
           },
-          allergyInfo: {
+          specialInfo: {
             type: 'array',
-            items: { type: 'string' },
-            description: 'Allergy information',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string', description: 'Label text' },
+                icon: { type: 'string', description: 'Lucide icon name' },
+              },
+            },
+            description: 'Special info items (dietary labels, badges, etc.)',
           },
           isAvailable: {
             type: 'boolean',
@@ -1555,7 +1565,6 @@ export const swaggerSpec = {
           shopId: { type: 'string', description: 'Shop ID' },
           name: { type: 'string', description: 'Product name' },
           description: { type: 'string', description: 'Product description' },
-          sortOrder: { type: 'number', description: 'Sort order for display' },
           price: { type: 'number', description: 'Product price in cents' },
           categories: {
             type: 'array',
@@ -1568,10 +1577,7 @@ export const swaggerSpec = {
                   type: 'number',
                   description: 'Category sort order',
                 },
-                hasStar: {
-                  type: 'boolean',
-                  description: 'Whether to show a star icon in the frontend',
-                },
+                icon: { type: 'string', description: 'Lucide icon name' },
               },
             },
             description: 'Product categories with full details',
@@ -1591,10 +1597,16 @@ export const swaggerSpec = {
             },
             description: 'Product images',
           },
-          allergyInfo: {
+          specialInfo: {
             type: 'array',
-            items: { type: 'string' },
-            description: 'Allergy information',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string', description: 'Label text' },
+                icon: { type: 'string', description: 'Lucide icon name' },
+              },
+            },
+            description: 'Special info items (dietary labels, badges, etc.)',
           },
           variantGroups: {
             type: 'array',

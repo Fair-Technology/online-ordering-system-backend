@@ -154,13 +154,12 @@ export async function executeUpdateProduct(
         description: request.description,
       }),
       ...(request.price !== undefined && { price: request.price }),
-      ...(request.sortOrder !== undefined && { sortOrder: request.sortOrder }),
       ...(request.categoryIds !== undefined && {
         categoryIds: request.categoryIds,
       }),
       ...(request.images !== undefined && { images: request.images }),
-      ...(request.allergyInfo !== undefined && {
-        allergyInfo: request.allergyInfo,
+      ...(request.specialInfo !== undefined && {
+        specialInfo: request.specialInfo,
       }),
       ...(request.variantGroups !== undefined && {
         variantGroups: request.variantGroups,
@@ -181,8 +180,8 @@ export async function executeUpdateProduct(
     const changes = diffFields(
       product as unknown as Record<string, unknown>,
       updatedProduct as unknown as Record<string, unknown>,
-      ['name', 'price', 'isAvailable', 'sortOrder', 'taxRateId', 'allergyInfo'],
-      ['variantGroups', 'addonGroups', 'schedule'],
+      ['name', 'price', 'isAvailable', 'taxRateId'],
+      ['variantGroups', 'addonGroups', 'schedule', 'specialInfo'],
     );
     logAudit(
       {

@@ -12,7 +12,6 @@ export interface ProductDto {
   // Core info
   name: string;
   description: string;
-  sortOrder: number;
 
   // Pricing
   price: number;
@@ -22,14 +21,14 @@ export interface ProductDto {
     id: string;
     name: string;
     sortOrder: number;
-    hasStar: boolean;
+    icon?: string;
   }>;
 
   // Images
   images: ProductImage[];
 
-  // Dietary / allergy info
-  allergyInfo: string[];
+  // Special info (dietary labels, badges, etc.)
+  specialInfo?: Array<{ name: string; icon: string }>;
 
   // Variants (optional)
   variantGroups?: Array<{

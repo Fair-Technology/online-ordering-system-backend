@@ -22,7 +22,6 @@ export interface Product {
   // Core info
   name: string; // product name
   description: string;
-  sortOrder: number;
 
   // Pricing
   price: number; // base price in cents (mandatory, 0 only if truly free)
@@ -33,8 +32,8 @@ export interface Product {
   // Images
   images: ProductImage[];
 
-  // Dietary / allergy info
-  allergyInfo: string[]; // free-text
+  // Special info (dietary labels, badges, etc.)
+  specialInfo?: Array<{ name: string; icon: string }>;
 
   // Variants (optional)
   variantGroups?: Array<{

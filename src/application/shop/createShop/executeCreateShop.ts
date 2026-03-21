@@ -213,7 +213,6 @@ export async function executeCreateShop(
       shopId: createdShop.id,
       name: 'Default category',
       sortOrder: 0,
-      hasStar: false,
       isDeleted: false,
       createdAt: now,
       updatedAt: now,

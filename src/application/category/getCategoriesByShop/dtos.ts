@@ -7,7 +7,7 @@ export interface CategoryDto {
   shopId: string;
   name: string;
   sortOrder: number;
-  hasStar: boolean;
+  icon?: string;
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;

@@ -5,10 +5,9 @@ export interface CreateProductRequestDto {
   name: string;
   description: string;
   price: number;
-  sortOrder?: number;
   categoryIds?: string[];
   images?: ProductImage[];
-  allergyInfo?: string[];
+  specialInfo?: Array<{ name: string; icon: string }>;
   variantGroups?: Array<{
     id: string;
     name: string;

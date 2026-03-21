@@ -3,7 +3,7 @@ export interface UpdateCategoryRequestDto {
   shopId: string;
   name?: string;
   sortOrder?: number;
-  hasStar?: boolean;
+  icon?: string;
 }
 
 export interface UpdateCategoryResultDto {
@@ -11,7 +11,7 @@ export interface UpdateCategoryResultDto {
   shopId: string;
   name: string;
   sortOrder: number;
-  hasStar: boolean;
+  icon?: string;
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;

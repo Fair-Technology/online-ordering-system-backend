@@ -10,16 +10,15 @@ export interface GetProductResultDto {
   shopId: string;
   name: string;
   description: string;
-  sortOrder: number;
   price: number;
   isAvailable: boolean;
   isDeleted: boolean;
   taxRateId: string | null;
-  allergyInfo: string[];
+  specialInfo?: Array<{ name: string; icon: string }>;
   createdAt: string;
   updatedAt: string;
   images: ProductImage[];
-  categories: { id: string; name: string; sortOrder: number; hasStar: boolean }[];
+  categories: { id: string; name: string; sortOrder: number; icon?: string }[];
   variantGroups: Product['variantGroups'];
   addonGroups: Product['addonGroups'];
   schedule?: ProductSchedule | null;

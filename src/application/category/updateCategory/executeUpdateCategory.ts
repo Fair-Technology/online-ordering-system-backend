@@ -72,10 +72,7 @@ export async function executeUpdateCategory(
         request.sortOrder !== undefined
           ? request.sortOrder
           : existingCategory.sortOrder,
-      hasStar:
-        request.hasStar !== undefined
-          ? request.hasStar
-          : existingCategory.hasStar ?? false,
+      icon: request.icon !== undefined ? request.icon : existingCategory.icon,
       updatedAt: now,
     };
 
@@ -84,7 +81,7 @@ export async function executeUpdateCategory(
     const changes = diffFields(
       existingCategory as unknown as Record<string, unknown>,
       updatedCategory as unknown as Record<string, unknown>,
-      ['name', 'sortOrder', 'hasStar'],
+      ['name', 'sortOrder', 'icon'],
       [],
     );
     logAudit(
@@ -108,7 +105,7 @@ export async function executeUpdateCategory(
       shopId: savedCategory.shopId,
       name: savedCategory.name,
       sortOrder: savedCategory.sortOrder,
-      hasStar: savedCategory.hasStar ?? false,
+      icon: savedCategory.icon,
       isDeleted: savedCategory.isDeleted,
       createdAt: savedCategory.createdAt,
       updatedAt: savedCategory.updatedAt,

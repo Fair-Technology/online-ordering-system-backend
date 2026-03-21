@@ -38,7 +38,7 @@ export async function executeGetProductsByShop(
         id: string;
         name: string;
         sortOrder: number;
-        hasStar: boolean;
+        icon?: string;
       }> = [];
       for (const categoryId of product.categoryIds || []) {
         try {
@@ -48,7 +48,7 @@ export async function executeGetProductsByShop(
               id: category.id,
               name: category.name,
               sortOrder: category.sortOrder,
-              hasStar: category.hasStar ?? false,
+              icon: category.icon,
             });
           }
         } catch (error) {
@@ -64,11 +64,10 @@ export async function executeGetProductsByShop(
         shopId: product.shopId,
         name: product.name,
         description: product.description,
-        sortOrder: product.sortOrder,
         price: product.price,
         categories: categories,
         images: product.images,
-        allergyInfo: product.allergyInfo,
+        specialInfo: product.specialInfo,
         variantGroups: product.variantGroups,
         addonGroups: product.addonGroups,
         taxRateId: product.taxRateId ?? null,

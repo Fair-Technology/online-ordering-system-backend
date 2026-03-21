@@ -50,12 +50,12 @@ export async function executeGetProduct(
       };
     }
 
-    const categories: { id: string; name: string; sortOrder: number; hasStar: boolean }[] = [];
+    const categories: { id: string; name: string; sortOrder: number; icon?: string }[] = [];
     for (const categoryId of product.categoryIds || []) {
       try {
         const category = await findCategoryById(categoryId, product.shopId);
         if (category && !category.isDeleted) {
-          categories.push({ id: category.id, name: category.name, sortOrder: category.sortOrder, hasStar: category.hasStar ?? false });
+          categories.push({ id: category.id, name: category.name, sortOrder: category.sortOrder, icon: category.icon });
         }
       } catch {
         // Skip invalid categories silently
@@ -68,12 +68,11 @@ export async function executeGetProduct(
       shopId: product.shopId,
       name: product.name,
       description: product.description,
-      sortOrder: product.sortOrder,
       price: product.price,
       isAvailable: product.isAvailable,
       isDeleted: product.isDeleted,
       taxRateId: product.taxRateId ?? null,
-      allergyInfo: product.allergyInfo ?? [],
+      specialInfo: product.specialInfo,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
       images: product.images ?? [],
