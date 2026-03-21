@@ -16,6 +16,8 @@ import './functions/shop/removeShopMember/index';
 import './functions/shop/createShopRole/index';
 import './functions/shop/updateShopRole/index';
 import './functions/shop/deleteShopRole/index';
+import './functions/shop/acceptShopInvitation/index';
+import './functions/shop/declineShopInvitation/index';
 
 // Product endpoints
 import './functions/product/getProductsByShop/index';
@@ -44,6 +46,7 @@ import './functions/audit/getAuditEntries/index';
 
 // User endpoints
 import './functions/user/getMe/index';
+import './functions/user/getMyInvitations/index';
 
 // Swagger endpoints
 import './functions/swagger/swaggerJson/index';

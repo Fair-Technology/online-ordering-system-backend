@@ -12,7 +12,7 @@ app.http('addShopMember', {
       const body = (await request.json()) as any;
 
       const result = await executeAddShopMember(
-        { shopId, userId: body.userId, role: body.role },
+        { shopId, userId: body.userId, email: body.email, role: body.role },
         request,
       );
 

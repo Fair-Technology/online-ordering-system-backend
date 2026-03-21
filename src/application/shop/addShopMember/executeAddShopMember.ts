@@ -3,6 +3,7 @@ import {
   findShopById,
   updateShop,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { findUserByEmail } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
 import { checkIsOwner } from '../../_shared/permissions';
 import { AddShopMemberRequestDto, AddShopMemberResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
@@ -24,15 +25,14 @@ export async function executeAddShopMember(
     };
   }
 
-  if (
-    !request.userId ||
-    typeof request.userId !== 'string' ||
-    request.userId.trim() === ''
-  ) {
+  const hasUserId = request.userId && typeof request.userId === 'string' && request.userId.trim() !== '';
+  const hasEmail = request.email && typeof request.email === 'string' && request.email.trim() !== '';
+
+  if (!hasUserId && !hasEmail) {
     return {
       ok: false,
       code: 'INVALID_INPUT',
-      error: 'userId is required and must be a non-empty string',
+      error: 'Either userId or email is required',
     };
   }
 
@@ -75,11 +75,29 @@ export async function executeAddShopMember(
       }
     }
 
-    const alreadyMember = shop.members.some(
-      (m) => m.userId === request.userId.trim() && m.isActive,
+    // Resolve userId: from direct input or by email lookup
+    let resolvedUserId: string;
+
+    if (hasUserId) {
+      resolvedUserId = request.userId!.trim();
+    } else {
+      const user = await findUserByEmail(request.email!.trim());
+      if (!user) {
+        return {
+          ok: false,
+          code: 'NOT_FOUND',
+          error: 'No account found for this email. They need to sign up first.',
+        };
+      }
+      resolvedUserId = user.id;
+    }
+
+    // Check if already an active member
+    const alreadyActiveMember = shop.members.some(
+      (m) => m.userId === resolvedUserId && m.isActive,
     );
 
-    if (alreadyMember) {
+    if (alreadyActiveMember) {
       return {
         ok: false,
         code: 'INVALID_INPUT',
@@ -87,10 +105,23 @@ export async function executeAddShopMember(
       };
     }
 
+    // Check if already has a pending invite
+    const alreadyPending = shop.members.some(
+      (m) => m.userId === resolvedUserId && !m.isActive,
+    );
+
+    if (alreadyPending) {
+      return {
+        ok: false,
+        code: 'INVALID_INPUT',
+        error: 'User already has a pending invitation to this shop',
+      };
+    }
+
     shop.members.push({
-      userId: request.userId.trim(),
+      userId: resolvedUserId,
       role,
-      isActive: true,
+      isActive: false,
     });
 
     shop.updatedAt = new Date().toISOString();
@@ -103,9 +134,9 @@ export async function executeAddShopMember(
         actorId: actor.userId,
         actorEmail: actor.email,
         actorName: actor.name,
-        action: 'member.add',
+        action: 'member.invite',
         entityType: 'member',
-        entityId: request.userId.trim(),
+        entityId: resolvedUserId,
         entityName: role,
       },
       httpRequest,

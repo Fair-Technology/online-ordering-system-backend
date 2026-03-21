@@ -1,6 +1,7 @@
 export interface AddShopMemberRequestDto {
   shopId: string;
-  userId: string;
+  userId?: string;
+  email?: string;
   role: string; // 'owner' or any role id from shop.roles
 }
 
