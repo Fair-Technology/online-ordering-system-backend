@@ -184,7 +184,7 @@ export async function executeCreateShop(
       name: request.name.trim(),
       // Set safe defaults automatically
       isDeleted: false,
-      isPaused: false,
+      isPaused: true,
       allowGuestCheckout: true,
       // Required fields from user
       countryCode,
@@ -195,7 +195,7 @@ export async function executeCreateShop(
       address: request.address,
       openingHours: request.openingHours,
       // Optional fields with defaults
-      pausedMessage: request.pausedMessage,
+      pausedMessage: request.pausedMessage ?? 'We will be online very soon',
       orderAcceptanceMode: request.orderAcceptanceMode || 'auto',
       closures: request.closures || [],
       members: [{ userId, role: 'owner', isActive: true }],
