@@ -68,14 +68,18 @@ export async function executeGetProduct(
       shopId: product.shopId,
       name: product.name,
       description: product.description,
+      sortOrder: product.sortOrder,
       price: product.price,
       isAvailable: product.isAvailable,
       isDeleted: product.isDeleted,
       taxRateId: product.taxRateId ?? null,
+      allergyInfo: product.allergyInfo ?? [],
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
       images: product.images ?? [],
       categories,
+      variantGroups: product.variantGroups,
+      addonGroups: product.addonGroups,
       schedule: product.schedule ?? null,
     };
 
