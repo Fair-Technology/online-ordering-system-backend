@@ -3,12 +3,10 @@ import {
   createShop as createShopInRepo,
   findShopBySlug,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
-import { createCategory as createCategoryInRepo } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
 import { CreateShopRequestDto, CreateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Shop } from '../../../domain/shop/Shop';
-import { Category } from '../../../domain/category/Category';
 import { validateUniqueSlug } from './slugHelpers';
 import { seedTaxRatesForCountry } from '../../_shared/countryTaxRates';
 import { upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
@@ -208,17 +206,6 @@ export async function executeCreateShop(
     };
 
     const createdShop = await createShopInRepo(shop);
-
-    const defaultCategory: Category = {
-      id: crypto.randomUUID(),
-      shopId: createdShop.id,
-      name: 'Uncategorised',
-      sortOrder: 0,
-      isDeleted: false,
-      createdAt: now,
-      updatedAt: now,
-    };
-    await createCategoryInRepo(defaultCategory);
 
     // Initialize subscription on free plan
     const freePlan = await findPlanByInternalKey('free');

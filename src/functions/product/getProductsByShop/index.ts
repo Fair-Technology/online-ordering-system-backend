@@ -17,7 +17,8 @@ app.http('getProductsByShop', {
         };
       }
       
-      const result = await executeGetProductsByShop({ shopId });
+      const includeUncategorized = request.query.get('includeUncategorized') === 'true';
+      const result = await executeGetProductsByShop({ shopId }, { includeUncategorized });
       
       return mapResultToHttp(result);
     } catch (error) {

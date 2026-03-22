@@ -65,16 +65,20 @@ export async function executeUpdateProduct(
     const permError = checkShopPermission(shop, userId, 'manage_products');
     if (permError) return permError;
 
-    // Validate categoryIds if provided
-    if (request.categoryIds !== undefined) {
-      if (request.categoryIds.length === 0) {
+    // Guard: cannot set isAvailable=true on a product with no categories
+    if (request.isAvailable === true) {
+      const effectiveCategoryIds =
+        request.categoryIds !== undefined ? request.categoryIds : product.categoryIds;
+      if (effectiveCategoryIds.length === 0) {
         return {
           ok: false,
           code: 'INVALID_INPUT',
-          error: 'At least one category is required',
+          error: 'A product must have at least one category before it can be made available.',
         };
       }
     }
+
+    // Validate categoryIds if provided
     if (request.categoryIds !== undefined && request.categoryIds.length > 0) {
       // De-duplicate categoryIds
       const uniqueCategoryIds = [...new Set(request.categoryIds)];

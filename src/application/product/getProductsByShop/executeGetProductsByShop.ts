@@ -12,6 +12,7 @@ import { ApplicationResult } from '../../_shared/types';
 
 export async function executeGetProductsByShop(
   request: GetProductsByShopRequestDto,
+  options: { includeUncategorized?: boolean } = {},
 ): Promise<ApplicationResult<GetProductsByShopResultDto>> {
   // Validate input
   if (
@@ -79,9 +80,13 @@ export async function executeGetProductsByShop(
       });
     }
 
+    const result = options.includeUncategorized
+      ? productDtos
+      : productDtos.filter((p) => p.categories.length > 0);
+
     return {
       ok: true,
-      data: productDtos,
+      data: result,
     };
   } catch (error) {
     return {

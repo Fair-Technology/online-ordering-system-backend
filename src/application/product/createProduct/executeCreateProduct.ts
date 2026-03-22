@@ -65,15 +65,6 @@ export async function executeCreateProduct(
     };
   }
 
-  // At least one category is required
-  if (!request.categoryIds || request.categoryIds.length === 0) {
-    return {
-      ok: false,
-      code: 'INVALID_INPUT',
-      error: 'At least one category is required',
-    };
-  }
-
   // Validate categoryIds if provided
   if (request.categoryIds && request.categoryIds.length > 0) {
     // De-duplicate categoryIds
@@ -138,7 +129,9 @@ export async function executeCreateProduct(
       specialInfo: request.specialInfo,
       variantGroups: request.variantGroups,
       addonGroups: request.addonGroups,
-      isAvailable: request.isAvailable ?? true,
+      isAvailable: (request.categoryIds?.length ?? 0) > 0
+        ? (request.isAvailable ?? true)
+        : false,
       isDeleted: false,
       taxRateId: request.taxRateId ?? null,
       schedule: request.schedule ?? null,
