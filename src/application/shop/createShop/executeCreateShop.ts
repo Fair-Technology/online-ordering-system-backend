@@ -64,6 +64,18 @@ export async function executeCreateShop(
   }
 
   if (
+    !request.industry ||
+    typeof request.industry !== 'string' ||
+    request.industry.trim() === ''
+  ) {
+    return {
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'industry is required and must be a non-empty string',
+    };
+  }
+
+  if (
     !request.countryCode ||
     typeof request.countryCode !== 'string' ||
     request.countryCode.trim() === ''

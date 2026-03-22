@@ -23,8 +23,10 @@ export interface CreateShopRequestDto {
     }>
   >;
 
+  // Required
+  industry: string;
+
   // Optional fields
-  industry?: string;
   pausedMessage?: string;
   orderAcceptanceMode?: 'auto';
   closures?: Array<{
