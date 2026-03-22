@@ -211,7 +211,7 @@ export async function executeCreateShop(
     const defaultCategory: Category = {
       id: crypto.randomUUID(),
       shopId: createdShop.id,
-      name: 'Default category',
+      name: 'Uncategorised',
       sortOrder: 0,
       isDeleted: false,
       createdAt: now,
