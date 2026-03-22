@@ -38,37 +38,45 @@ const img = (photoId: string, alt: string) => ({
 });
 
 // ── 3. Delete ALL existing data ───────────────────────────────────────────────
+async function tryDelete(item: any): Promise<void> {
+  try {
+    await item.delete();
+  } catch (e: any) {
+    if (e?.code !== 404) throw e;
+  }
+}
+
 async function deleteAll(): Promise<void> {
   console.log('\n🗑️  Deleting all existing data...');
 
   const { resources: shops } = await shopContainer.items
     .query('SELECT c.id FROM c')
     .fetchAll();
-  for (const s of shops) await shopContainer.item(s.id, s.id).delete();
+  for (const s of shops) await tryDelete(shopContainer.item(s.id, s.id));
   console.log(`   Deleted ${shops.length} shop(s)`);
 
   const { resources: products } = await productContainer.items
     .query('SELECT c.id, c.shopId FROM c')
     .fetchAll();
-  for (const p of products) await productContainer.item(p.id, p.shopId).delete();
+  for (const p of products) await tryDelete(productContainer.item(p.id, p.shopId));
   console.log(`   Deleted ${products.length} product(s)`);
 
   const { resources: cats } = await categoryContainer.items
     .query('SELECT c.id, c.shopId FROM c')
     .fetchAll();
-  for (const c of cats) await categoryContainer.item(c.id, c.shopId).delete();
+  for (const c of cats) await tryDelete(categoryContainer.item(c.id, c.shopId));
   console.log(`   Deleted ${cats.length} categor(ies)`);
 
   const { resources: orders } = await orderContainer.items
     .query('SELECT c.id, c.shopId FROM c')
     .fetchAll();
-  for (const o of orders) await orderContainer.item(o.id, o.shopId).delete();
+  for (const o of orders) await tryDelete(orderContainer.item(o.id, o.shopId));
   console.log(`   Deleted ${orders.length} order(s)`);
 
   const { resources: subs } = await subscriptionContainer.items
     .query('SELECT c.id FROM c')
     .fetchAll();
-  for (const s of subs) await subscriptionContainer.item(s.id, s.id).delete();
+  for (const s of subs) await tryDelete(subscriptionContainer.item(s.id, s.id));
   console.log(`   Deleted ${subs.length} subscription(s)`);
 }
 
