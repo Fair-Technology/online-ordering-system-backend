@@ -37,6 +37,11 @@ export function mapResultToHttp<T>(result: ApplicationResult<T>): HttpResponseIn
         status: 403,
         jsonBody: { error: result.error }
       };
+    case 'CONFLICT':
+      return {
+        status: 409,
+        jsonBody: { error: result.error }
+      };
     default:
       return {
         status: 500,

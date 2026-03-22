@@ -1,5 +1,8 @@
 import { HttpRequest } from '@azure/functions';
-import { createCategory as createCategoryInRepo } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
+import {
+  createCategory as createCategoryInRepo,
+  findCategoriesByShopId,
+} from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { findShopById } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { checkShopPermission } from '../../_shared/permissions';
 import { CreateCategoryRequestDto, CreateCategoryResultDto } from './dtos';
@@ -47,6 +50,18 @@ export async function executeCreateCategory(
 
     const permError = checkShopPermission(shop, userId, 'manage_products');
     if (permError) return permError;
+
+    const existing = await findCategoriesByShopId(request.shopId.trim());
+    const duplicate = existing.find(
+      (c) => c.name.toLowerCase() === request.name.trim().toLowerCase(),
+    );
+    if (duplicate) {
+      return {
+        ok: false,
+        code: 'CONFLICT',
+        error: `A category named "${duplicate.name}" already exists.`,
+      };
+    }
 
     const now = new Date().toISOString();
     const categoryId = crypto.randomUUID();
