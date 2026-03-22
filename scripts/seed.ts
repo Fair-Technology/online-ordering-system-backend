@@ -17,7 +17,7 @@ if (fs.existsSync(settingsPath)) {
 
 // ── 2. Require Cosmos modules AFTER env vars are populated ────────────────────
 /* eslint-disable @typescript-eslint/no-var-requires */
-const { shopContainer, productContainer, categoryContainer } =
+const { shopContainer, productContainer, categoryContainer, orderContainer, subscriptionContainer } =
   require('../src/infrastructure/cosmos/cosmosClient');
 const { createShop } =
   require('../src/infrastructure/cosmos/shop/CosmosShopRepository');
@@ -58,6 +58,18 @@ async function deleteAll(): Promise<void> {
     .fetchAll();
   for (const c of cats) await categoryContainer.item(c.id, c.shopId).delete();
   console.log(`   Deleted ${cats.length} categor(ies)`);
+
+  const { resources: orders } = await orderContainer.items
+    .query('SELECT c.id, c.shopId FROM c')
+    .fetchAll();
+  for (const o of orders) await orderContainer.item(o.id, o.shopId).delete();
+  console.log(`   Deleted ${orders.length} order(s)`);
+
+  const { resources: subs } = await subscriptionContainer.items
+    .query('SELECT c.id FROM c')
+    .fetchAll();
+  for (const s of subs) await subscriptionContainer.item(s.id, s.id).delete();
+  console.log(`   Deleted ${subs.length} subscription(s)`);
 }
 
 // ── 4. Seed shops ─────────────────────────────────────────────────────────────
@@ -71,6 +83,7 @@ async function seedShops(): Promise<any[]> {
   const shopDefs = [
     {
       name: 'Belconnen Pizza Palace',
+      industry: 'restaurant',
       address: { street: '19 Benjamin Way', city: 'Belconnen', state: 'ACT', postcode: '2617', country: 'Australia' },
       openingHours: { mon: closed, tue: weekdayHours, wed: weekdayHours, thu: weekdayHours, fri: weekdayHours, sat: weekendHours, sun: weekendHours },
       branding: {
@@ -81,6 +94,7 @@ async function seedShops(): Promise<any[]> {
     },
     {
       name: 'Manuka Sushi & Ramen',
+      industry: 'restaurant',
       address: { street: '3 Franklin St', city: 'Manuka', state: 'ACT', postcode: '2603', country: 'Australia' },
       openingHours: { mon: weekdayHours, tue: weekdayHours, wed: weekdayHours, thu: weekdayHours, fri: weekdayHours, sat: weekendHours, sun: [{ open: '12:00', close: '20:00' }] },
       branding: {
@@ -91,6 +105,7 @@ async function seedShops(): Promise<any[]> {
     },
     {
       name: 'Civic Burger Co.',
+      industry: 'restaurant',
       address: { street: '44 Petrie Plaza', city: 'Civic', state: 'ACT', postcode: '2601', country: 'Australia' },
       openingHours: { mon: weekdayHours, tue: weekdayHours, wed: weekdayHours, thu: weekdayHours, fri: [{ open: '11:00', close: '23:00' }], sat: [{ open: '10:00', close: '23:00' }], sun: weekendHours },
       branding: {
@@ -101,6 +116,7 @@ async function seedShops(): Promise<any[]> {
     },
     {
       name: 'Kingston Café',
+      industry: 'cafe',
       address: { street: '56 Giles St', city: 'Kingston', state: 'ACT', postcode: '2604', country: 'Australia' },
       openingHours: { mon: [{ open: '07:00', close: '15:00' }], tue: [{ open: '07:00', close: '15:00' }], wed: [{ open: '07:00', close: '15:00' }], thu: [{ open: '07:00', close: '15:00' }], fri: [{ open: '07:00', close: '15:00' }], sat: [{ open: '08:00', close: '14:00' }], sun: closed },
       branding: {
@@ -111,6 +127,7 @@ async function seedShops(): Promise<any[]> {
     },
     {
       name: 'Spice of India',
+      industry: 'restaurant',
       address: { street: '7 Lonsdale St', city: 'Braddon', state: 'ACT', postcode: '2612', country: 'Australia' },
       openingHours: { mon: closed, tue: weekdayHours, wed: weekdayHours, thu: weekdayHours, fri: weekdayHours, sat: weekendHours, sun: weekendHours },
       branding: null, // ← no branding; frontend should use default colours
@@ -132,6 +149,7 @@ async function seedShops(): Promise<any[]> {
       id: shopId,
       slug,
       name: def.name,
+      industry: def.industry,
       isDeleted: false,
       isPaused: false,
       allowGuestCheckout: true,
@@ -215,9 +233,7 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
   const base = (overrides: object) => ({
     id: randomUUID(),
     shopId,
-    sortOrder: 1,
     images: [],
-    allergyInfo: [],
     isAvailable: true,
     isDeleted: false,
     variantGroups: [],
@@ -240,7 +256,10 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
           img('1513104890138-7c749659a591', 'Margherita pizza with fresh basil'),
           img('1574071318508-1cdbab80d002', 'Close-up margherita'),
         ],
-        allergyInfo: ['Gluten', 'Dairy'],
+        specialInfo: [
+          { name: 'Contains Gluten', icon: 'Wheat' },
+          { name: 'Contains Dairy', icon: 'Droplets' },
+        ],
         variantGroups: [{
           id: randomUUID(), name: 'Size',
           options: [
@@ -267,7 +286,10 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
           img('1628840042765-356cda07504e', 'Pepperoni pizza golden crust'),
           img('1565299624946-b28f40a0ae38', 'Pepperoni close-up'),
         ],
-        allergyInfo: ['Gluten', 'Dairy'],
+        specialInfo: [
+          { name: 'Contains Gluten', icon: 'Wheat' },
+          { name: 'Contains Dairy', icon: 'Droplets' },
+        ],
         variantGroups: [{
           id: randomUUID(), name: 'Size',
           options: [
@@ -292,7 +314,11 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
         images: [
           img('1612874742237-6526221588e3', 'Spaghetti carbonara with pancetta'),
         ],
-        allergyInfo: ['Gluten', 'Dairy', 'Egg'],
+        specialInfo: [
+          { name: 'Contains Gluten', icon: 'Wheat' },
+          { name: 'Contains Dairy', icon: 'Droplets' },
+          { name: 'Contains Egg', icon: 'Egg' },
+        ],
       }),
       base({
         name: 'San Pellegrino',
@@ -326,7 +352,10 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
           img('1534482421-64566f976cfa', 'Salmon nigiri platter'),
           img('1583623025817-d180a2221d0a', 'Fresh salmon close-up'),
         ],
-        allergyInfo: ['Fish', 'Soy'],
+        specialInfo: [
+          { name: 'Contains Fish', icon: 'Fish' },
+          { name: 'Contains Allergens', icon: 'AlertTriangle' },
+        ],
       }),
       base({
         name: 'Dragon Roll',
@@ -337,7 +366,12 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
           img('1617196034183-421b4040d609', 'Dragon roll topped with avocado'),
           img('1562802378-063ec186a863', 'Sushi rolls platter'),
         ],
-        allergyInfo: ['Fish', 'Gluten', 'Soy', 'Egg'],
+        specialInfo: [
+          { name: 'Contains Fish', icon: 'Fish' },
+          { name: 'Contains Gluten', icon: 'Wheat' },
+          { name: 'Contains Egg', icon: 'Egg' },
+          { name: 'Contains Allergens', icon: 'AlertTriangle' },
+        ],
         addonGroups: [{
           id: randomUUID(), name: 'Dipping Sauces', minSelectable: 0, maxSelectable: 2,
           options: [
@@ -356,7 +390,11 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
           img('1569050467447-ce54b3bbc37d', 'Tonkotsu ramen steaming bowl'),
           img('1591814468924-caf88d1232e1', 'Chashu pork ramen'),
         ],
-        allergyInfo: ['Gluten', 'Soy', 'Egg', 'Sesame'],
+        specialInfo: [
+          { name: 'Contains Gluten', icon: 'Wheat' },
+          { name: 'Contains Egg', icon: 'Egg' },
+          { name: 'Contains Allergens', icon: 'AlertTriangle' },
+        ],
         variantGroups: [{
           id: randomUUID(), name: 'Spice Level',
           options: [
@@ -383,7 +421,10 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
         images: [
           img('1615361200141-f45040f367be', 'Edamame in bowl with sea salt'),
         ],
-        allergyInfo: ['Soy'],
+        specialInfo: [
+          { name: 'Vegan', icon: 'Leaf' },
+          { name: 'Contains Allergens', icon: 'AlertTriangle' },
+        ],
         variantGroups: [{
           id: randomUUID(), name: 'Seasoning',
           options: [
@@ -407,7 +448,11 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
           img('1568901346375-23c9450c58cd', 'Classic smash burger cross-section'),
           img('1550547660-d9450f859349', 'Smash burger with fries'),
         ],
-        allergyInfo: ['Gluten', 'Dairy', 'Egg'],
+        specialInfo: [
+          { name: 'Contains Gluten', icon: 'Wheat' },
+          { name: 'Contains Dairy', icon: 'Droplets' },
+          { name: 'Contains Egg', icon: 'Egg' },
+        ],
         variantGroups: [{
           id: randomUUID(), name: 'Patty Count',
           options: [
@@ -434,7 +479,11 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
           img('1553979459-d2229ba7433b', 'Bacon BBQ burger with onion rings'),
           img('1571091718767-18b5b1457add', 'Burger from above'),
         ],
-        allergyInfo: ['Gluten', 'Dairy', 'Egg'],
+        specialInfo: [
+          { name: 'Contains Gluten', icon: 'Wheat' },
+          { name: 'Contains Dairy', icon: 'Droplets' },
+          { name: 'Contains Egg', icon: 'Egg' },
+        ],
         variantGroups: [{
           id: randomUUID(), name: 'Patty Count',
           options: [
@@ -461,7 +510,10 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
           img('1573080496219-bb080dd4f877', 'Loaded fries overhead'),
           img('1585325701957-76ea5c8b36ab', 'Cheese fries close-up'),
         ],
-        allergyInfo: ['Gluten', 'Dairy'],
+        specialInfo: [
+          { name: 'Contains Gluten', icon: 'Wheat' },
+          { name: 'Contains Dairy', icon: 'Droplets' },
+        ],
         addonGroups: [{
           id: randomUUID(), name: 'Toppings', minSelectable: 1, maxSelectable: 3,
           options: [
@@ -480,7 +532,9 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
         images: [
           img('1563805042-7684c019e1cb', 'Thick chocolate milkshake'),
         ],
-        allergyInfo: ['Dairy'],
+        specialInfo: [
+          { name: 'Contains Dairy', icon: 'Droplets' },
+        ],
         variantGroups: [{
           id: randomUUID(), name: 'Flavour',
           options: [
@@ -506,7 +560,11 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
           img('1525351484163-7529414344d8', 'Smashed avo toast with cherry tomatoes'),
           img('1482012792084-a0c3725f289f', 'Avocado toast overhead'),
         ],
-        allergyInfo: ['Gluten', 'Tree Nuts'],
+        specialInfo: [
+          { name: 'Contains Gluten', icon: 'Wheat' },
+          { name: 'Contains Allergens', icon: 'AlertTriangle' },
+          { name: 'Vegetarian', icon: 'Utensils' },
+        ],
         addonGroups: [{
           id: randomUUID(), name: 'Add On', minSelectable: 0, maxSelectable: 2,
           options: [
@@ -526,7 +584,11 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
           img('1504754524776-8f4f37790ca0', 'Full big breakfast plate'),
           img('1551782618-c2d09b0e4c3f', 'Eggs and bacon breakfast'),
         ],
-        allergyInfo: ['Gluten', 'Dairy', 'Egg'],
+        specialInfo: [
+          { name: 'Contains Gluten', icon: 'Wheat' },
+          { name: 'Contains Dairy', icon: 'Droplets' },
+          { name: 'Contains Egg', icon: 'Egg' },
+        ],
         variantGroups: [{
           id: randomUUID(), name: 'Eggs',
           options: [
@@ -545,7 +607,10 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
           img('1485808191679-5f86510bd3a7', 'Flat white coffee latte art'),
           img('1509042239860-f550ce710b93', 'Coffee in white cup'),
         ],
-        allergyInfo: ['Dairy'],
+        specialInfo: [
+          { name: 'Contains Dairy', icon: 'Droplets' },
+          { name: 'Contains Caffeine', icon: 'Coffee' },
+        ],
         variantGroups: [{
           id: randomUUID(), name: 'Milk',
           options: [
@@ -573,7 +638,12 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
         images: [
           img('1587334274328-64186a80aeee', 'Sliced banana bread with butter'),
         ],
-        allergyInfo: ['Gluten', 'Egg', 'Dairy'],
+        specialInfo: [
+          { name: 'Contains Gluten', icon: 'Wheat' },
+          { name: 'Contains Egg', icon: 'Egg' },
+          { name: 'Contains Dairy', icon: 'Droplets' },
+          { name: 'Vegetarian', icon: 'Utensils' },
+        ],
         addonGroups: [{
           id: randomUUID(), name: 'Serve With', minSelectable: 0, maxSelectable: 1,
           options: [
@@ -598,7 +668,11 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
           img('1585937421612-70a008356fbe', 'Butter chicken curry in bowl'),
           img('1631452180519-1b8dab981b82', 'Indian curry overhead'),
         ],
-        allergyInfo: ['Dairy', 'Tree Nuts'],
+        specialInfo: [
+          { name: 'Contains Dairy', icon: 'Droplets' },
+          { name: 'Contains Allergens', icon: 'AlertTriangle' },
+          { name: 'Spicy', icon: 'Flame' },
+        ],
         variantGroups: [{
           id: randomUUID(), name: 'Spice Level',
           options: [
@@ -625,7 +699,9 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
           img('1603894584373-5ac82b2ae398', 'Lamb rogan josh with garnish'),
           img('1606491956689-2ea866880c84', 'Rich curry sauce'),
         ],
-        allergyInfo: [],
+        specialInfo: [
+          { name: 'Spicy', icon: 'Flame' },
+        ],
         variantGroups: [{
           id: randomUUID(), name: 'Spice Level',
           options: [
@@ -650,7 +726,11 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
         images: [
           img('1596797038530-2c107229654b', 'Garlic naan with butter'),
         ],
-        allergyInfo: ['Gluten', 'Dairy'],
+        specialInfo: [
+          { name: 'Contains Gluten', icon: 'Wheat' },
+          { name: 'Contains Dairy', icon: 'Droplets' },
+          { name: 'Vegetarian', icon: 'Utensils' },
+        ],
         variantGroups: [{
           id: randomUUID(), name: 'Quantity',
           options: [
@@ -668,7 +748,11 @@ function buildProducts(shopName: string, shopId: string, cat: (name: string) => 
         images: [
           img('1601979031925-424e53b6caaa', 'Gulab jamun in syrup'),
         ],
-        allergyInfo: ['Dairy', 'Gluten'],
+        specialInfo: [
+          { name: 'Contains Dairy', icon: 'Droplets' },
+          { name: 'Contains Gluten', icon: 'Wheat' },
+          { name: 'Vegetarian', icon: 'Utensils' },
+        ],
         variantGroups: [{
           id: randomUUID(), name: 'Serve',
           options: [
