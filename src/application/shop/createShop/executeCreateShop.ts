@@ -182,6 +182,7 @@ export async function executeCreateShop(
       id: shopId,
       slug: generatedSlug,
       name: request.name.trim(),
+      industry: request.industry?.trim() || undefined,
       // Set safe defaults automatically
       isDeleted: false,
       isPaused: true,

@@ -24,6 +24,7 @@ export interface CreateShopRequestDto {
   >;
 
   // Optional fields
+  industry?: string;
   pausedMessage?: string;
   orderAcceptanceMode?: 'auto';
   closures?: Array<{

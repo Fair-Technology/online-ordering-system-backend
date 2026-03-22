@@ -31,6 +31,9 @@ export interface Shop {
   slug: string; // globally unique, public identifier
   name: string;
 
+  // Industry / business type
+  industry?: string;
+
   // State & visibility
   isDeleted: boolean; // soft delete
   isPaused: boolean;
