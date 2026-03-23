@@ -877,6 +877,119 @@ export const swaggerSpec = {
   },
   components: {
     schemas: {
+      OpeningTimeSlot: {
+        type: 'object',
+        properties: {
+          open: { type: 'string', format: 'time', pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$', description: 'Opening time (HH:mm, 24-hour)', example: '09:00' },
+          close: { type: 'string', format: 'time', pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$', description: 'Closing time (HH:mm, 24-hour)', example: '17:00' },
+        },
+      },
+      Address: {
+        type: 'object',
+        properties: {
+          street: { type: 'string', description: 'Street address', example: '123 Main Street' },
+          city: { type: 'string', description: 'City', example: 'Belconnen' },
+          state: { type: 'string', description: 'State or territory', example: 'ACT' },
+          postcode: { type: 'string', description: 'Postal code', example: '2617' },
+          country: { type: 'string', description: 'Country', example: 'Australia' },
+        },
+      },
+      ShopClosure: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          start: { type: 'string', format: 'date-time' },
+          end: { type: 'string', format: 'date-time' },
+          reason: { type: 'string' },
+        },
+      },
+      ShopMember: {
+        type: 'object',
+        properties: {
+          userId: { type: 'string' },
+          role: { type: 'string', enum: ['owner', 'staff'] },
+          isActive: { type: 'boolean' },
+        },
+      },
+      ProductImageRef: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Image ID' },
+          url: { type: 'string', description: 'Image URL' },
+          isPrimary: { type: 'boolean', description: 'Whether this is the primary image' },
+        },
+      },
+      SpecialInfoItem: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Label text' },
+          icon: { type: 'string', description: 'Lucide icon name' },
+        },
+      },
+      VariantOption: {
+        type: 'object',
+        required: ['id', 'name', 'priceDelta', 'isAvailable'],
+        properties: {
+          id: { type: 'string', format: 'uuid', description: 'Option ID' },
+          name: { type: 'string', description: 'Option name', example: 'Large' },
+          priceDelta: { type: 'integer', description: 'Price delta in cents', example: 200 },
+          isAvailable: { type: 'boolean', description: 'Whether option is available', example: true },
+        },
+      },
+      VariantGroup: {
+        type: 'object',
+        required: ['id', 'name', 'options'],
+        properties: {
+          id: { type: 'string', format: 'uuid', description: 'Variant group ID' },
+          name: { type: 'string', description: 'Variant group name', example: 'Size' },
+          options: { type: 'array', items: { $ref: '#/components/schemas/VariantOption' } },
+        },
+      },
+      AddonOption: {
+        type: 'object',
+        required: ['id', 'name', 'priceDelta', 'isAvailable'],
+        properties: {
+          id: { type: 'string', format: 'uuid', description: 'Option ID' },
+          name: { type: 'string', description: 'Option name', example: 'Extra cheese' },
+          priceDelta: { type: 'integer', description: 'Price delta in cents', example: 150 },
+          isAvailable: { type: 'boolean', description: 'Whether option is available', example: true },
+        },
+      },
+      AddonGroup: {
+        type: 'object',
+        required: ['id', 'name', 'minSelectable', 'maxSelectable', 'options'],
+        properties: {
+          id: { type: 'string', format: 'uuid', description: 'Addon group ID' },
+          name: { type: 'string', description: 'Addon group name', example: 'Extras' },
+          minSelectable: { type: 'integer', description: 'Minimum selectable options', example: 0 },
+          maxSelectable: { type: 'integer', description: 'Maximum selectable options', example: 3 },
+          options: { type: 'array', items: { $ref: '#/components/schemas/AddonOption' } },
+        },
+      },
+      ProductCategory: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Category ID' },
+          name: { type: 'string', description: 'Category name' },
+          sortOrder: { type: 'number', description: 'Category sort order' },
+          icon: { type: 'string', description: 'Lucide icon name' },
+        },
+      },
+      CatalogImageRef: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          url: { type: 'string' },
+          alt: { type: 'string', nullable: true },
+          sortOrder: { type: 'integer' },
+        },
+      },
+      ErrorResponse: {
+        type: 'object',
+        properties: {
+          error: { type: 'string' },
+        },
+      },
       ShopBranding: {
         type: 'object',
         nullable: true,
@@ -980,37 +1093,7 @@ export const swaggerSpec = {
             enum: ['pay_online'],
             description: 'Payment policy',
           },
-          address: {
-            type: 'object',
-            required: ['street', 'city', 'state', 'postcode', 'country'],
-            properties: {
-              street: {
-                type: 'string',
-                description: 'Street address',
-                example: '123 Main Street',
-              },
-              city: {
-                type: 'string',
-                description: 'City',
-                example: 'Belconnen',
-              },
-              state: {
-                type: 'string',
-                description: 'State or territory',
-                example: 'ACT',
-              },
-              postcode: {
-                type: 'string',
-                description: 'Postal code',
-                example: '2617',
-              },
-              country: {
-                type: 'string',
-                description: 'Country',
-                example: 'Australia',
-              },
-            },
-          },
+          address: { $ref: '#/components/schemas/Address' },
           pausedMessage: {
             type: 'string',
             description: 'Message when shop is paused (optional)',
@@ -1034,191 +1117,22 @@ export const swaggerSpec = {
               sun: [{ open: '11:00', close: '15:00' }],
             },
             properties: {
-              mon: {
-                type: 'array',
-                description: 'Monday opening hours',
-                items: {
-                  type: 'object',
-                  properties: {
-                    open: {
-                      type: 'string',
-                      format: 'time',
-                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
-                      description: 'Opening time in 24-hour format (HH:MM)',
-                      example: '09:00',
-                    },
-                    close: {
-                      type: 'string',
-                      format: 'time',
-                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
-                      description: 'Closing time in 24-hour format (HH:MM)',
-                      example: '17:00',
-                    },
-                  },
-                },
-              },
-              tue: {
-                type: 'array',
-                description: 'Tuesday opening hours',
-                items: {
-                  type: 'object',
-                  properties: {
-                    open: {
-                      type: 'string',
-                      format: 'time',
-                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
-                      description: 'Opening time in 24-hour format (HH:MM)',
-                      example: '09:00',
-                    },
-                    close: {
-                      type: 'string',
-                      format: 'time',
-                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
-                      description: 'Closing time in 24-hour format (HH:MM)',
-                      example: '17:00',
-                    },
-                  },
-                },
-              },
-              wed: {
-                type: 'array',
-                description: 'Wednesday opening hours',
-                items: {
-                  type: 'object',
-                  properties: {
-                    open: {
-                      type: 'string',
-                      format: 'time',
-                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
-                      description: 'Opening time in 24-hour format (HH:MM)',
-                      example: '09:00',
-                    },
-                    close: {
-                      type: 'string',
-                      format: 'time',
-                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
-                      description: 'Closing time in 24-hour format (HH:MM)',
-                      example: '17:00',
-                    },
-                  },
-                },
-              },
-              thu: {
-                type: 'array',
-                description: 'Thursday opening hours',
-                items: {
-                  type: 'object',
-                  properties: {
-                    open: {
-                      type: 'string',
-                      format: 'time',
-                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
-                      description: 'Opening time in 24-hour format (HH:MM)',
-                      example: '09:00',
-                    },
-                    close: {
-                      type: 'string',
-                      format: 'time',
-                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
-                      description: 'Closing time in 24-hour format (HH:MM)',
-                      example: '17:00',
-                    },
-                  },
-                },
-              },
-              fri: {
-                type: 'array',
-                description: 'Friday opening hours',
-                items: {
-                  type: 'object',
-                  properties: {
-                    open: {
-                      type: 'string',
-                      format: 'time',
-                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
-                      description: 'Opening time in 24-hour format (HH:MM)',
-                      example: '09:00',
-                    },
-                    close: {
-                      type: 'string',
-                      format: 'time',
-                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
-                      description: 'Closing time in 24-hour format (HH:MM)',
-                      example: '17:00',
-                    },
-                  },
-                },
-              },
-              sat: {
-                type: 'array',
-                description: 'Saturday opening hours',
-                items: {
-                  type: 'object',
-                  properties: {
-                    open: {
-                      type: 'string',
-                      format: 'time',
-                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
-                      description: 'Opening time in 24-hour format (HH:MM)',
-                      example: '10:00',
-                    },
-                    close: {
-                      type: 'string',
-                      format: 'time',
-                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
-                      description: 'Closing time in 24-hour format (HH:MM)',
-                      example: '16:00',
-                    },
-                  },
-                },
-              },
-              sun: {
-                type: 'array',
-                description: 'Sunday opening hours',
-                items: {
-                  type: 'object',
-                  properties: {
-                    open: {
-                      type: 'string',
-                      format: 'time',
-                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
-                      description: 'Opening time in 24-hour format (HH:MM)',
-                      example: '10:00',
-                    },
-                    close: {
-                      type: 'string',
-                      format: 'time',
-                      pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$',
-                      description: 'Closing time in 24-hour format (HH:MM)',
-                      example: '15:00',
-                    },
-                  },
-                },
-              },
+              mon: { type: 'array', description: 'Monday opening hours', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              tue: { type: 'array', description: 'Tuesday opening hours', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              wed: { type: 'array', description: 'Wednesday opening hours', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              thu: { type: 'array', description: 'Thursday opening hours', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              fri: { type: 'array', description: 'Friday opening hours', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              sat: { type: 'array', description: 'Saturday opening hours', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              sun: { type: 'array', description: 'Sunday opening hours', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
             },
           },
           closures: {
             type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                id: { type: 'string' },
-                start: { type: 'string', format: 'date-time' },
-                end: { type: 'string', format: 'date-time' },
-                reason: { type: 'string' },
-              },
-            },
+            items: { $ref: '#/components/schemas/ShopClosure' },
           },
           members: {
             type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                userId: { type: 'string' },
-                role: { type: 'string', enum: ['owner', 'staff'] },
-                isActive: { type: 'boolean' },
-              },
-            },
+            items: { $ref: '#/components/schemas/ShopMember' },
           },
           branding: {
             nullable: true,
@@ -1251,16 +1165,7 @@ export const swaggerSpec = {
             type: 'number',
             description: 'Minimum order amount in cents',
           },
-          address: {
-            type: 'object',
-            properties: {
-              street: { type: 'string' },
-              city: { type: 'string' },
-              state: { type: 'string' },
-              postcode: { type: 'string' },
-              country: { type: 'string' },
-            },
-          },
+          address: { $ref: '#/components/schemas/Address' },
           branding: {
             nullable: true,
             description: 'Shop branding configuration. Set to null to clear branding.',
@@ -1270,22 +1175,13 @@ export const swaggerSpec = {
             type: 'object',
             description: 'Shop opening hours per day. At least one day must have opening hours.',
             properties: {
-              mon: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    open: { type: 'string', format: 'time', pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$', description: 'Opening time (HH:mm)' },
-                    close: { type: 'string', format: 'time', pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$', description: 'Closing time (HH:mm)' },
-                  },
-                },
-              },
-              tue: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
-              wed: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
-              thu: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
-              fri: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
-              sat: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
-              sun: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
+              mon: { type: 'array', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              tue: { type: 'array', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              wed: { type: 'array', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              thu: { type: 'array', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              fri: { type: 'array', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              sat: { type: 'array', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              sun: { type: 'array', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
             },
           },
         },
@@ -1320,17 +1216,7 @@ export const swaggerSpec = {
             type: 'number',
             description: 'Minimum order amount in cents',
           },
-          address: {
-            type: 'object',
-            description: 'Shop address',
-            properties: {
-              street: { type: 'string' },
-              city: { type: 'string' },
-              state: { type: 'string' },
-              postcode: { type: 'string' },
-              country: { type: 'string' },
-            },
-          },
+          address: { $ref: '#/components/schemas/Address' },
           createdAt: {
             type: 'string',
             format: 'date-time',
@@ -1350,13 +1236,13 @@ export const swaggerSpec = {
             type: 'object',
             description: 'Shop opening hours per day of the week.',
             properties: {
-              mon: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
-              tue: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
-              wed: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
-              thu: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
-              fri: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
-              sat: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
-              sun: { type: 'array', items: { type: 'object', properties: { open: { type: 'string' }, close: { type: 'string' } } } },
+              mon: { type: 'array', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              tue: { type: 'array', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              wed: { type: 'array', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              thu: { type: 'array', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              fri: { type: 'array', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              sat: { type: 'array', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
+              sun: { type: 'array', items: { $ref: '#/components/schemas/OpeningTimeSlot' } },
             },
           },
         },
@@ -1459,24 +1345,11 @@ export const swaggerSpec = {
           },
           images: {
             type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                id: { type: 'string' },
-                url: { type: 'string' },
-                isPrimary: { type: 'boolean' },
-              },
-            },
+            items: { $ref: '#/components/schemas/ProductImageRef' },
           },
           specialInfo: {
             type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                name: { type: 'string', description: 'Label text' },
-                icon: { type: 'string', description: 'Lucide icon name' },
-              },
-            },
+            items: { $ref: '#/components/schemas/SpecialInfoItem' },
             description: 'Special info items (dietary labels, badges, etc.)',
           },
           isAvailable: {
@@ -1507,24 +1380,11 @@ export const swaggerSpec = {
           },
           images: {
             type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                id: { type: 'string' },
-                url: { type: 'string' },
-                isPrimary: { type: 'boolean' },
-              },
-            },
+            items: { $ref: '#/components/schemas/ProductImageRef' },
           },
           specialInfo: {
             type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                name: { type: 'string', description: 'Label text' },
-                icon: { type: 'string', description: 'Lucide icon name' },
-              },
-            },
+            items: { $ref: '#/components/schemas/SpecialInfoItem' },
             description: 'Special info items (dietary labels, badges, etc.)',
           },
           isAvailable: {
@@ -1534,54 +1394,12 @@ export const swaggerSpec = {
           variantGroups: {
             type: 'array',
             description: 'Variant groups (single-select per group, e.g. Size)',
-            items: {
-              type: 'object',
-              required: ['id', 'name', 'options'],
-              properties: {
-                id: { type: 'string', format: 'uuid' },
-                name: { type: 'string', example: 'Size' },
-                options: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    required: ['id', 'name', 'priceDelta', 'isAvailable'],
-                    properties: {
-                      id: { type: 'string', format: 'uuid' },
-                      name: { type: 'string', example: 'Large' },
-                      priceDelta: { type: 'integer', example: 200, description: 'Price delta in cents' },
-                      isAvailable: { type: 'boolean', example: true },
-                    },
-                  },
-                },
-              },
-            },
+            items: { $ref: '#/components/schemas/VariantGroup' },
           },
           addonGroups: {
             type: 'array',
             description: 'Addon groups (multi-select per group, e.g. Extras)',
-            items: {
-              type: 'object',
-              required: ['id', 'name', 'minSelectable', 'maxSelectable', 'options'],
-              properties: {
-                id: { type: 'string', format: 'uuid' },
-                name: { type: 'string', example: 'Extras' },
-                minSelectable: { type: 'integer', example: 0 },
-                maxSelectable: { type: 'integer', example: 3 },
-                options: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    required: ['id', 'name', 'priceDelta', 'isAvailable'],
-                    properties: {
-                      id: { type: 'string', format: 'uuid' },
-                      name: { type: 'string', example: 'Extra cheese' },
-                      priceDelta: { type: 'integer', example: 150, description: 'Price delta in cents' },
-                      isAvailable: { type: 'boolean', example: true },
-                    },
-                  },
-                },
-              },
-            },
+            items: { $ref: '#/components/schemas/AddonGroup' },
           },
           schedule: {
             nullable: true,
@@ -1600,110 +1418,27 @@ export const swaggerSpec = {
           price: { type: 'number', description: 'Product price in cents' },
           categories: {
             type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                id: { type: 'string', description: 'Category ID' },
-                name: { type: 'string', description: 'Category name' },
-                sortOrder: {
-                  type: 'number',
-                  description: 'Category sort order',
-                },
-                icon: { type: 'string', description: 'Lucide icon name' },
-              },
-            },
+            items: { $ref: '#/components/schemas/ProductCategory' },
             description: 'Product categories with full details',
           },
           images: {
             type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                id: { type: 'string', description: 'Image ID' },
-                url: { type: 'string', description: 'Image URL' },
-                isPrimary: {
-                  type: 'boolean',
-                  description: 'Whether this is the primary image',
-                },
-              },
-            },
+            items: { $ref: '#/components/schemas/ProductImageRef' },
             description: 'Product images',
           },
           specialInfo: {
             type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                name: { type: 'string', description: 'Label text' },
-                icon: { type: 'string', description: 'Lucide icon name' },
-              },
-            },
+            items: { $ref: '#/components/schemas/SpecialInfoItem' },
             description: 'Special info items (dietary labels, badges, etc.)',
           },
           variantGroups: {
             type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                id: { type: 'string', description: 'Variant group ID' },
-                name: { type: 'string', description: 'Variant group name' },
-                options: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      id: { type: 'string', description: 'Option ID' },
-                      name: { type: 'string', description: 'Option name' },
-                      priceDelta: {
-                        type: 'number',
-                        description: 'Price difference in cents',
-                      },
-                      isAvailable: {
-                        type: 'boolean',
-                        description: 'Whether option is available',
-                      },
-                    },
-                  },
-                },
-              },
-            },
+            items: { $ref: '#/components/schemas/VariantGroup' },
             description: 'Product variant groups (optional)',
           },
           addonGroups: {
             type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                id: { type: 'string', description: 'Addon group ID' },
-                name: { type: 'string', description: 'Addon group name' },
-                minSelectable: {
-                  type: 'number',
-                  description: 'Minimum selectable options',
-                },
-                maxSelectable: {
-                  type: 'number',
-                  description: 'Maximum selectable options',
-                },
-                options: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      id: { type: 'string', description: 'Option ID' },
-                      name: { type: 'string', description: 'Option name' },
-                      priceDelta: {
-                        type: 'number',
-                        description: 'Price difference in cents',
-                      },
-                      isAvailable: {
-                        type: 'boolean',
-                        description: 'Whether option is available',
-                      },
-                    },
-                  },
-                },
-              },
-            },
+            items: { $ref: '#/components/schemas/AddonGroup' },
             description: 'Product addon groups (optional)',
           },
           isAvailable: {
@@ -1920,25 +1655,17 @@ export const swaggerSpec = {
           price: { type: 'number', description: 'Base price in cents' },
           images: {
             type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                id: { type: 'string' },
-                url: { type: 'string' },
-                alt: { type: 'string', nullable: true },
-                sortOrder: { type: 'integer' },
-              },
-            },
+            items: { $ref: '#/components/schemas/CatalogImageRef' },
           },
           variants: {
             type: 'array',
             description: 'Variant groups',
-            items: { type: 'object' },
+            items: { $ref: '#/components/schemas/VariantGroup' },
           },
           addons: {
             type: 'array',
             description: 'Addon groups',
-            items: { type: 'object' },
+            items: { $ref: '#/components/schemas/AddonGroup' },
           },
           isAvailable: { type: 'boolean' },
           taxRateId: { type: 'string', nullable: true, description: 'Tax rate ID or null' },
@@ -2161,12 +1888,7 @@ export const swaggerSpec = {
         description: 'Bad request',
         content: {
           'application/json': {
-            schema: {
-              type: 'object',
-              properties: {
-                error: { type: 'string' },
-              },
-            },
+            schema: { $ref: '#/components/schemas/ErrorResponse' },
           },
         },
       },
@@ -2174,26 +1896,15 @@ export const swaggerSpec = {
         description: 'Resource not found',
         content: {
           'application/json': {
-            schema: {
-              type: 'object',
-              properties: {
-                error: { type: 'string' },
-              },
-            },
+            schema: { $ref: '#/components/schemas/ErrorResponse' },
           },
         },
       },
       Forbidden: {
-        description:
-          'Forbidden - Authentication required or insufficient permissions',
+        description: 'Forbidden - Authentication required or insufficient permissions',
         content: {
           'application/json': {
-            schema: {
-              type: 'object',
-              properties: {
-                error: { type: 'string' },
-              },
-            },
+            schema: { $ref: '#/components/schemas/ErrorResponse' },
           },
         },
       },
@@ -2201,12 +1912,7 @@ export const swaggerSpec = {
         description: 'Internal server error',
         content: {
           'application/json': {
-            schema: {
-              type: 'object',
-              properties: {
-                error: { type: 'string' },
-              },
-            },
+            schema: { $ref: '#/components/schemas/ErrorResponse' },
           },
         },
       },
