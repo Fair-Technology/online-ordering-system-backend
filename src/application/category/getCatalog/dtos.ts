@@ -8,6 +8,7 @@ export interface CatalogProductDto {
   addons: unknown[];
   isAvailable: boolean;
   taxRateId?: string | null;
+  specialInfo?: { name: string; icon: string }[];
   createdAt: string;
   updatedAt: string;
 }

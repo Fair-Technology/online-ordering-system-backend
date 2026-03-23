@@ -56,6 +56,7 @@ export async function executeGetCatalog(
           addons: product.addonGroups ?? [],
           isAvailable: product.isAvailable,
           taxRateId: product.taxRateId,
+          specialInfo: product.specialInfo,
           createdAt: product.createdAt,
           updatedAt: product.updatedAt,
         }));

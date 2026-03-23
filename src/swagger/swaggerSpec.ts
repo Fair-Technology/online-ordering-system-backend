@@ -1669,6 +1669,18 @@ export const swaggerSpec = {
           },
           isAvailable: { type: 'boolean' },
           taxRateId: { type: 'string', nullable: true, description: 'Tax rate ID or null' },
+          specialInfo: {
+            type: 'array',
+            nullable: true,
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                icon: { type: 'string' },
+              },
+              required: ['name', 'icon'],
+            },
+          },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
         },
