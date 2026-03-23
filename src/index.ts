@@ -30,6 +30,7 @@ import './functions/product/addProductImage/index';
 
 // Category endpoints
 import './functions/category/getCategoriesByShop/index';
+import './functions/category/getCatalog/index';
 import './functions/category/getCategory/index';
 import './functions/category/createCategory/index';
 import './functions/category/updateCategory/index';
@@ -71,3 +72,10 @@ import './functions/usage/reconcileShopUsage/index';
 
 // Admin endpoints
 import './functions/admin/seedPlans/index';
+
+// System config endpoints
+import './functions/systemConfig/getSystemConfig/index';
+import './functions/systemConfig/updateSystemConfig/index';
+
+// User admin endpoints
+import './functions/user/updateUserLimits/index';

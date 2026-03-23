@@ -103,3 +103,21 @@ export async function findShopsByMemberId(userId: string): Promise<Shop[]> {
     throw error;
   }
 }
+
+export async function findOwnedShopIds(userId: string): Promise<string[]> {
+  try {
+    const querySpec = {
+      query: `SELECT c.id FROM c
+              WHERE c.isDeleted = false
+              AND EXISTS(SELECT VALUE m FROM m IN c.members
+                         WHERE m.userId = @userId AND m.role = 'owner' AND m.isActive = true)`,
+      parameters: [{ name: '@userId', value: userId }],
+    };
+    const { resources } = await shopContainer.items
+      .query<{ id: string }>(querySpec)
+      .fetchAll();
+    return (resources || []).map((r) => r.id);
+  } catch (error) {
+    throw error;
+  }
+}

@@ -40,3 +40,20 @@ export async function upsertUser(incoming: UserProfile): Promise<UserProfile> {
   await usersContainer.items.upsert<UserProfile>(profile);
   return profile;
 }
+
+export async function patchUserLimits(
+  userId: string,
+  maxShops: number | null,
+): Promise<UserProfile | null> {
+  const existing = await findUserById(userId);
+  if (!existing) return null;
+
+  const updated: UserProfile = {
+    ...existing,
+    maxShops,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await usersContainer.items.upsert<UserProfile>(updated);
+  return updated;
+}

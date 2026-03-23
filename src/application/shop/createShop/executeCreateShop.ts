@@ -2,8 +2,11 @@ import { HttpRequest } from '@azure/functions';
 import {
   createShop as createShopInRepo,
   findShopBySlug,
+  findOwnedShopIds,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { getUserIdFromAuth } from '../../../infrastructure/auth/authHelpers';
+import { findUserById } from '../../../infrastructure/cosmos/user/CosmosUserRepository';
+import { getSystemConfig } from '../../../infrastructure/cosmos/system/CosmosSystemConfigRepository';
 import { CreateShopRequestDto, CreateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Shop } from '../../../domain/shop/Shop';
@@ -172,6 +175,29 @@ export async function executeCreateShop(
 
   try {
     const userId = await getUserIdFromAuth(httpRequest);
+
+    // Enforce per-user shop limit
+    const userProfile = await findUserById(userId);
+    if (userProfile?.systemRole !== 'superadmin') {
+      let config = { maxShopsDefault: 3 };
+      try {
+        config = await getSystemConfig();
+      } catch {
+        // Fail-open: if config fetch fails, use safe default and allow creation
+      }
+      const effectiveLimit =
+        userProfile?.maxShops != null ? userProfile.maxShops : config.maxShopsDefault;
+      if (effectiveLimit !== -1) {
+        const ownedShopIds = await findOwnedShopIds(userId);
+        if (ownedShopIds.length >= effectiveLimit) {
+          return {
+            ok: false,
+            code: 'LIMIT_REACHED',
+            error: `You have reached your limit of ${effectiveLimit} shop(s).`,
+          };
+        }
+      }
+    }
 
     // Validate that slug generated from name is unique
     const checkSlugExists = async (slug: string): Promise<boolean> => {

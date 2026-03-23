@@ -703,6 +703,38 @@ export const swaggerSpec = {
         },
       },
     },
+    '/shops/{shopId}/catalog': {
+      get: {
+        summary: 'Get customer-facing catalog for a shop',
+        operationId: 'getCatalog',
+        description:
+          'Returns categories with their currently purchasable products. Products are filtered by isAvailable and the product schedule evaluated against the shop timezone. No authentication required.',
+        tags: ['Catalog'],
+        security: [],
+        parameters: [
+          {
+            name: 'shopId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string' },
+            description: 'Shop ID',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Catalog retrieved successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CatalogResponse' },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '404': { $ref: '#/components/responses/NotFound' },
+          '500': { $ref: '#/components/responses/InternalError' },
+        },
+      },
+    },
     '/orders': {
       post: {
         summary: 'Create an order and initiate payment',
@@ -1878,6 +1910,65 @@ export const swaggerSpec = {
           },
         },
         required: ['id', 'url', 'sortOrder', 'isPrimary'],
+      },
+      CatalogProductDto: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Product ID' },
+          name: { type: 'string', description: 'Product name' },
+          description: { type: 'string', description: 'Product description' },
+          price: { type: 'number', description: 'Base price in cents' },
+          images: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                url: { type: 'string' },
+                alt: { type: 'string', nullable: true },
+                sortOrder: { type: 'integer' },
+              },
+            },
+          },
+          variants: {
+            type: 'array',
+            description: 'Variant groups',
+            items: { type: 'object' },
+          },
+          addons: {
+            type: 'array',
+            description: 'Addon groups',
+            items: { type: 'object' },
+          },
+          isAvailable: { type: 'boolean' },
+          taxRateId: { type: 'string', nullable: true, description: 'Tax rate ID or null' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      CatalogCategoryDto: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Category ID' },
+          name: { type: 'string', description: 'Category name' },
+          sortOrder: { type: 'number', description: 'Display sort order' },
+          icon: { type: 'string', nullable: true, description: 'Lucide icon name' },
+          products: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/CatalogProductDto' },
+          },
+        },
+      },
+      CatalogResponse: {
+        type: 'object',
+        properties: {
+          categories: {
+            type: 'array',
+            description: 'Categories with their visible, in-schedule products',
+            items: { $ref: '#/components/schemas/CatalogCategoryDto' },
+          },
+        },
+        required: ['categories'],
       },
       CheckoutItem: {
         type: 'object',
