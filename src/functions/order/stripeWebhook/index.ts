@@ -87,6 +87,7 @@ app.http('stripeWebhook', {
             customerEmail: session.customerEmail,
             customerPhone: session.customerPhone,
             customerNotes: session.customerNotes,
+            orderLocation: session.orderLocation,
             createdAt: now,
             updatedAt: now,
           };

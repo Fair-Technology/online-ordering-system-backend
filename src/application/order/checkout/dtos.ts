@@ -12,6 +12,7 @@ export interface CheckoutRequestDto {
   customerEmail: string;
   customerPhone: string;
   customerNotes?: string;
+  orderLocation?: string;
 }
 
 export interface CheckoutResultDto {

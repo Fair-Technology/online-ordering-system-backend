@@ -1773,6 +1773,11 @@ export const swaggerSpec = {
             description: 'Optional notes for the order',
             example: 'No onions please',
           },
+          orderLocation: {
+            type: 'string',
+            description: 'Optional location identifier (e.g. table number, room, seat, bay)',
+            example: 'Table 5',
+          },
         },
       },
       CheckoutResponse: {
@@ -1846,6 +1851,7 @@ export const swaggerSpec = {
           customerEmail: { type: 'string', format: 'email', example: 'jane@example.com' },
           customerPhone: { type: 'string', example: '+61400000000' },
           customerNotes: { type: 'string', nullable: true, example: 'No onions please' },
+          orderLocation: { type: 'string', nullable: true, example: 'Table 5' },
           createdAt: { type: 'string', format: 'date-time', example: '2026-03-02T10:00:00.000Z' },
         },
       },

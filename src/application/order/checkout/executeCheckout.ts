@@ -226,6 +226,7 @@ export async function executeCheckout(
       customerEmail: request.customerEmail,
       customerPhone: request.customerPhone,
       customerNotes: request.customerNotes,
+      orderLocation: request.orderLocation,
       createdAt: now,
       ttl: 3600,
     };

@@ -27,6 +27,7 @@ export type OrderDto = {
   customerEmail: string;
   customerPhone: string;
   customerNotes?: string;
+  orderLocation?: string;
   createdAt: string;
 };
 

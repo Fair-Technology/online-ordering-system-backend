@@ -82,6 +82,7 @@ export async function executeGetOrdersByShop(
       customerEmail: order.customerEmail,
       customerPhone: order.customerPhone,
       customerNotes: order.customerNotes,
+      orderLocation: order.orderLocation,
       createdAt: order.createdAt,
     }));
 

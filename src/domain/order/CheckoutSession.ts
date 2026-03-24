@@ -11,6 +11,7 @@ export interface CheckoutSession {
   customerEmail: string;
   customerPhone: string;
   customerNotes?: string;
+  orderLocation?: string;
   createdAt: string;
   ttl: number;                   // Cosmos TTL in seconds from _ts (set to 3600)
 }

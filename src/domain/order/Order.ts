@@ -30,6 +30,7 @@ export interface Order {
   customerEmail: string;
   customerPhone: string;
   customerNotes?: string;
+  orderLocation?: string;
   createdAt: string; // ISO
   updatedAt: string; // ISO
 }
