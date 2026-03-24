@@ -100,6 +100,9 @@ export interface Shop {
     requestedAt: string; // ISO timestamp
   } | null;
 
+  // Subscription enforcement
+  isDeactivatedDueToLimits?: boolean; // set by webhook when active products exceed free plan limit on cancellation
+
   // Audit
   createdAt: string; // ISO
   updatedAt: string; // ISO

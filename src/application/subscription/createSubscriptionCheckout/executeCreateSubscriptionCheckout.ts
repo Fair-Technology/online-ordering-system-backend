@@ -71,6 +71,24 @@ export async function executeCreateSubscriptionCheckout(
     const stripe = new Stripe(stripeSecretKey);
 
     const existingSubscription = await findSubscriptionByShopId(shopId);
+
+    // Paid→paid switch: update the existing Stripe subscription in-place with proration
+    if (existingSubscription?.billingSubscriptionId) {
+      const stripeSubscription = await stripe.subscriptions.retrieve(
+        existingSubscription.billingSubscriptionId,
+      );
+      const currentItemId = stripeSubscription.items.data[0]?.id;
+      if (!currentItemId) {
+        return { ok: false, code: 'INTERNAL_ERROR', error: 'Could not read current subscription' };
+      }
+      await stripe.subscriptions.update(existingSubscription.billingSubscriptionId, {
+        items: [{ id: currentItemId, price: stripePriceId }],
+        proration_behavior: 'always_invoice',
+      });
+      // Local subscription record will be updated by the 'subscription.updated' webhook
+      return { ok: true, data: { url: `${adminAppUrl}/shops/${shopId}/subscription?payment=success` } };
+    }
+
     const existingCustomerId = existingSubscription?.billingCustomerId ?? null;
 
     const session = await stripe.checkout.sessions.create({

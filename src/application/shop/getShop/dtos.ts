@@ -11,6 +11,7 @@ export interface GetShopResultDto {
   isDeleted: boolean;
   isPaused: boolean;
   pausedMessage?: string;
+  isDeactivatedDueToLimits: boolean;
   paymentPolicy: string;
   orderAcceptanceMode: string;
   allowGuestCheckout: boolean;

@@ -7,6 +7,7 @@ import { CreateProductRequestDto, CreateProductResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { Product } from '../../../domain/product/Product';
 import { getActorFromAuth, logAudit } from '../../_shared/auditHelpers';
+import { checkProductLimit } from '../../_shared/checkProductLimit';
 
 export async function executeCreateProduct(
   request: CreateProductRequestDto,
@@ -114,6 +115,13 @@ export async function executeCreateProduct(
 
     const permError = checkShopPermission(shop, userId, 'manage_products');
     if (permError) return permError;
+
+    // Enforce product limit — only check if the product will be active
+    const willBeActive = (request.categoryIds?.length ?? 0) > 0 && (request.isAvailable ?? true);
+    if (willBeActive) {
+      const limitError = await checkProductLimit(shop.id);
+      if (limitError) return limitError;
+    }
 
     const now = new Date().toISOString();
     const productId = crypto.randomUUID();

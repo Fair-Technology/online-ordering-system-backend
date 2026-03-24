@@ -41,6 +41,7 @@ export async function executeGetShop(
       isDeleted: shop.isDeleted,
       isPaused: shop.isPaused,
       pausedMessage: shop.pausedMessage,
+      isDeactivatedDueToLimits: shop.isDeactivatedDueToLimits ?? false,
       paymentPolicy: shop.paymentPolicy,
       orderAcceptanceMode: shop.orderAcceptanceMode,
       allowGuestCheckout: shop.allowGuestCheckout,

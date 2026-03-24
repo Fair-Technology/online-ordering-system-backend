@@ -21,6 +21,7 @@ import './functions/shop/declineShopInvitation/index';
 import './functions/shop/requestShopNameChange/index';
 import './functions/shop/approveShopNameChange/index';
 import './functions/shop/rejectShopNameChange/index';
+import './functions/shop/reactivateShop/index';
 
 // Product endpoints
 import './functions/product/getProductsByShop/index';
@@ -68,13 +69,12 @@ import './functions/plan/setPlanPricing/index';
 import './functions/subscription/getShopSubscription/index';
 import './functions/subscription/overrideShopSubscription/index';
 import './functions/subscription/createSubscriptionCheckout/index';
+import './functions/subscription/cancelShopSubscription/index';
+import './functions/subscription/resumeShopSubscription/index';
 
 // Usage endpoints
 import './functions/usage/getShopUsage/index';
 import './functions/usage/reconcileShopUsage/index';
-
-// Admin endpoints
-import './functions/admin/seedPlans/index';
 
 // System config endpoints
 import './functions/systemConfig/getSystemConfig/index';

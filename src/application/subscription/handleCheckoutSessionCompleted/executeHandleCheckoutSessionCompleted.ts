@@ -1,5 +1,6 @@
 import { findSubscriptionByShopId, upsertSubscription } from '../../../infrastructure/cosmos/subscription/CosmosSubscriptionRepository';
 import { findPlanByInternalKey } from '../../../infrastructure/cosmos/plan/CosmosPlanRepository';
+import { findShopById, updateShop } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 
 export interface HandleCheckoutSessionCompletedInput {
   shopId: string;
@@ -50,4 +51,10 @@ export async function executeHandleCheckoutSessionCompleted(
     planSource: 'billing',
     updatedAt: now,
   });
+
+  // Clear isDeactivatedDueToLimits if the shop was deactivated due to plan limits
+  const shop = await findShopById(shopId);
+  if (shop?.isDeactivatedDueToLimits) {
+    await updateShop({ ...shop, isDeactivatedDueToLimits: false, updatedAt: now });
+  }
 }

@@ -9,6 +9,7 @@ export interface ShopSummaryDto {
   isDeleted: boolean;
   isPaused: boolean;
   pausedMessage?: string;
+  isDeactivatedDueToLimits: boolean;
   paymentPolicy: string;
   orderAcceptanceMode: string;
   allowGuestCheckout: boolean;
