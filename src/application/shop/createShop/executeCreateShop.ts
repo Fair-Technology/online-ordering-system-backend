@@ -66,6 +66,14 @@ export async function executeCreateShop(
     };
   }
 
+  if (request.name.trim().length < 3) {
+    return {
+      ok: false,
+      code: 'INVALID_INPUT',
+      error: 'Shop name must be at least 3 characters long',
+    };
+  }
+
   if (
     !request.industry ||
     typeof request.industry !== 'string' ||
