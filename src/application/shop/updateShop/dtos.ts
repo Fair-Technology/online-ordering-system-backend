@@ -2,7 +2,6 @@ import { ShopBranding } from '../../../domain/shop/Shop';
 
 export interface UpdateShopRequestDto {
   shopId: string;
-  name?: string;
   isPaused?: boolean;
   pausedMessage?: string;
   paymentPolicy?: 'pay_online' | string;

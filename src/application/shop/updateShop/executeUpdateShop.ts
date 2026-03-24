@@ -1,11 +1,9 @@
 import { HttpRequest } from '@azure/functions';
 import {
   findShopById,
-  findShopBySlug,
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
 import { checkShopPermission } from '../../_shared/permissions';
-import { generateSlugFromName } from '../createShop/slugHelpers';
 import { UpdateShopRequestDto, UpdateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { getActorFromAuth, diffFields, logAudit } from '../../_shared/auditHelpers';
@@ -120,28 +118,9 @@ export async function executeUpdateShop(
     const permError = checkShopPermission(shop, userId, 'manage_shop');
     if (permError) return permError;
 
-    // Determine slug: regenerate if name is changing
-    let newSlug = shop.slug;
-    if (request.name !== undefined) {
-      const candidateSlug = generateSlugFromName(request.name);
-      if (candidateSlug !== shop.slug) {
-        const existing = await findShopBySlug(candidateSlug);
-        if (existing && existing.id !== shop.id) {
-          return {
-            ok: false,
-            code: 'INVALID_INPUT',
-            error: 'A shop with this name already exists',
-          };
-        }
-        newSlug = candidateSlug;
-      }
-    }
-
     // Update only provided fields
     const updatedShop = {
       ...shop,
-      slug: newSlug,
-      ...(request.name !== undefined && { name: request.name }),
       ...(request.isPaused !== undefined && { isPaused: request.isPaused }),
       ...(request.pausedMessage !== undefined && {
         pausedMessage: request.pausedMessage,
@@ -168,7 +147,7 @@ export async function executeUpdateShop(
     const changes = diffFields(
       shop as unknown as Record<string, unknown>,
       updatedShop as unknown as Record<string, unknown>,
-      ['name', 'isPaused', 'pausedMessage', 'minOrderAmountCents', 'currency', 'timezone'],
+      ['isPaused', 'pausedMessage', 'minOrderAmountCents', 'currency', 'timezone'],
       ['openingHours', 'branding', 'address'],
     );
     logAudit(

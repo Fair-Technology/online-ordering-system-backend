@@ -18,6 +18,9 @@ import './functions/shop/updateShopRole/index';
 import './functions/shop/deleteShopRole/index';
 import './functions/shop/acceptShopInvitation/index';
 import './functions/shop/declineShopInvitation/index';
+import './functions/shop/requestShopNameChange/index';
+import './functions/shop/approveShopNameChange/index';
+import './functions/shop/rejectShopNameChange/index';
 
 // Product endpoints
 import './functions/product/getProductsByShop/index';

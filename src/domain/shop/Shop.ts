@@ -92,6 +92,14 @@ export interface Shop {
   // Branding
   branding: ShopBranding | null;
 
+  // Pending name change request (set by owner, cleared on approve/reject)
+  pendingNameChange?: {
+    requestedName: string;
+    requestedSlug: string;
+    requestedBy: string; // userId
+    requestedAt: string; // ISO timestamp
+  } | null;
+
   // Audit
   createdAt: string; // ISO
   updatedAt: string; // ISO

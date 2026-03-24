@@ -50,6 +50,12 @@ export interface GetShopResultDto {
   countryCode: string;
   taxRates: ShopTaxRate[];
   branding: ShopBranding | null;
+  pendingNameChange: {
+    requestedName: string;
+    requestedSlug: string;
+    requestedBy: string;
+    requestedAt: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }

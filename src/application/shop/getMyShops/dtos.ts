@@ -41,6 +41,12 @@ export interface ShopSummaryDto {
     isActive: boolean;
   }>;
   branding: ShopBranding | null;
+  pendingNameChange: {
+    requestedName: string;
+    requestedSlug: string;
+    requestedBy: string;
+    requestedAt: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }

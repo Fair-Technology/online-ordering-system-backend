@@ -55,6 +55,7 @@ export async function executeGetShop(
       countryCode: shop.countryCode ?? '',
       taxRates: shop.taxRates ?? [],
       branding: shop.branding ?? null,
+      pendingNameChange: shop.pendingNameChange ?? null,
       createdAt: shop.createdAt,
       updatedAt: shop.updatedAt,
     };

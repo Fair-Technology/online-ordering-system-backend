@@ -31,6 +31,7 @@ export async function executeGetMyShops(
       closures: shop.closures,
       members: shop.members,
       branding: shop.branding ?? null,
+      pendingNameChange: shop.pendingNameChange ?? null,
       createdAt: shop.createdAt,
       updatedAt: shop.updatedAt,
     }));
