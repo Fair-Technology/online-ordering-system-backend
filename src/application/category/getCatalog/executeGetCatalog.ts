@@ -33,6 +33,14 @@ export async function executeGetCatalog(
       return { ok: false, code: 'NOT_FOUND', error: 'Shop not found' };
     }
 
+    if (shop.isPaused) {
+      return {
+        ok: false,
+        code: 'FORBIDDEN',
+        error: shop.pausedMessage ?? 'This shop is currently paused',
+      };
+    }
+
     const now = new Date();
     const visibleProducts = products.filter(
       (p) => p.isAvailable && isWithinSchedule(p.schedule ?? null, shop.timezone, now),

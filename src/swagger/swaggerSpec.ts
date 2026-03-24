@@ -708,7 +708,7 @@ export const swaggerSpec = {
         summary: 'Get customer-facing catalog for a shop',
         operationId: 'getCatalog',
         description:
-          'Returns categories with their currently purchasable products. Products are filtered by isAvailable and the product schedule evaluated against the shop timezone. No authentication required.',
+          'Returns categories with their currently purchasable products. Products are filtered by isAvailable and the product schedule evaluated against the shop timezone. No authentication required. Returns 403 if the shop is currently paused.',
         tags: ['Catalog'],
         security: [],
         parameters: [
@@ -730,6 +730,7 @@ export const swaggerSpec = {
             },
           },
           '400': { $ref: '#/components/responses/BadRequest' },
+          '403': { $ref: '#/components/responses/Forbidden' },
           '404': { $ref: '#/components/responses/NotFound' },
           '500': { $ref: '#/components/responses/InternalError' },
         },
