@@ -54,6 +54,8 @@ export async function executeGetCatalog(
           name: product.name,
           description: product.description,
           price: product.price,
+          offerPrice: product.schedule?.offerPrice ?? null,
+          offerLabel: product.schedule?.offerLabel ?? null,
           images: (product.images ?? []).map((img) => ({
             id: img.id,
             url: img.url,

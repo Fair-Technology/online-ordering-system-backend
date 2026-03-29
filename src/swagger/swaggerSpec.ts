@@ -1326,6 +1326,19 @@ export const swaggerSpec = {
             description: '0=Sun 1=Mon … 6=Sat; absent/empty = every day',
             example: [2, 3],
           },
+          offerPrice: {
+            type: 'integer',
+            nullable: true,
+            description: 'Optional discounted price in cents during this window; must be less than the product base price',
+            example: 799,
+          },
+          offerLabel: {
+            type: 'string',
+            nullable: true,
+            maxLength: 50,
+            description: 'Optional label shown during the offer window (e.g. "Happy Hour")',
+            example: 'Happy Hour',
+          },
         },
       },
       CreateProductRequest: {
@@ -1654,6 +1667,16 @@ export const swaggerSpec = {
           name: { type: 'string', description: 'Product name' },
           description: { type: 'string', description: 'Product description' },
           price: { type: 'number', description: 'Base price in cents' },
+          offerPrice: {
+            type: 'integer',
+            nullable: true,
+            description: 'Special price in cents active during the scheduled window; null if no special price',
+          },
+          offerLabel: {
+            type: 'string',
+            nullable: true,
+            description: 'Display label for the special price (e.g. "Happy hour"); null if not set',
+          },
           images: {
             type: 'array',
             items: { $ref: '#/components/schemas/CatalogImageRef' },

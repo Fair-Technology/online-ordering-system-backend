@@ -3,6 +3,8 @@ export interface CatalogProductDto {
   name: string;
   description: string;
   price: number;
+  offerPrice?: number | null;
+  offerLabel?: string | null;
   images: { id: string; url: string; alt?: string; sortOrder: number }[];
   variants: unknown[];
   addons: unknown[];
