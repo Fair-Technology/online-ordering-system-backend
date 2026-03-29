@@ -155,6 +155,18 @@ export async function executeUpdateProduct(
           }
         }
       }
+      if (s.offerPrice != null) {
+        if (!Number.isInteger(s.offerPrice) || s.offerPrice <= 0) {
+          return { ok: false, code: 'INVALID_INPUT', error: 'schedule.offerPrice must be a positive integer (cents)' };
+        }
+        const effectivePrice = request.price !== undefined ? request.price : product.price;
+        if (s.offerPrice >= effectivePrice) {
+          return { ok: false, code: 'INVALID_INPUT', error: 'schedule.offerPrice must be less than the product price' };
+        }
+        if (s.offerLabel != null && (typeof s.offerLabel !== 'string' || s.offerLabel.length > 50)) {
+          return { ok: false, code: 'INVALID_INPUT', error: 'schedule.offerLabel must be a string of at most 50 characters' };
+        }
+      }
     }
 
     // Update only provided fields

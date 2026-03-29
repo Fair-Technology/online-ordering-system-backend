@@ -104,6 +104,19 @@ export async function executeCreateProduct(
     request.categoryIds = uniqueCategoryIds;
   }
 
+  // Validate schedule offer fields if provided
+  if (request.schedule?.offerPrice != null) {
+    if (!Number.isInteger(request.schedule.offerPrice) || request.schedule.offerPrice <= 0) {
+      return { ok: false, code: 'INVALID_INPUT', error: 'schedule.offerPrice must be a positive integer (cents)' };
+    }
+    if (request.schedule.offerPrice >= request.price) {
+      return { ok: false, code: 'INVALID_INPUT', error: 'schedule.offerPrice must be less than the product price' };
+    }
+    if (request.schedule.offerLabel != null && (typeof request.schedule.offerLabel !== 'string' || request.schedule.offerLabel.length > 50)) {
+      return { ok: false, code: 'INVALID_INPUT', error: 'schedule.offerLabel must be a string of at most 50 characters' };
+    }
+  }
+
   try {
     const actor = await getActorFromAuth(httpRequest);
     const userId = actor.userId;
