@@ -3,10 +3,52 @@ import {
   findShopById,
   updateShop as updateShopInRepo,
 } from '../../../infrastructure/cosmos/shop/CosmosShopRepository';
+import { findProductsByShopId } from '../../../infrastructure/cosmos/product/CosmosProductRepository';
+import { findCategoriesByShopId } from '../../../infrastructure/cosmos/category/CosmosCategoryRepository';
 import { checkShopPermission } from '../../_shared/permissions';
 import { UpdateShopRequestDto, UpdateShopResultDto } from './dtos';
 import { ApplicationResult } from '../../_shared/types';
 import { getActorFromAuth, diffFields, logAudit } from '../../_shared/auditHelpers';
+import { Shop } from '../../../domain/shop/Shop';
+
+async function validateGoLiveCriteria(shop: Shop): Promise<string | null> {
+  const addr = shop.address ?? {};
+  if (shop.stripe?.connectOnboardingStatus !== 'complete') {
+    return 'Stripe payments onboarding is not complete';
+  }
+  if (!shop.name?.trim()) {
+    return 'Shop name is required';
+  }
+  if (
+    !addr.street?.trim() ||
+    !addr.city?.trim() ||
+    !addr.state?.trim() ||
+    !addr.postcode?.trim() ||
+    !addr.country?.trim()
+  ) {
+    return 'Full shop address is required (street, city, state, postcode, country)';
+  }
+  if (!shop.branding?.logoUrl) {
+    return 'Shop logo is required';
+  }
+  const hasOpeningHours = Object.values(shop.openingHours ?? {}).some(
+    (slots) => Array.isArray(slots) && slots.length > 0,
+  );
+  if (!hasOpeningHours) {
+    return 'Opening hours must be configured for at least one day';
+  }
+  const [products, categories] = await Promise.all([
+    findProductsByShopId(shop.id),
+    findCategoriesByShopId(shop.id),
+  ]);
+  if (!products.some((p) => p.isAvailable && !p.isDeleted)) {
+    return 'At least one available product is required';
+  }
+  if (!categories.some((c) => !c.isDeleted)) {
+    return 'At least one category is required';
+  }
+  return null;
+}
 
 const TIME_PATTERN = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
 const VALID_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
@@ -117,6 +159,14 @@ export async function executeUpdateShop(
 
     const permError = checkShopPermission(shop, userId, 'manage_shop');
     if (permError) return permError;
+
+    // Gate going live behind all criteria
+    if (request.isPaused === false) {
+      const criteriaError = await validateGoLiveCriteria(shop);
+      if (criteriaError) {
+        return { ok: false, code: 'INVALID_INPUT', error: criteriaError };
+      }
+    }
 
     // Update only provided fields
     const updatedShop = {

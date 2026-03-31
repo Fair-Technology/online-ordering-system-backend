@@ -3,7 +3,7 @@ export interface ProductSchedule {
   endDate?: string | null; // "YYYY-MM-DD" — inclusive; null/absent = run indefinitely
   startTime?: string | null; // "HH:mm" 24-hour — daily window open; absent = 00:00
   endTime?: string | null; // "HH:mm" 24-hour — daily window close; absent = 23:59
-  daysOfWeek?: number[]; // 0=Sun 1=Mon … 6=Sat; absent/empty = every day
+  daysOfWeek?: number[]; // 0=Sun 1=Mon … 6=Sat; schedule updates require at least one selected day
   // Optional special pricing during this window
   offerPrice?: number | null; // cents; must be < product.price when set
   offerLabel?: string | null; // optional display label, max 50 chars

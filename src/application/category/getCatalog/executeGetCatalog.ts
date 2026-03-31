@@ -113,7 +113,10 @@ function isWithinSchedule(
 
   if (localDate < schedule.startDate) return false;
   if (schedule.endDate && localDate > schedule.endDate) return false;
-  if (schedule.daysOfWeek?.length && !schedule.daysOfWeek.includes(localDayOfWeek)) return false;
+  if (schedule.daysOfWeek) {
+    if (schedule.daysOfWeek.length === 0) return false;
+    if (!schedule.daysOfWeek.includes(localDayOfWeek)) return false;
+  }
 
   const start = schedule.startTime ?? '00:00';
   const end = schedule.endTime ?? '23:59';

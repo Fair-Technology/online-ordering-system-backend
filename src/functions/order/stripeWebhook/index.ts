@@ -1,23 +1,7 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
 import Stripe from 'stripe';
-import {
-  findCheckoutSessionById,
-  deleteCheckoutSession,
-} from '../../../infrastructure/cosmos/order/CosmosCheckoutSessionRepository';
-import { createOrder } from '../../../infrastructure/cosmos/order/CosmosOrderRepository';
-import { Order } from '../../../domain/order/Order';
 import { executeHandleBillingSubscriptionEvent } from '../../../application/subscription/handleBillingSubscriptionEvent/executeHandleBillingSubscriptionEvent';
 import { executeHandleCheckoutSessionCompleted } from '../../../application/subscription/handleCheckoutSessionCompleted/executeHandleCheckoutSessionCompleted';
-
-function generateOrderRef(): string {
-  // A-Z plus 1-9 (no letter O, no digit 0 — visually ambiguous)
-  const chars = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789';
-  let s = '';
-  for (let i = 0; i < 6; i++) {
-    s += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return `${s.slice(0, 3)}-${s.slice(3)}`;
-}
 
 app.http('stripeWebhook', {
   methods: ['POST'],
@@ -64,41 +48,6 @@ app.http('stripeWebhook', {
             billingSubscriptionId: session.subscription as string,
             billingCustomerId: session.customer as string,
           });
-          break;
-        }
-        case 'payment_intent.succeeded': {
-          const pi = event.data.object as Stripe.PaymentIntent;
-          const { sessionId, shopId } = pi.metadata;
-          if (!sessionId || !shopId) break;
-          const session = await findCheckoutSessionById(sessionId);
-          if (!session) break; // idempotent: session expired or already processed
-          const orderId = crypto.randomUUID();
-          const now = new Date().toISOString();
-          const order: Order = {
-            id: orderId,
-            shopId: session.shopId,
-            orderRef: generateOrderRef(),
-            status: 'paid',
-            items: session.items,
-            subtotalCents: session.subtotalCents,
-            currency: session.currency,
-            stripePaymentIntentId: pi.id,
-            customerName: session.customerName,
-            customerEmail: session.customerEmail,
-            customerPhone: session.customerPhone,
-            customerNotes: session.customerNotes,
-            orderLocation: session.orderLocation,
-            createdAt: now,
-            updatedAt: now,
-          };
-          await createOrder(order);
-          await deleteCheckoutSession(sessionId);
-          break;
-        }
-        case 'payment_intent.payment_failed': {
-          const pi = event.data.object as Stripe.PaymentIntent;
-          const { sessionId } = pi.metadata;
-          if (sessionId) await deleteCheckoutSession(sessionId);
           break;
         }
         case 'customer.subscription.updated': {

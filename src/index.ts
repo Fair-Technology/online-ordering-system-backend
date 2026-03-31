@@ -22,6 +22,9 @@ import './functions/shop/requestShopNameChange/index';
 import './functions/shop/approveShopNameChange/index';
 import './functions/shop/rejectShopNameChange/index';
 import './functions/shop/reactivateShop/index';
+import './functions/shop/getGoLiveStatus/index';
+import './functions/shop/createStripeAccountSession/index';
+import './functions/shop/disconnectStripeAccount/index';
 
 // Product endpoints
 import './functions/product/getProductsByShop/index';
@@ -43,6 +46,7 @@ import './functions/category/deleteCategory/index';
 // Order endpoints
 import './functions/order/checkout/index';
 import './functions/order/stripeWebhook/index';
+import './functions/order/stripeConnectWebhook/index';
 import './functions/order/getOrderByPaymentIntent/index';
 import './functions/order/getOrdersByShop/index';
 

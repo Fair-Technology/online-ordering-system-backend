@@ -104,6 +104,22 @@ export async function findShopsByMemberId(userId: string): Promise<Shop[]> {
   }
 }
 
+export async function findShopByStripeConnectAccountId(
+  stripeConnectAccountId: string,
+): Promise<Shop | null> {
+  try {
+    const querySpec = {
+      query:
+        'SELECT * FROM c WHERE c.stripe.connectAccountId = @accountId AND c.isDeleted = false',
+      parameters: [{ name: '@accountId', value: stripeConnectAccountId }],
+    };
+    const { resources } = await shopContainer.items.query<Shop>(querySpec).fetchAll();
+    return resources?.[0] ?? null;
+  } catch (error) {
+    throw error;
+  }
+}
+
 export async function findOwnedShopIds(userId: string): Promise<string[]> {
   try {
     const querySpec = {

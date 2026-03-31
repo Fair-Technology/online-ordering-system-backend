@@ -79,6 +79,13 @@ export async function executeCheckout(
           : 'This shop is not currently accepting orders',
       };
     }
+    if (!shop.stripe?.connectAccountId || shop.stripe?.connectOnboardingStatus !== 'complete') {
+      return {
+        ok: false,
+        code: 'INVALID_INPUT',
+        error: 'This shop is not set up to accept payments yet',
+      };
+    }
 
     // --- Resolve prices server-side (never trust client amounts) ---
     const orderItems: OrderItem[] = [];
@@ -207,11 +214,14 @@ export async function executeCheckout(
     const sessionId = crypto.randomUUID();
     const stripe = getStripe();
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: subtotalCents,
-      currency: shop.currency.toLowerCase(),
-      metadata: { sessionId, shopId: shop.id },
-    });
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: subtotalCents,
+        currency: shop.currency.toLowerCase(),
+        metadata: { sessionId, shopId: shop.id },
+      },
+      { stripeAccount: shop.stripe!.connectAccountId! },
+    );
 
     // --- Persist checkout session (no Order created until payment succeeds) ---
     const now = new Date().toISOString();
@@ -240,6 +250,7 @@ export async function executeCheckout(
         clientSecret: paymentIntent.client_secret!,
         subtotalCents,
         currency: shop.currency,
+        stripeConnectAccountId: shop.stripe!.connectAccountId!,
       },
     };
   } catch (error: any) {

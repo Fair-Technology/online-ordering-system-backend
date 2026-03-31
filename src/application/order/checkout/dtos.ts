@@ -20,4 +20,5 @@ export interface CheckoutResultDto {
   clientSecret: string;
   subtotalCents: number;
   currency: string;
+  stripeConnectAccountId: string;
 }

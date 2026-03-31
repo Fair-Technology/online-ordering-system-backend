@@ -172,7 +172,9 @@ async function seedShops(): Promise<any[]> {
       address: def.address,
       openingHours: def.openingHours,
       closures: [],
-      members: [],
+      members: def.name === 'Belconnen Pizza Palace'
+        ? [{ userId: 'cacf533d-85a7-448a-a9a5-ad2b3f8d50fa', role: 'owner', isActive: true }]
+        : [],
       branding: def.branding,
       createdAt: ts,
       updatedAt: ts,

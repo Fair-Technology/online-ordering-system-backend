@@ -57,6 +57,10 @@ export interface GetShopResultDto {
     requestedBy: string;
     requestedAt: string;
   } | null;
+  stripe: {
+    connectAccountId: string | null;
+    connectOnboardingStatus: 'not_started' | 'pending' | 'complete' | null;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }

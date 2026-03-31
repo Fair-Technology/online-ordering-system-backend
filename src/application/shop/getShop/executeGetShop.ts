@@ -57,6 +57,12 @@ export async function executeGetShop(
       taxRates: shop.taxRates ?? [],
       branding: shop.branding ?? null,
       pendingNameChange: shop.pendingNameChange ?? null,
+      stripe: shop.stripe
+        ? {
+            connectAccountId: shop.stripe.connectAccountId ?? null,
+            connectOnboardingStatus: shop.stripe.connectOnboardingStatus ?? null,
+          }
+        : null,
       createdAt: shop.createdAt,
       updatedAt: shop.updatedAt,
     };

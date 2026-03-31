@@ -42,7 +42,8 @@ export function isProductScheduleActive(schedule: ProductSchedule, timezone: str
   }
 
   // 3. daysOfWeek check
-  if (schedule.daysOfWeek && schedule.daysOfWeek.length > 0) {
+  if (schedule.daysOfWeek) {
+    if (schedule.daysOfWeek.length === 0) return false;
     if (!schedule.daysOfWeek.includes(currentWeekday)) return false;
   }
 

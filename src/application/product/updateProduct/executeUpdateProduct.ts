@@ -149,6 +149,9 @@ export async function executeUpdateProduct(
         return { ok: false, code: 'INVALID_INPUT', error: 'schedule.endTime must be after startTime' };
       }
       if (s.daysOfWeek) {
+        if (s.daysOfWeek.length === 0) {
+          return { ok: false, code: 'INVALID_INPUT', error: 'schedule.daysOfWeek must contain at least one day' };
+        }
         for (const day of s.daysOfWeek) {
           if (!Number.isInteger(day) || day < 0 || day > 6) {
             return { ok: false, code: 'INVALID_INPUT', error: 'schedule.daysOfWeek values must be integers 0–6' };

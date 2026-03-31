@@ -100,6 +100,12 @@ export interface Shop {
     requestedAt: string; // ISO timestamp
   } | null;
 
+  // Stripe Connect (payments onboarding)
+  stripe?: {
+    connectAccountId?: string | null;
+    connectOnboardingStatus?: 'not_started' | 'pending' | 'complete' | null;
+  } | null;
+
   // Subscription enforcement
   isDeactivatedDueToLimits?: boolean; // set by webhook when active products exceed free plan limit on cancellation
 
